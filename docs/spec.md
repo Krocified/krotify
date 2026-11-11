@@ -190,8 +190,8 @@ Art is the product. The chrome stays quiet so covers carry the screen.
 | `surfaceHi` | `#1F1F29` | Pressed / raised |
 | `text` | `#F5F5F7` | Primary text |
 | `textDim` | `#9A9AA8` | Secondary text |
-| `accent` | `#7C5CFF` | Electric violet: active state, progress |
-| `accent2` | `#FF6B57` | Coral: gradients, secondary highlights |
+| `accent` | `#215BED` | Krotify blue: active state, progress |
+| `accent2` | `#6E9BFF` | Light blue: gradients, secondary highlights |
 
 **Type** — system font. Display 28–32/700 for titles, 16/600 body, 13/500 dim
 metadata. Tabular numerals for durations.
@@ -249,7 +249,7 @@ scan succeeds. Demo tracks are the only fallback — no fake play history.
 - Fonts: platform default sans (Helvetica Neue → Helvetica → Arial as fallback),
   per Spotify's font guidance. System fonts through v2; wordmark can get its own
   face later.
-- Accent: violet `#7C5CFF` confirmed. Spotify Green is off-limits — brand
+- Accent: krotify blue `#215BED` confirmed. Spotify Green is off-limits — brand
   separateness rules forbid resembling their mark or color.
 - Recently played: not seeded. The rail ships with the real history store in v2;
   v0 has no rail.

@@ -4,8 +4,8 @@ export const colors = {
   surfaceHi: '#1F1F29',
   text: '#F5F5F7',
   textDim: '#9A9AA8',
-  accent: '#7C5CFF',
-  accent2: '#FF6B57',
+  accent: '#215BED',
+  accent2: '#6E9BFF',
 } as const;
 
 export const radius = { cover: 4, coverLarge: 8, screen: 16 } as const;
