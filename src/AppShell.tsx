@@ -6,11 +6,12 @@ import { DEMO_TRACKS } from './library/demo';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { usePlayer } from './player/PlayerProvider';
 import { LibraryScreen } from './screens/LibraryScreen';
+import { NowPlayingScreen } from './screens/NowPlayingScreen';
 import { colors, type } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
-  const { playTrack } = usePlayer();
+  const { track, playTrack } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
@@ -57,14 +58,6 @@ export function AppShell() {
     }
   }
 
-  if (screen === 'nowPlaying') {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Now Playing</Text>
-      </View>
-    );
-  }
-
   if (screen === 'settings') {
     return (
       <View style={styles.placeholder}>
@@ -82,7 +75,12 @@ export function AppShell() {
         onSelect={handleSelect}
         onOpenSettings={() => setScreen('settings')}
       />
-      <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
+      {screen !== 'nowPlaying' ? (
+        <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
+      ) : null}
+      {screen === 'nowPlaying' && track ? (
+        <NowPlayingScreen onClose={() => setScreen('library')} />
+      ) : null}
     </View>
   );
 }
