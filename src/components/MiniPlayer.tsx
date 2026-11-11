@@ -28,7 +28,6 @@ export function MiniPlayer({ onExpand }: Props) {
   );
   const [offsetX] = useState(() => new Animated.Value(0));
   const [offsetY] = useState(() => new Animated.Value(0));
-  const draggingRef = useRef(false);
   const expandRef = useRef(onExpand);
   const stopRef = useRef(stop);
   const widthRef = useRef(width);
@@ -40,7 +39,6 @@ export function MiniPlayer({ onExpand }: Props) {
   }, [onExpand, stop, width]);
 
   useEffect(() => {
-    if (draggingRef.current) return;
     const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
     Animated.timing(progress, {
       toValue: ratio,
@@ -62,16 +60,11 @@ export function MiniPlayer({ onExpand }: Props) {
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
-        onPanResponderGrant: () => {
-          draggingRef.current = true;
-          progress.stopAnimation();
-        },
         onPanResponderMove: (_, gesture) => {
           if (Math.abs(gesture.dx) > Math.abs(gesture.dy)) offsetX.setValue(gesture.dx);
           else offsetY.setValue(gesture.dy);
         },
         onPanResponderRelease: (_, gesture) => {
-          draggingRef.current = false;
           if (gesture.dy < -40) {
             offsetX.setValue(0);
             offsetY.setValue(0);
@@ -105,7 +98,6 @@ export function MiniPlayer({ onExpand }: Props) {
           ]).start();
         },
         onPanResponderTerminate: () => {
-          draggingRef.current = false;
           Animated.parallel([
             Animated.spring(offsetX, { toValue: 0, useNativeDriver: false }),
             Animated.spring(offsetY, { toValue: 0, useNativeDriver: false }),
@@ -113,7 +105,7 @@ export function MiniPlayer({ onExpand }: Props) {
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [offsetX, offsetY, progress],
+    [offsetX, offsetY],
   );
 
   if (!track) return null;
