@@ -135,6 +135,7 @@ export function AppShell() {
     setExcluded(next);
     setTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
+    setStatusNote(null);
   }
 
   async function deleteTrack(track: Track) {
@@ -153,6 +154,7 @@ export function AppShell() {
     setExcluded(nextExcluded);
     setTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
+    setStatusNote(null);
     if (currentTrack?.id === track.id) stop();
   }
 
