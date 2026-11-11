@@ -13,7 +13,7 @@ Source of truth for what gets built. Intent lives in `docs/intent.md`.
 | File ops | `expo-file-system` | Delete, copy imported files |
 | Playback | `expo-audio` (all versions) | Ships background playback + lock-screen/notification controls itself |
 | Metadata/art | `react-native-metadata-retriever` (v2) | ID3 tags + embedded cover art |
-| Persistence | `expo-sqlite` (v2), AsyncStorage before that | Playlists, favorites, history, exclusions |
+| Persistence | AsyncStorage in v1, `expo-sqlite` in v2 | v1: imported tracks, exclusions. v2: playlists, favorites, history |
 | Visuals | `expo-linear-gradient`, `react-native-safe-area-context`, RN `Animated` | Gradients, insets, motion without heavyweight libs |
 
 No `react-navigation` yet — v0 navigates between Library and Now Playing with a
@@ -78,19 +78,25 @@ ID3 retriever in v2.
   position instead of animating back across the old one.
 - Notification artwork for tracks that have real art (generated covers have no
   file yet — acceptable to omit `artworkUrl`).
+- Import: pick audio files with the system file picker; imported files are
+  copied into app storage. An AsyncStorage index keeps imported tracks across
+  restarts; duplicates are skipped by URI.
+- Library management per track: **exclude** (hide, keep the file, reversible,
+  persisted) or **delete** (remove from device storage, confirmed first,
+  irreversible; `Asset.delete` for scanned files, `File.delete` for imported
+  copies).
 
 **Acceptance**
 - Next/prev traverse the queue in order.
 - Notification controls drive the same player state as the in-app controls.
+- An imported file plays after a restart and appears once, not twice.
+- An excluded track disappears from the library and comes back when re-included;
+  its file still exists. A deleted track is gone from storage after confirmation.
 
 ### v2 — Real library
 - Group by Album and Artist using ID3 tags; show embedded art when present.
 - Search across title/artist/album.
 - Playlists: create, add, reorder, delete (SQLite).
-- Import: pick audio files with the system file picker; imported files are
-  copied into app storage so they survive restarts and provider changes.
-- Library management per track: **exclude** (hide, keep the file, reversible) or
-  **delete** (remove from device storage, confirmed first, irreversible).
 - Favorites/heart via a `+` toggle with "Added to Liked Songs" / "Removed from
   Liked Songs" confirmation.
 - Play-history store; Library gains the "Recently played" rail from real plays.
@@ -100,9 +106,6 @@ ID3 retriever in v2.
 - Albums/Artists screens reflect real tags, not filenames.
 - A playlist survives app restart.
 - Search returns matches across all three fields.
-- An imported file plays after a restart and appears once, not twice.
-- An excluded track disappears from the library and comes back when re-included;
-  its file still exists. A deleted track is gone from storage after confirmation.
 
 ### v3 — Delight
 - Shuffle (deferred from v1): define queue-order vs random-next, and how it
