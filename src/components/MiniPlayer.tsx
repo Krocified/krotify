@@ -16,16 +16,18 @@ export function MiniPlayer({ onExpand }: Props) {
 
   return (
     <View style={[styles.wrap, { paddingBottom: insets.bottom }]}>
-      <Pressable
-        onPress={onExpand}
-        accessibilityRole="button"
-        accessibilityLabel="Open now playing"
-        style={({ pressed }) => [styles.bar, pressed && styles.pressed]}
-      >
-        <CoverArt hue={track.artworkHue} title={track.title} size={44} radius={4} />
-        <Text style={styles.title} numberOfLines={1}>
-          {track.title}
-        </Text>
+      <View style={styles.bar}>
+        <Pressable
+          onPress={onExpand}
+          accessibilityRole="button"
+          accessibilityLabel="Open now playing"
+          style={({ pressed }) => [styles.expand, pressed && styles.pressed]}
+        >
+          <CoverArt hue={track.artworkHue} title={track.title} size={44} radius={4} />
+          <Text style={styles.title} numberOfLines={1}>
+            {track.title}
+          </Text>
+        </Pressable>
         <Pressable
           onPress={toggle}
           accessibilityRole="button"
@@ -35,7 +37,7 @@ export function MiniPlayer({ onExpand }: Props) {
         >
           <Text style={styles.glyph}>{isPlaying ? '❚❚' : '▶'}</Text>
         </Pressable>
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -52,8 +54,15 @@ const styles = StyleSheet.create({
     height: 64,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: space.sm,
+  },
+  expand: {
+    flex: 1,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space.md,
-    paddingHorizontal: space.md,
+    paddingLeft: space.md,
   },
   pressed: {
     backgroundColor: '#262633',

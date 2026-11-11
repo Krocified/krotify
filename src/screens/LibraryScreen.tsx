@@ -12,7 +12,7 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-const ROW = 72 + StyleSheet.hairlineWidth;
+const ROW = 72;
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
   denied: 'Showing demo tracks. Allow audio access in Settings.',
@@ -22,7 +22,7 @@ const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
 
 export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
-  const note = statusNote ?? STATUS_NOTE[status] ?? null;
+  const statusMessage = STATUS_NOTE[status] ?? null;
 
   return (
     <View style={styles.root}>
@@ -45,23 +45,28 @@ export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSett
           <Text style={styles.scanningText}>Scanning your library…</Text>
         </View>
       ) : (
-        <FlatList
-          data={tracks}
-          keyExtractor={(t) => t.id}
-          renderItem={({ item }) => <TrackRow track={item} onPress={onSelect} />}
-          getItemLayout={(_, index) => ({ length: ROW, offset: ROW * index, index })}
-          initialNumToRender={16}
-          windowSize={9}
-          removeClippedSubviews
-          contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
-          ListHeaderComponent={
-            note ? (
-              <View style={styles.note}>
-                <Text style={styles.noteText}>{note}</Text>
-              </View>
-            ) : undefined
-          }
-        />
+        <>
+          {statusMessage ? (
+            <View style={styles.note}>
+              <Text style={styles.noteText}>{statusMessage}</Text>
+            </View>
+          ) : null}
+          {statusNote ? (
+            <View style={styles.note}>
+              <Text style={styles.noteText}>{statusNote}</Text>
+            </View>
+          ) : null}
+          <FlatList
+            data={tracks}
+            keyExtractor={(t) => t.id}
+            renderItem={({ item }) => <TrackRow track={item} onPress={onSelect} />}
+            getItemLayout={(_, index) => ({ length: ROW, offset: ROW * index, index })}
+            initialNumToRender={16}
+            windowSize={9}
+            removeClippedSubviews
+            contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
+          />
+        </>
       )}
     </View>
   );

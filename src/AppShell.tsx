@@ -51,7 +51,10 @@ export function AppShell() {
       return asset.getUri();
     });
     if (!ok) setStatusNote('Could not play this file');
-    else setScreen('nowPlaying');
+    else {
+      setStatusNote(null);
+      setScreen('nowPlaying');
+    }
   }
 
   if (screen === 'nowPlaying') {
