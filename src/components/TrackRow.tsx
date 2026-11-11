@@ -7,9 +7,10 @@ import { CoverArt } from './CoverArt';
 type Props = {
   track: Track;
   onPress: (track: Track) => void;
+  onLongPress?: () => void;
 };
 
-export function TrackRow({ track, onPress }: Props) {
+export function TrackRow({ track, onPress, onLongPress }: Props) {
   const duration = formatDuration(track.durationMs);
   const label = track.artist
     ? `${track.title} by ${track.artist}, ${duration}`
@@ -17,8 +18,10 @@ export function TrackRow({ track, onPress }: Props) {
   return (
     <Pressable
       onPress={() => onPress(track)}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <CoverArt hue={track.artworkHue} title={track.title} size={56} radius={4} />

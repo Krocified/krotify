@@ -14,13 +14,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, space, type } from '../theme';
-import type { LibraryStatus } from '../types';
+import type { LibraryStatus, Track } from '../types';
 
 type Props = {
   visible: boolean;
   status: LibraryStatus;
   onRescan: () => void;
   onBack: () => void;
+  onImport: () => void;
+  excluded: Track[];
+  onRestore: (id: string) => void;
+  importing?: boolean;
 };
 
 const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
@@ -30,7 +34,16 @@ const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
 
 const SLIDE_MS = 280;
 
-export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
+export function SettingsScreen({
+  visible,
+  status,
+  onRescan,
+  onBack,
+  onImport,
+  excluded,
+  onRestore,
+  importing = false,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [anim] = useState(() => new Animated.Value(0));
@@ -97,6 +110,54 @@ export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
             )}
           </Pressable>
         </View>
+
+        {Platform.OS !== 'web' ? (
+          <View style={styles.card}>
+            <Pressable
+              onPress={onImport}
+              disabled={importing}
+              accessibilityRole="button"
+              accessibilityLabel="Import audio files"
+              accessibilityState={{ disabled: importing, busy: importing }}
+              style={({ pressed }) => [styles.row, pressed && !importing && styles.rowPressed]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Import audio files</Text>
+                <Text style={styles.rowMeta}>Copy audio files into the app</Text>
+              </View>
+              {importing ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <Ionicons name="add" size={22} color={colors.textDim} />
+              )}
+            </Pressable>
+          </View>
+        ) : null}
+
+        {excluded.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>Hidden tracks</Text>
+            </View>
+            {excluded.map((track) => (
+              <View key={track.id} style={styles.row}>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {track.title}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => onRestore(track.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Restore ${track.title}`}
+                  style={({ pressed }) => [styles.restore, pressed && styles.restorePressed]}
+                >
+                  <Text style={styles.restoreText}>Restore</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <View style={styles.row} accessible accessibilityLabel={`Permission: ${permission}`}>
@@ -183,5 +244,18 @@ const styles = StyleSheet.create({
   rowValue: {
     ...type.meta,
     color: colors.textDim,
+  },
+  restore: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  restorePressed: {
+    opacity: 0.7,
+  },
+  restoreText: {
+    ...type.meta,
+    color: colors.accent2,
   },
 });

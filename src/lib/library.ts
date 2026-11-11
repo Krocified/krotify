@@ -33,6 +33,21 @@ export function mergeTracks(existing: Track[], page: Track[]): Track[] {
   return [...existing, ...additions];
 }
 
+export function mergeLibrary(
+  scanned: Track[],
+  imported: Track[],
+  excludedIds: Set<string>,
+): Track[] {
+  const seen = new Set<string>();
+  const merged: Track[] = [];
+  for (const track of [...scanned, ...imported]) {
+    if (seen.has(track.id) || excludedIds.has(track.id)) continue;
+    seen.add(track.id);
+    merged.push(track);
+  }
+  return sortTracks(merged);
+}
+
 export function tracksFromPage(metas: AssetMeta[]): Track[] {
   return sortTracks(mergeTracks([], metas.map(toTrack)));
 }

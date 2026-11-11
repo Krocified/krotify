@@ -10,6 +10,7 @@ type Props = {
   status: LibraryStatus;
   statusNote: string | null;
   onSelect: (track: Track) => void;
+  onManage: (track: Track) => void;
   onOpenSettings: () => void;
 };
 
@@ -21,7 +22,14 @@ const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
   error: 'Could not read your library. Showing demo tracks.',
 };
 
-export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSettings }: Props) {
+export function LibraryScreen({
+  tracks,
+  status,
+  statusNote,
+  onSelect,
+  onManage,
+  onOpenSettings,
+}: Props) {
   const insets = useSafeAreaInsets();
   const statusMessage = STATUS_NOTE[status] ?? null;
 
@@ -67,7 +75,9 @@ export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSett
           <FlatList
             data={tracks}
             keyExtractor={(t) => t.id}
-            renderItem={({ item }) => <TrackRow track={item} onPress={onSelect} />}
+            renderItem={({ item }) => (
+              <TrackRow track={item} onPress={onSelect} onLongPress={() => onManage(item)} />
+            )}
             getItemLayout={(_, index) => ({ length: ROW, offset: ROW * index, index })}
             initialNumToRender={16}
             windowSize={9}

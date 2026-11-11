@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { Alert, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DEMO_TRACKS } from './library/demo';
+import { excludeTrack, loadExcludedTracks, restoreTrack } from './library/exclusions';
+import {
+  deleteImportedFile,
+  loadImportedTracks,
+  pickAndImportTracks,
+  removeImportedTrack,
+} from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
+import { mergeLibrary } from './lib/library';
 import { usePlayer } from './player/PlayerProvider';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
@@ -12,9 +20,11 @@ import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
-  const { track: currentTrack, playTrack } = usePlayer();
+  const { track: currentTrack, playTrack, stop } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [excluded, setExcluded] = useState<Track[]>([]);
+  const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
@@ -29,28 +39,48 @@ export function AppShell() {
       setStatus('scanning');
       setStatusNote(null);
       if (Platform.OS === 'web') {
+        const [, excludedTracks] = await Promise.all([
+          loadImportedTracks(),
+          loadExcludedTracks(),
+        ]);
+        setExcluded(excludedTracks);
         setTracks(DEMO_TRACKS);
         setStatus('ready');
         setStatusNote('Web preview: demo library');
         return;
       }
+      let importedTracks: Track[] = [];
+      let excludedTracks: Track[] = [];
       try {
-        if (!(await ensureAudioPermission())) {
-          setTracks(DEMO_TRACKS);
+        const [granted, loadedImported, loadedExcluded] = await Promise.all([
+          ensureAudioPermission(),
+          loadImportedTracks(),
+          loadExcludedTracks(),
+        ]);
+        importedTracks = loadedImported;
+        excludedTracks = loadedExcluded;
+        setExcluded(excludedTracks);
+        const excludedIds = new Set(excludedTracks.map((track) => track.id));
+        const importOnly = mergeLibrary([], importedTracks, excludedIds);
+
+        if (!granted) {
+          setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
           setStatus('denied');
           return;
         }
         const result = await scanLibrary();
         assetsRef.current = result.assets;
-        if (result.tracks.length === 0) {
-          setTracks(DEMO_TRACKS);
+        const merged = mergeLibrary(result.tracks, importedTracks, excludedIds);
+        if (merged.length === 0) {
+          setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
           setStatus('empty');
         } else {
-          setTracks(result.tracks);
+          setTracks(merged);
           setStatus('ready');
         }
       } catch {
-        setTracks(DEMO_TRACKS);
+        const importOnly = mergeLibrary([], importedTracks, new Set(excludedTracks.map((track) => track.id)));
+        setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
         setStatus('error');
       }
     }
@@ -82,6 +112,7 @@ export function AppShell() {
     const ok = await playTrack(
       track,
       async (t) => {
+        if (t.source === 'import') return t.uri;
         const asset = assetsRef.current.get(t.id);
         if (!asset) throw new Error('missing asset');
         return asset.getUri();
@@ -93,6 +124,84 @@ export function AppShell() {
     } else {
       setStatusNote(null);
       setScreen('nowPlaying');
+    }
+  }
+
+  async function hideTrack(track: Track) {
+    const next = await excludeTrack(track);
+    setExcluded(next);
+    setTracks((prev) => prev.filter((item) => item.id !== track.id));
+  }
+
+  async function deleteTrack(track: Track) {
+    try {
+      if (track.source === 'scan') {
+        await assetsRef.current.get(track.id)?.delete();
+      } else if (track.source === 'import') {
+        await deleteImportedFile(track.uri);
+        await removeImportedTrack(track.id);
+      }
+    } catch {
+      // ponytail: a failed delete keeps the row; the user can retry
+    }
+    const nextExcluded = await restoreTrack(track.id);
+    setExcluded(nextExcluded);
+    setTracks((prev) => prev.filter((item) => item.id !== track.id));
+    if (currentTrack?.id === track.id) stop();
+  }
+
+  function confirmDelete(track: Track) {
+    Alert.alert(
+      'Delete track?',
+      `"${track.title}" will be removed from this device. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void deleteTrack(track) },
+      ],
+    );
+  }
+
+  function handleManage(track: Track) {
+    if (track.source === 'demo') return;
+    if (Platform.OS === 'web') {
+      const remove = window.confirm(`Delete "${track.title}"? Cancel hides it instead.`);
+      void (remove ? deleteTrack(track) : hideTrack(track));
+      return;
+    }
+    Alert.alert(track.title, undefined, [
+      { text: 'Exclude', onPress: () => void hideTrack(track) },
+      { text: 'Delete', style: 'destructive', onPress: () => confirmDelete(track) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function handleImport() {
+    if (Platform.OS === 'web') return;
+    setImporting(true);
+    try {
+      const added = await pickAndImportTracks();
+      if (added.length === 0) return;
+      setTracks((prev) =>
+        mergeLibrary(
+          prev.filter((item) => item.source !== 'demo'),
+          added,
+          new Set(excluded.map((item) => item.id)),
+        ),
+      );
+      setStatusNote(null);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleRestore(id: string) {
+    const track = excluded.find((item) => item.id === id);
+    const next = await restoreTrack(id);
+    setExcluded(next);
+    if (track) {
+      setTracks((prev) =>
+        mergeLibrary(prev, [track], new Set(next.map((item) => item.id))),
+      );
     }
   }
 
@@ -108,6 +217,7 @@ export function AppShell() {
           status={status}
           statusNote={statusNote}
           onSelect={handleSelect}
+          onManage={handleManage}
           onOpenSettings={() => setScreen('settings')}
         />
       </View>
@@ -122,6 +232,10 @@ export function AppShell() {
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
         onBack={() => setScreen('library')}
+        onImport={() => void handleImport()}
+        excluded={excluded}
+        onRestore={(id) => void handleRestore(id)}
+        importing={importing}
       />
       {screen !== 'nowPlaying' ? <MiniPlayer onExpand={() => setScreen('nowPlaying')} /> : null}
     </View>
