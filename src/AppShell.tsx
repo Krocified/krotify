@@ -12,6 +12,8 @@ import {
 } from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { mergeLibrary } from './lib/library';
+import { enrichTracks } from './library/metadata';
+import { listFavoriteIds, listRecentTrackIds } from './db/repo';
 import { usePlayer } from './player/PlayerProvider';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
@@ -23,6 +25,8 @@ export function AppShell() {
   const { track: currentTrack, playTrack, stop, removeFromQueue } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [, setFavoriteIds] = useState<Set<string>>(() => new Set());
+  const [, setRecentTrackIds] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<Track[]>([]);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
@@ -38,6 +42,29 @@ export function AppShell() {
     async function loadLibrary() {
       setStatus('scanning');
       setStatusNote(null);
+      void Promise.all([listFavoriteIds(), listRecentTrackIds()])
+        .then(([favorites, recent]) => {
+          setFavoriteIds(favorites);
+          setRecentTrackIds(recent);
+        })
+        .catch(() => {});
+
+      function enrich(initial: Track[]) {
+        const targets = initial.filter((track) => track.source !== 'demo');
+        if (targets.length === 0) return;
+        void enrichTracks(
+          targets,
+          async (track) =>
+            track.source === 'import'
+              ? track.uri
+              : (assetsRef.current.get(track.id)?.getUri() ?? null),
+          (batch) => {
+            const byId = new Map(batch.map((track) => [track.id, track]));
+            setTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
+          },
+        ).catch(() => {});
+      }
+
       if (Platform.OS === 'web') {
         const [, excludedTracks] = await Promise.all([
           loadImportedTracks(),
@@ -65,6 +92,7 @@ export function AppShell() {
 
         if (!granted) {
           setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
+          enrich(importOnly);
           setStatus('denied');
           if (importOnly.length > 0) {
             setStatusNote('Audio permission denied. Showing imported tracks.');
@@ -76,14 +104,17 @@ export function AppShell() {
         const merged = mergeLibrary(result.tracks, importedTracks, excludedIds);
         if (merged.length === 0) {
           setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
+          enrich(importOnly);
           setStatus('empty');
         } else {
           setTracks(merged);
+          enrich(merged);
           setStatus('ready');
         }
       } catch {
         const importOnly = mergeLibrary([], importedTracks, new Set(excludedTracks.map((track) => track.id)));
         setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
+        enrich(importOnly);
         setStatus('error');
       }
     }

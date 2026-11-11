@@ -42,7 +42,8 @@
           ]
         }
       ],
-      "@react-native-vector-icons/ionicons"
+      "@react-native-vector-icons/ionicons",
+      "expo-sqlite"
     ]
   }
 }

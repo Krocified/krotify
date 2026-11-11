@@ -8,6 +8,10 @@ export type Track = {
   durationMs: number;
   artworkHue: number;
   artworkUri?: string;
+  trackNumber?: number;
+  year?: number;
+  genre?: string;
+  albumArtist?: string;
 };
 
 export type ScreenName = 'library' | 'nowPlaying' | 'settings';
