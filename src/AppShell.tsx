@@ -31,7 +31,7 @@ export function AppShell() {
       if (Platform.OS === 'web') {
         setTracks(DEMO_TRACKS);
         setStatus('ready');
-        setStatusNote('Web preview — demo library');
+        setStatusNote('Web preview: demo library');
         return;
       }
       try {

@@ -1,7 +1,7 @@
 # krotify
 
 A local-first Android music player for the songs you already own. No account, no
-network, no catalogue — album art is the product and the chrome stays quiet.
+network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
@@ -14,12 +14,12 @@ ID3 tags, shuffle, search, lyrics.
 
 ## Stack
 
-Expo SDK 58 · React Native 0.88 · TypeScript · `expo-audio` · `expo-media-library`
+Expo SDK 58, React Native 0.88, TypeScript, `expo-audio`, `expo-media-library`.
 
 ## Run it
 
 ```bash
-./run.sh          # build + install on a connected Android device
+./run.sh          # build and install on a connected Android device
 ./run.sh web      # browser demo at http://localhost:8081
 ```
 
@@ -41,16 +41,16 @@ npx expo export --platform web
 
 ## Docs
 
-- `docs/intent.md` — why this exists
-- `docs/spec.md` — behaviour, design tokens, milestones
-- `docs/superpowers/plans/` — the v0 implementation plan
+- `docs/intent.md`: why this exists
+- `docs/spec.md`: behaviour, design tokens, milestones
+- `docs/superpowers/plans/`: the v0 implementation plan
 
 ## Layout
 
 ```
 src/
   AppShell.tsx        screen state, library load, back handling
-  player/             single expo-audio player + mock engine for demos
+  player/             single expo-audio player plus a mock engine for demos
   library/            device scan and demo tracks
   screens/            Library, Now Playing, Settings
   components/         cover art, track row, mini-player, progress bar
