@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DEMO_TRACKS } from './library/demo';
@@ -7,7 +7,8 @@ import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { usePlayer } from './player/PlayerProvider';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
-import { colors, type } from './theme';
+import { SettingsScreen } from './screens/SettingsScreen';
+import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
@@ -16,6 +17,7 @@ export function AppShell() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
   const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [scanId, setScanId] = useState(0);
   const assetsRef = useRef(new Map<string, Asset>());
 
   useEffect(() => {
@@ -43,7 +45,18 @@ export function AppShell() {
       }
     }
     void loadLibrary();
-  }, []);
+  }, [scanId]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'nowPlaying' || screen === 'settings') {
+        setScreen('library');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [screen]);
 
   async function handleSelect(track: Track) {
     const ok = await playTrack(track, async (t) => {
@@ -58,22 +71,12 @@ export function AppShell() {
     }
   }
 
-  if (screen === 'settings') {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Settings</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.root}>
       <View
         style={styles.library}
-        accessibilityElementsHidden={screen === 'nowPlaying'}
-        importantForAccessibility={
-          screen === 'nowPlaying' ? 'no-hide-descendants' : 'auto'
-        }
+        accessibilityElementsHidden={screen !== 'library'}
+        importantForAccessibility={screen !== 'library' ? 'no-hide-descendants' : 'auto'}
       >
         <LibraryScreen
           tracks={tracks}
@@ -83,11 +86,18 @@ export function AppShell() {
           onOpenSettings={() => setScreen('settings')}
         />
       </View>
-      {screen !== 'nowPlaying' ? (
+      {screen === 'library' ? (
         <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
       ) : null}
       {screen === 'nowPlaying' && track ? (
         <NowPlayingScreen onClose={() => setScreen('library')} />
+      ) : null}
+      {screen === 'settings' ? (
+        <SettingsScreen
+          status={status}
+          onRescan={() => setScanId((n) => n + 1)}
+          onBack={() => setScreen('library')}
+        />
       ) : null}
     </View>
   );
@@ -100,15 +110,5 @@ const styles = StyleSheet.create({
   },
   library: {
     flex: 1,
-  },
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-  },
-  placeholderText: {
-    ...type.body,
-    color: colors.text,
   },
 });
