@@ -29,7 +29,9 @@
     },
     "plugins": [
       ["expo-audio", { "enableBackgroundPlayback": true }],
-      ["expo-media-library", { "granularPermissions": ["audio"] }]
+      ["expo-media-library", { "granularPermissions": ["audio"] }],
+      "expo-asset",
+      "expo-status-bar"
     ]
   }
 }
