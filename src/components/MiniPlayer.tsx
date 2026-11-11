@@ -29,6 +29,15 @@ export function MiniPlayer({ onExpand }: Props) {
   const [offsetX] = useState(() => new Animated.Value(0));
   const [offsetY] = useState(() => new Animated.Value(0));
   const draggingRef = useRef(false);
+  const expandRef = useRef(onExpand);
+  const stopRef = useRef(stop);
+  const widthRef = useRef(width);
+
+  useEffect(() => {
+    expandRef.current = onExpand;
+    stopRef.current = stop;
+    widthRef.current = width;
+  }, [onExpand, stop, width]);
 
   useEffect(() => {
     if (draggingRef.current) return;
@@ -66,7 +75,7 @@ export function MiniPlayer({ onExpand }: Props) {
           if (gesture.dy < -40) {
             offsetX.setValue(0);
             offsetY.setValue(0);
-            onExpand();
+            expandRef.current();
             return;
           }
           const dismissSideways = Math.abs(gesture.dx) > 60;
@@ -74,7 +83,7 @@ export function MiniPlayer({ onExpand }: Props) {
           if (dismissSideways || dismissDown) {
             Animated.parallel([
               Animated.timing(offsetX, {
-                toValue: dismissSideways ? Math.sign(gesture.dx) * width : 0,
+                toValue: dismissSideways ? Math.sign(gesture.dx) * widthRef.current : 0,
                 duration: 160,
                 easing: Easing.in(Easing.cubic),
                 useNativeDriver: false,
@@ -86,7 +95,7 @@ export function MiniPlayer({ onExpand }: Props) {
                 useNativeDriver: false,
               }),
             ]).start(({ finished }) => {
-              if (finished) stop();
+              if (finished) stopRef.current();
             });
             return;
           }
@@ -97,11 +106,14 @@ export function MiniPlayer({ onExpand }: Props) {
         },
         onPanResponderTerminate: () => {
           draggingRef.current = false;
-          offsetX.setValue(0);
-          offsetY.setValue(0);
+          Animated.parallel([
+            Animated.spring(offsetX, { toValue: 0, useNativeDriver: false }),
+            Animated.spring(offsetY, { toValue: 0, useNativeDriver: false }),
+          ]).start();
         },
+        onPanResponderTerminationRequest: () => false,
       }),
-    [offsetX, offsetY, onExpand, stop, width, progress],
+    [offsetX, offsetY, progress],
   );
 
   if (!track) return null;
