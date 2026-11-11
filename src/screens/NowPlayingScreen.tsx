@@ -138,6 +138,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
             resetToken={resetToken}
           />
           <View style={styles.transport}>
+            <View style={styles.centerGroup}>
             <Pressable
               onPress={() => {
                 setResetToken((token) => token + 1);
@@ -180,6 +181,8 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
             >
               <Ionicons name="play-skip-forward" size={24} color={colors.text} />
             </Pressable>
+            </View>
+            <View style={styles.repeatSlot}>
             <Pressable
               onPress={cycleRepeat}
               accessibilityRole="button"
@@ -198,6 +201,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
                 ) : null}
               </View>
             </Pressable>
+            </View>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
         </View>
@@ -254,11 +258,21 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
   },
   transport: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.lg,
     marginTop: space.lg,
+  },
+  centerGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.lg,
+  },
+  repeatSlot: {
+    position: 'absolute',
+    right: space.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   sideButton: {
     width: 56,
