@@ -71,6 +71,8 @@ export function ProgressBar({ positionMs, durationMs, onSeek, resetToken = 0 }: 
     pendingSeek.duration === durationMs &&
     Math.abs(basePosition - pendingSeek.ms) > 1500;
   const displayMs = dragMs ?? (pendingVisible ? pendingSeek.ms : null) ?? basePosition;
+  const dragging = dragMs !== null;
+  const thumbSize = dragging ? 20 : 14;
 
   useEffect(() => {
     if (dragMs !== null) return;
@@ -174,18 +176,21 @@ export function ProgressBar({ positionMs, durationMs, onSeek, resetToken = 0 }: 
           else if (event.nativeEvent.actionName === 'decrement') step(-STEP_MS);
         }}
       >
-        <View style={styles.track} pointerEvents="none">
-          <Animated.View style={[styles.fill, { transform: [{ scaleX: progress }] }]} />
+        <View style={[styles.track, dragging && styles.trackActive]} pointerEvents="none">
+          <Animated.View
+            style={[styles.fill, dragging && styles.fillActive, { transform: [{ scaleX: progress }] }]}
+          />
           {width > 0 ? (
             <Animated.View
               style={[
                 styles.thumb,
+                dragging && styles.thumbActive,
                 {
                   transform: [
                     {
                       translateX: progress.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [-6, width - 6],
+                        outputRange: [-thumbSize / 2, width - thumbSize / 2],
                       }),
                     },
                   ],
@@ -217,22 +222,41 @@ const styles = StyleSheet.create({
   track: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#ffffff1f',
+    backgroundColor: '#ffffff33',
+  },
+  trackActive: {
+    height: 6,
+    borderRadius: 3,
   },
   fill: {
     width: '100%',
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentBright,
     transformOrigin: 'left',
+  },
+  fillActive: {
+    height: 6,
+    borderRadius: 3,
   },
   thumb: {
     position: 'absolute',
-    top: -4,
+    top: -5,
     left: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.accent,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: colors.accentBright,
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  thumbActive: {
+    top: -7,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
 });

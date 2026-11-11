@@ -192,6 +192,7 @@ Art is the product. The chrome stays quiet so covers carry the screen.
 | `textDim` | `#9A9AA8` | Secondary text |
 | `accent` | `#215BED` | Krotify blue: active state, progress |
 | `accent2` | `#6E9BFF` | Light blue: gradients, secondary highlights |
+| `accentBright` | `#3D74FF` | Slider fill and glow: brighter than accent |
 
 **Type** — system font. Display 28–32/700 for titles, 16/600 body, 13/500 dim
 metadata. Tabular numerals for durations.

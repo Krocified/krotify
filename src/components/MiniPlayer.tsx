@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   progressFill: {
     width: '100%',
     height: 2,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentBright,
     transformOrigin: 'left',
   },
   bar: {
