@@ -72,6 +72,10 @@ ID3 retriever in v2.
 - Reopening the track that is already loaded resumes from its position; it never
   restarts. Hardware back from Now Playing plays the same slide-down as the
   chevron.
+- At the end of a track, playback advances to the next queue entry; at the last
+  track it stops at the end, and Play restarts that track from 0:00.
+- Next/previous take effect instantly: the progress bar jumps to the new
+  position instead of animating back across the old one.
 - Notification artwork for tracks that have real art (generated covers have no
   file yet — acceptable to omit `artworkUrl`).
 
@@ -150,7 +154,10 @@ v0 does not seed or fake it. Tapping a row opens Now Playing.
 **Now Playing** — full-bleed backdrop extracted from the current cover's color, a
 large 1:1 cover, title/artist, progress, transport controls. Slides up from the
 mini-player.
-**Mini-player** — persistent bottom bar: small cover, title, play/pause, tap to expand.
+**Mini-player** — persistent bottom bar on Library and Settings: 2px progress line,
+small cover, title, close, play/pause. Tap or swipe up expands; swipe down, left
+or right dismisses the player (stops playback). Reopening the playing track
+resumes its position.
 **Settings** — gear from the Library top bar. Slides in from the right and back
 out to the right. Rescan, permission status, hidden tracks, about. Grows one
 option at a time.

@@ -15,6 +15,7 @@ type Props = {
   positionMs: number;
   durationMs: number;
   onSeek: (positionMs: number) => void;
+  resetToken?: number;
 };
 
 const STEP_MS = 10_000;
@@ -22,28 +23,54 @@ const GLIDE_MS = 500;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
+export function ProgressBar({ positionMs, durationMs, onSeek, resetToken = 0 }: Props) {
   const [width, setWidth] = useState(0);
   const [dragMs, setDragMs] = useState<number | null>(null);
-  const [pendingSeekMs, setPendingSeekMs] = useState<number | null>(null);
+  const [pendingSeek, setPendingSeek] = useState<{ ms: number; duration: number } | null>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [justReset, setJustReset] = useState(false);
+  const lastResetRef = useRef(resetToken);
   const barRef = useRef<ComponentRef<typeof View>>(null);
   const leftRef = useRef(0);
   const widthRef = useRef(0);
   const durationRef = useRef(durationMs);
   const draggingRef = useRef(false);
   const onSeekRef = useRef(onSeek);
-  const [progress] = useState(() => new Animated.Value(0));
+  const [progress] = useState(() =>
+    new Animated.Value(durationMs > 0 ? clamp01(positionMs / durationMs) : 0),
+  );
 
   useEffect(() => {
     durationRef.current = durationMs;
   }, [durationMs]);
 
+  useEffect(() => () => {
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+  }, []);
+
   useEffect(() => {
     onSeekRef.current = onSeek;
   }, [onSeek]);
 
-  const pendingVisible = pendingSeekMs !== null && Math.abs(positionMs - pendingSeekMs) > 1500;
-  const displayMs = dragMs ?? (pendingVisible ? pendingSeekMs : null) ?? positionMs;
+  useEffect(() => {
+    if (lastResetRef.current === resetToken) return;
+    lastResetRef.current = resetToken;
+    progress.stopAnimation();
+    progress.setValue(0);
+    setDragMs(null);
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    setPendingSeek(null);
+    setJustReset(true);
+    const timer = setTimeout(() => setJustReset(false), 600);
+    return () => clearTimeout(timer);
+  }, [resetToken, progress]);
+
+  const basePosition = justReset && positionMs > 1500 ? 0 : positionMs;
+  const pendingVisible =
+    pendingSeek !== null &&
+    pendingSeek.duration === durationMs &&
+    Math.abs(basePosition - pendingSeek.ms) > 1500;
+  const displayMs = dragMs ?? (pendingVisible ? pendingSeek.ms : null) ?? basePosition;
 
   useEffect(() => {
     if (dragMs !== null) return;
@@ -76,7 +103,8 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
           const ms = positionFromPageX(event.nativeEvent.pageX);
           progress.stopAnimation();
           progress.setValue(durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0);
-          setPendingSeekMs(null);
+          if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+          setPendingSeek(null);
           setDragMs(ms);
         },
         onPanResponderMove: (event) => {
@@ -89,7 +117,9 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
           const ms = positionFromPageX(event.nativeEvent.pageX);
           draggingRef.current = false;
           setDragMs(null);
-          setPendingSeekMs(ms);
+          if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+          setPendingSeek({ ms, duration: durationRef.current });
+          pendingTimerRef.current = setTimeout(() => setPendingSeek(null), 800);
           if (durationRef.current > 0) onSeekRef.current(ms);
         },
         onPanResponderTerminate: () => {

@@ -42,6 +42,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [slide] = useState(() => new Animated.Value(height));
+  const [resetToken, setResetToken] = useState(0);
   const closingRef = useRef(false);
 
   useEffect(() => {
@@ -132,10 +133,14 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
             onSeek={(ms) => {
               void seek(ms);
             }}
+            resetToken={resetToken}
           />
           <View style={styles.transport}>
             <Pressable
-              onPress={previous}
+              onPress={() => {
+                setResetToken((token) => token + 1);
+                previous();
+              }}
               disabled={!hasPrevious}
               accessibilityRole="button"
               accessibilityLabel="Previous track"
@@ -157,7 +162,10 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
               <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#FFFFFF" />
             </Pressable>
             <Pressable
-              onPress={next}
+              onPress={() => {
+                setResetToken((token) => token + 1);
+                next();
+              }}
               disabled={!hasNext}
               accessibilityRole="button"
               accessibilityLabel="Next track"

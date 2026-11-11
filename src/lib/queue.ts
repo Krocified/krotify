@@ -18,3 +18,7 @@ export function previousAction(positionMs: number, current: number, length: numb
   const target = previousIndex(current, length);
   return target === -1 ? { type: 'none' } : { type: 'previous', index: target };
 }
+
+export function isAtEnd(positionMs: number, durationMs: number, toleranceMs = 250): boolean {
+  return durationMs > 0 && positionMs >= durationMs - toleranceMs;
+}

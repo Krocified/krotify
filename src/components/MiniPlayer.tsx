@@ -1,6 +1,15 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, space, type } from '../theme';
@@ -11,11 +20,18 @@ type Props = {
 };
 
 export function MiniPlayer({ onExpand }: Props) {
-  const { track, isPlaying, positionMs, durationMs, toggle } = usePlayer();
+  const { track, isPlaying, positionMs, durationMs, toggle, stop } = usePlayer();
   const insets = useSafeAreaInsets();
-  const [progress] = useState(() => new Animated.Value(0));
+  const { width } = useWindowDimensions();
+  const [progress] = useState(() =>
+    new Animated.Value(durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0),
+  );
+  const [offsetX] = useState(() => new Animated.Value(0));
+  const [offsetY] = useState(() => new Animated.Value(0));
+  const draggingRef = useRef(false);
 
   useEffect(() => {
+    if (draggingRef.current) return;
     const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
     Animated.timing(progress, {
       toValue: ratio,
@@ -25,10 +41,79 @@ export function MiniPlayer({ onExpand }: Props) {
     }).start();
   }, [positionMs, durationMs, progress]);
 
+  useEffect(() => {
+    offsetX.setValue(0);
+    offsetY.setValue(0);
+  }, [track?.id, offsetX, offsetY]);
+
+  const panResponder = useMemo(
+    () =>
+      // ponytail: handlers read refs only at event time, never during render
+      // eslint-disable-next-line react-hooks/refs
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
+        onPanResponderGrant: () => {
+          draggingRef.current = true;
+          progress.stopAnimation();
+        },
+        onPanResponderMove: (_, gesture) => {
+          if (Math.abs(gesture.dx) > Math.abs(gesture.dy)) offsetX.setValue(gesture.dx);
+          else offsetY.setValue(gesture.dy);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          draggingRef.current = false;
+          if (gesture.dy < -40) {
+            offsetX.setValue(0);
+            offsetY.setValue(0);
+            onExpand();
+            return;
+          }
+          const dismissSideways = Math.abs(gesture.dx) > 60;
+          const dismissDown = gesture.dy > 40;
+          if (dismissSideways || dismissDown) {
+            Animated.parallel([
+              Animated.timing(offsetX, {
+                toValue: dismissSideways ? Math.sign(gesture.dx) * width : 0,
+                duration: 160,
+                easing: Easing.in(Easing.cubic),
+                useNativeDriver: false,
+              }),
+              Animated.timing(offsetY, {
+                toValue: dismissDown ? gesture.dy + 80 : 0,
+                duration: 160,
+                easing: Easing.in(Easing.cubic),
+                useNativeDriver: false,
+              }),
+            ]).start(({ finished }) => {
+              if (finished) stop();
+            });
+            return;
+          }
+          Animated.parallel([
+            Animated.spring(offsetX, { toValue: 0, useNativeDriver: false }),
+            Animated.spring(offsetY, { toValue: 0, useNativeDriver: false }),
+          ]).start();
+        },
+        onPanResponderTerminate: () => {
+          draggingRef.current = false;
+          offsetX.setValue(0);
+          offsetY.setValue(0);
+        },
+      }),
+    [offsetX, offsetY, onExpand, stop, width, progress],
+  );
+
   if (!track) return null;
 
   return (
-    <View style={[styles.wrap, { paddingBottom: insets.bottom }]}>
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        styles.wrap,
+        { paddingBottom: insets.bottom, transform: [{ translateX: offsetX }, { translateY: offsetY }] },
+      ]}
+    >
       <View style={styles.progressTrack} pointerEvents="none">
         <Animated.View style={[styles.progressFill, { transform: [{ scaleX: progress }] }]} />
       </View>
@@ -45,6 +130,15 @@ export function MiniPlayer({ onExpand }: Props) {
           </Text>
         </Pressable>
         <Pressable
+          onPress={stop}
+          accessibilityRole="button"
+          accessibilityLabel="Close player"
+          hitSlop={space.sm}
+          style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+        >
+          <Ionicons name="close" size={20} color={colors.textDim} />
+        </Pressable>
+        <Pressable
           onPress={toggle}
           accessibilityRole="button"
           accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
@@ -54,7 +148,7 @@ export function MiniPlayer({ onExpand }: Props) {
           <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={colors.text} />
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

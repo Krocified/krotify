@@ -40,6 +40,11 @@ export function pauseAudio(): void {
   audioPlayer.pause();
 }
 
+export function stopAudio(): void {
+  audioPlayer.pause();
+  audioPlayer.clearLockScreenControls();
+}
+
 export async function seekAudio(positionMs: number): Promise<void> {
   await audioPlayer.seekTo(positionMs / 1000);
 }

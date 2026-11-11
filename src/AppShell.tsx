@@ -111,9 +111,6 @@ export function AppShell() {
           onOpenSettings={() => setScreen('settings')}
         />
       </View>
-      {screen === 'library' ? (
-        <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
-      ) : null}
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen('library')}
@@ -126,6 +123,7 @@ export function AppShell() {
         onRescan={() => setScanId((n) => n + 1)}
         onBack={() => setScreen('library')}
       />
+      {screen !== 'nowPlaying' ? <MiniPlayer onExpand={() => setScreen('nowPlaying')} /> : null}
     </View>
   );
 }
@@ -134,6 +132,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+    overflow: 'hidden',
   },
   library: {
     flex: 1,

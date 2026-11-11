@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextIndex, previousAction, previousIndex, RESTART_THRESHOLD_MS } from '../src/lib/queue.ts';
+import { isAtEnd, nextIndex, previousAction, previousIndex, RESTART_THRESHOLD_MS } from '../src/lib/queue.ts';
 
 test('nextIndex walks forward and stops at the end', () => {
   assert.equal(nextIndex(0, 3), 1);
@@ -31,4 +31,11 @@ test('previousAction skips back when the track just started', () => {
 test('previousAction does nothing at the first track within the threshold', () => {
   assert.deepEqual(previousAction(0, 0, 3), { type: 'none' });
   assert.deepEqual(previousAction(RESTART_THRESHOLD_MS, 0, 1), { type: 'none' });
+});
+
+test('isAtEnd treats the last moments as the end', () => {
+  assert.equal(isAtEnd(199_800, 200_000), true);
+  assert.equal(isAtEnd(200_000, 200_000), true);
+  assert.equal(isAtEnd(199_000, 200_000), false);
+  assert.equal(isAtEnd(0, 0), false);
 });

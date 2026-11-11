@@ -1,9 +1,9 @@
 import { useAudioPlayerStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { mockTick } from '../lib/mockClock';
-import { nextIndex, previousAction } from '../lib/queue';
+import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import type { Track } from '../types';
-import { audioPlayer, configureAudio, pauseAudio, playAudio, seekAudio } from './audioEngine';
+import { audioPlayer, configureAudio, pauseAudio, playAudio, seekAudio, stopAudio } from './audioEngine';
 
 export type PlayerContextValue = {
   track: Track | null;
@@ -20,6 +20,7 @@ export type PlayerContextValue = {
   ) => Promise<boolean>;
   toggle: () => void;
   seek: (positionMs: number) => Promise<void>;
+  stop: () => void;
   next: () => void;
   previous: () => void;
 };
@@ -40,6 +41,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const lastHandledErrorRef = useRef<string | null>(null);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resolveUriRef = useRef<((track: Track) => Promise<string>) | null>(null);
+  const endHandledForRef = useRef<string | null>(null);
+  const wasFinishedRef = useRef(false);
 
   const clearMockTimer = useCallback(() => {
     if (mockTimerRef.current) {
@@ -67,10 +70,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [mode, mockPlaying, track, mockRunId, clearMockTimer]);
 
   useEffect(() => {
-    if (mode === 'audio' && status.didJustFinish) pauseAudio();
-  }, [mode, status.didJustFinish]);
-
-  useEffect(() => {
     if (mode !== 'audio' || status.error === null) return;
     if (lastHandledErrorRef.current === status.error) return;
     lastHandledErrorRef.current = status.error;
@@ -85,6 +84,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       nextQueue: Track[] = [nextTrack],
     ): Promise<boolean> => {
       const requestId = ++requestRef.current;
+      endHandledForRef.current = null;
       resolveUriRef.current = resolveUri;
       const targetIndex = nextQueue.findIndex((item) => item.id === nextTrack.id);
 
@@ -119,18 +119,9 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     [],
   );
 
-  const toggle = useCallback(() => {
-    if (mode === 'mock') {
-      setMockPlaying((playing) => !playing);
-    } else if (audioPlayer.playing) {
-      pauseAudio();
-    } else {
-      audioPlayer.play();
-    }
-  }, [mode]);
-
   const seek = useCallback(
     async (positionMs: number): Promise<void> => {
+      endHandledForRef.current = null;
       if (mode === 'mock') {
         setMockPosition(positionMs);
         setMockRunId((id) => id + 1);
@@ -147,6 +138,43 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     mode === 'mock'
       ? (track?.durationMs ?? 0)
       : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
+
+  const toggle = useCallback(() => {
+    const atEnd = isAtEnd(positionMs, durationMs);
+    if (mode === 'mock') {
+      if (atEnd) {
+        endHandledForRef.current = null;
+        setMockPosition(0);
+        setMockRunId((id) => id + 1);
+        setMockPlaying(true);
+        return;
+      }
+      setMockPlaying((playing) => !playing);
+      return;
+    }
+    if (atEnd) {
+      endHandledForRef.current = null;
+      void audioPlayer.seekTo(0);
+      audioPlayer.play();
+      return;
+    }
+    if (audioPlayer.playing) pauseAudio();
+    else audioPlayer.play();
+  }, [mode, positionMs, durationMs]);
+
+  const stop = useCallback(() => {
+    requestRef.current += 1;
+    stopAudio();
+    clearMockTimer();
+    setMode(null);
+    setTrack(null);
+    setQueue([]);
+    setIndex(-1);
+    setMockPlaying(false);
+    setMockPosition(0);
+    setLastError(null);
+    lastHandledErrorRef.current = null;
+  }, [clearMockTimer]);
 
   const next = useCallback(() => {
     const target = nextIndex(index, queue.length);
@@ -173,6 +201,32 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const hasNext = nextIndex(index, queue.length) !== -1;
   const hasPrevious = previousAction(positionMs, index, queue.length).type !== 'none';
 
+  const handleEnd = useCallback(() => {
+    if (!track || endHandledForRef.current === track.id) return;
+    endHandledForRef.current = track.id;
+    if (!hasNext) {
+      pauseAudio();
+      setMockPlaying(false);
+      return;
+    }
+    const nextTrack = queue[index + 1];
+    const resolveUri = resolveUriRef.current;
+    if (nextTrack && resolveUri) void playTrack(nextTrack, resolveUri, queue);
+  }, [track, hasNext, queue, index, playTrack]);
+
+  useEffect(() => {
+    const finished = mode === 'audio' && status.didJustFinish;
+    if (finished && !wasFinishedRef.current) handleEnd();
+    wasFinishedRef.current = finished;
+  }, [mode, status.didJustFinish, handleEnd]);
+
+  useEffect(() => {
+    if (mode !== 'mock' || !track || track.durationMs <= 0) return;
+    if (mockPlaying || !isAtEnd(mockPosition, track.durationMs)) return;
+    const timer = setTimeout(handleEnd, 0);
+    return () => clearTimeout(timer);
+  }, [mode, mockPlaying, mockPosition, track, handleEnd]);
+
   const value = useMemo<PlayerContextValue>(
     () => ({
       track,
@@ -187,6 +241,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       seek,
       next,
       previous,
+      stop,
     }),
     [
       track,
@@ -201,6 +256,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       seek,
       next,
       previous,
+      stop,
     ],
   );
 
