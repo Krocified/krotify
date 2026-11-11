@@ -31,6 +31,7 @@ export function MiniPlayer({ onExpand }: Props) {
   const expandRef = useRef(onExpand);
   const stopRef = useRef(stop);
   const widthRef = useRef(width);
+  const axisRef = useRef<'x' | 'y' | null>(null);
 
   useEffect(() => {
     expandRef.current = onExpand;
@@ -62,19 +63,36 @@ export function MiniPlayer({ onExpand }: Props) {
           Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
           Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
+        onPanResponderGrant: () => {
+          axisRef.current = null;
+        },
         onPanResponderMove: (_, gesture) => {
-          offsetX.setValue(gesture.dx);
-          offsetY.setValue(Math.max(0, gesture.dy));
+          if (axisRef.current === null) {
+            axisRef.current = Math.abs(gesture.dx) > Math.abs(gesture.dy) ? 'x' : 'y';
+          }
+          if (axisRef.current === 'x') {
+            offsetX.setValue(gesture.dx);
+            offsetY.setValue(0);
+          } else {
+            offsetX.setValue(0);
+            offsetY.setValue(Math.max(0, gesture.dy));
+          }
         },
         onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy < -40) {
+          const axis = axisRef.current;
+          axisRef.current = null;
+
+          const swipeUp = axis === 'y' && gesture.dy < -40;
+          const dismissSideways = axis === 'x' && Math.abs(gesture.dx) > 60;
+          const dismissDown = axis === 'y' && gesture.dy > 40;
+
+          if (swipeUp) {
             offsetX.setValue(0);
             offsetY.setValue(0);
             expandRef.current();
             return;
           }
-          const dismissSideways = Math.abs(gesture.dx) > 60;
-          const dismissDown = gesture.dy > 40;
+
           if (dismissSideways || dismissDown) {
             Animated.parallel([
               Animated.timing(offsetX, {
@@ -94,12 +112,14 @@ export function MiniPlayer({ onExpand }: Props) {
             });
             return;
           }
+
           Animated.parallel([
             Animated.spring(offsetX, { toValue: 0, useNativeDriver: false }),
             Animated.spring(offsetY, { toValue: 0, useNativeDriver: false }),
           ]).start();
         },
         onPanResponderTerminate: () => {
+          axisRef.current = null;
           Animated.parallel([
             Animated.spring(offsetX, { toValue: 0, useNativeDriver: false }),
             Animated.spring(offsetY, { toValue: 0, useNativeDriver: false }),
