@@ -1,4 +1,4 @@
-# krotify
+# Krotify
 
 A local-first Android music player for the songs you already own. No account, no
 network, no catalogue. Album art is the product; the chrome stays quiet.

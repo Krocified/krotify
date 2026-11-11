@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "krotify",
+    "name": "Krotify",
     "slug": "krotify",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -17,7 +17,7 @@
     "android": {
       "package": "com.maxjoong.krotify",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B0B0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -45,6 +45,11 @@
       "@react-native-vector-icons/ionicons",
       "expo-sqlite",
       "./plugins/with-media3-exclude.js"
-    ]
+    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0F"
+    }
   }
 }

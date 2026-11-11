@@ -42,7 +42,7 @@ export function LibraryScreen({
             style={styles.brandIcon}
             accessible={false}
           />
-          <Text style={styles.wordmark}>krotify</Text>
+          <Text style={styles.wordmark}>Krotify</Text>
         </View>
         <Pressable
           onPress={onOpenSettings}
