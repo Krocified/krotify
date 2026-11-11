@@ -47,7 +47,7 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
         }}
         style={styles.seeker}
       >
-        <View style={styles.track}>
+        <View style={styles.track} pointerEvents="none">
           <View style={[styles.fill, { width: width * ratio }]} />
           {width > 0 ? <View style={[styles.thumb, { left: width * ratio - 6 }]} /> : null}
         </View>

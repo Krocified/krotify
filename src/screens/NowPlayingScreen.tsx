@@ -57,7 +57,10 @@ export function NowPlayingScreen({ onClose }: Props) {
   const coverSize = Math.min(width - 64, 360);
 
   return (
-    <Animated.View style={[styles.root, { transform: [{ translateY: slide }] }]}>
+    <Animated.View
+      style={[styles.root, { transform: [{ translateY: slide }] }]}
+      accessibilityViewIsModal
+    >
       <LinearGradient
         colors={[`${gradient[0]}CC`, `${gradient[1]}CC`]}
         start={{ x: 0, y: 0 }}

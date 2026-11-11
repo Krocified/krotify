@@ -68,13 +68,21 @@ export function AppShell() {
 
   return (
     <View style={styles.root}>
-      <LibraryScreen
-        tracks={tracks}
-        status={status}
-        statusNote={statusNote}
-        onSelect={handleSelect}
-        onOpenSettings={() => setScreen('settings')}
-      />
+      <View
+        style={styles.library}
+        accessibilityElementsHidden={screen === 'nowPlaying'}
+        importantForAccessibility={
+          screen === 'nowPlaying' ? 'no-hide-descendants' : 'auto'
+        }
+      >
+        <LibraryScreen
+          tracks={tracks}
+          status={status}
+          statusNote={statusNote}
+          onSelect={handleSelect}
+          onOpenSettings={() => setScreen('settings')}
+        />
+      </View>
       {screen !== 'nowPlaying' ? (
         <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
       ) : null}
@@ -89,6 +97,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  library: {
+    flex: 1,
   },
   placeholder: {
     flex: 1,
