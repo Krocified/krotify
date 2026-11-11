@@ -62,7 +62,7 @@ export function MiniPlayer({ onExpand }: Props) {
           Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
         onPanResponderMove: (_, gesture) => {
           if (Math.abs(gesture.dx) > Math.abs(gesture.dy)) offsetX.setValue(gesture.dx);
-          else offsetY.setValue(gesture.dy);
+          else offsetX.setValue(0);
         },
         onPanResponderRelease: (_, gesture) => {
           if (gesture.dy < -40) {
