@@ -25,14 +25,31 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+- The app currently uses a single `AppShell` screen state (Library, Now Playing,
+  Settings, and the v2 tabs). Do not add Expo Router or another navigator unless
+  the task asks for it.
+- If routing is introduced later, use **Expo Router**: routes live in `src/app/`,
+  `_layout.tsx` files define navigators, and non-route code stays outside
+  `src/app/`. Docs: https://docs.expo.dev/router/introduction.md
 
 ## Building with EAS
 
 Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
 Docs: https://docs.expo.dev/eas/index.md
+
+## Commits
+
+Releases are derived from commit messages, so the format is load-bearing.
+
+- Use Conventional Commits: `<type>(<scope>): <imperative summary>`.
+- Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`,
+  `ci`, `style`, `revert`.
+- A breaking change is `type!:` or a `BREAKING CHANGE:` footer.
+- Imperative mood, no trailing period, subject under 50 characters (hard cap 72).
+- Add a body when the why is not obvious; wrap at 72 characters.
+- Never add AI attribution.
+- The release workflow maps: breaking to major, `feat` to minor, everything else
+  to patch. Pick the type honestly.
 
 ## Rules
 
