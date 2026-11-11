@@ -66,6 +66,9 @@ export function AppShell() {
         if (!granted) {
           setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
           setStatus('denied');
+          if (importOnly.length > 0) {
+            setStatusNote('Audio permission denied. Showing imported tracks.');
+          }
           return;
         }
         const result = await scanLibrary();
@@ -188,6 +191,7 @@ export function AppShell() {
           new Set(excluded.map((item) => item.id)),
         ),
       );
+      setStatus('ready');
       setStatusNote(null);
     } finally {
       setImporting(false);
@@ -202,6 +206,8 @@ export function AppShell() {
       setTracks((prev) =>
         mergeLibrary(prev, [track], new Set(next.map((item) => item.id))),
       );
+      setStatus('ready');
+      setStatusNote(null);
     }
   }
 
