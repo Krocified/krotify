@@ -66,6 +66,12 @@ ID3 retriever in v2.
 ### v1 — It's a music app
 - Queue: tap-to-play sets queue; next/prev work, including from lock screen.
 - Now Playing: draggable progress, repeat.
+- Previous follows the standard two-tier rule: past 3 seconds it restarts the
+  current track; at or before 3 seconds it skips to the previous queue entry,
+  and does nothing at the first track.
+- Reopening the track that is already loaded resumes from its position; it never
+  restarts. Hardware back from Now Playing plays the same slide-down as the
+  chevron.
 - Notification artwork for tracks that have real art (generated covers have no
   file yet — acceptable to omit `artworkUrl`).
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
@@ -19,6 +19,10 @@ export function AppShell() {
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
   const assetsRef = useRef(new Map<string, Asset>());
+  const closeNowPlayingRef = useRef<(() => void) | null>(null);
+  const registerClose = useCallback((close: (() => void) | null) => {
+    closeNowPlayingRef.current = close;
+  }, []);
 
   useEffect(() => {
     async function loadLibrary() {
@@ -56,7 +60,12 @@ export function AppShell() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (screen === 'nowPlaying' || screen === 'settings') {
+      if (screen === 'nowPlaying') {
+        if (closeNowPlayingRef.current) closeNowPlayingRef.current();
+        else setScreen('library');
+        return true;
+      }
+      if (screen === 'settings') {
         setScreen('library');
         return true;
       }
@@ -66,6 +75,10 @@ export function AppShell() {
   }, [screen]);
 
   async function handleSelect(track: Track) {
+    if (currentTrack?.id === track.id) {
+      setScreen('nowPlaying');
+      return;
+    }
     const ok = await playTrack(
       track,
       async (t) => {
@@ -102,7 +115,10 @@ export function AppShell() {
         <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
       ) : null}
       {screen === 'nowPlaying' && currentTrack ? (
-        <NowPlayingScreen onClose={() => setScreen('library')} />
+        <NowPlayingScreen
+          onClose={() => setScreen('library')}
+          registerClose={registerClose}
+        />
       ) : null}
       <SettingsScreen
         visible={screen === 'settings'}

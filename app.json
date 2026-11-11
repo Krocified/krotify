@@ -42,8 +42,7 @@
           ]
         }
       ],
-      "@react-native-vector-icons/ionicons",
-      "expo-font"
+      "@react-native-vector-icons/ionicons"
     ]
   }
 }

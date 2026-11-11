@@ -1,7 +1,7 @@
 import { useAudioPlayerStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { mockTick } from '../lib/mockClock';
-import { nextIndex, previousIndex } from '../lib/queue';
+import { nextIndex, previousAction } from '../lib/queue';
 import type { Track } from '../types';
 import { audioPlayer, configureAudio, pauseAudio, playAudio, seekAudio } from './audioEngine';
 
@@ -141,6 +141,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     [mode],
   );
 
+  const isPlaying = mode === 'mock' ? mockPlaying : status.playing;
+  const positionMs = mode === 'mock' ? mockPosition : Math.round(status.currentTime * 1000);
+  const durationMs =
+    mode === 'mock'
+      ? (track?.durationMs ?? 0)
+      : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
+
   const next = useCallback(() => {
     const target = nextIndex(index, queue.length);
     if (target === -1) return;
@@ -151,23 +158,20 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [index, queue, playTrack]);
 
   const previous = useCallback(() => {
-    const target = previousIndex(index, queue.length);
-    if (target === -1) return;
-    const previousTrack = queue[target];
+    const action = previousAction(positionMs, index, queue.length);
+    if (action.type === 'restart') {
+      void seek(0);
+      return;
+    }
+    if (action.type === 'none') return;
+    const previousTrack = queue[action.index];
     const resolveUri = resolveUriRef.current;
     if (!previousTrack || !resolveUri) return;
     void playTrack(previousTrack, resolveUri, queue);
-  }, [index, queue, playTrack]);
+  }, [positionMs, index, queue, playTrack, seek]);
 
   const hasNext = nextIndex(index, queue.length) !== -1;
-  const hasPrevious = previousIndex(index, queue.length) !== -1;
-
-  const isPlaying = mode === 'mock' ? mockPlaying : status.playing;
-  const positionMs = mode === 'mock' ? mockPosition : Math.round(status.currentTime * 1000);
-  const durationMs =
-    mode === 'mock'
-      ? (track?.durationMs ?? 0)
-      : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
+  const hasPrevious = previousAction(positionMs, index, queue.length).type !== 'none';
 
   const value = useMemo<PlayerContextValue>(
     () => ({

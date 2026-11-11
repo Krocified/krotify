@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -20,11 +20,12 @@ import { colors, radius, space, type } from '../theme';
 
 type Props = {
   onClose: () => void;
+  registerClose?: (close: (() => void) | null) => void;
 };
 
 const SLIDE_MS = 300;
 
-export function NowPlayingScreen({ onClose }: Props) {
+export function NowPlayingScreen({ onClose, registerClose }: Props) {
   const {
     track,
     isPlaying,
@@ -52,9 +53,7 @@ export function NowPlayingScreen({ onClose }: Props) {
     }).start();
   }, [slide]);
 
-  if (!track) return null;
-
-  function close() {
+  const close = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     Animated.timing(slide, {
@@ -65,7 +64,14 @@ export function NowPlayingScreen({ onClose }: Props) {
     }).start(({ finished }) => {
       if (finished) onClose();
     });
-  }
+  }, [height, onClose, slide]);
+
+  useEffect(() => {
+    registerClose?.(close);
+    return () => registerClose?.(null);
+  }, [close, registerClose]);
+
+  if (!track) return null;
 
   const gradient = coverColors(track.artworkHue);
   const coverSize = Math.min(width - 64, 360);
