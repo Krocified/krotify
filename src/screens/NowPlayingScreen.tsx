@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,7 +35,7 @@ export function NowPlayingScreen({ onClose }: Props) {
       toValue: 0,
       duration: SLIDE_MS,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [slide]);
 
@@ -47,7 +48,7 @@ export function NowPlayingScreen({ onClose }: Props) {
       toValue: height,
       duration: SLIDE_MS,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(({ finished }) => {
       if (finished) onClose();
     });

@@ -278,3 +278,8 @@ scan succeeds. Demo tracks are the only fallback — no fake play history.
   app-owned copies.
 - Write access to scanned files: SAF re-grant per folder, or restrict editing to
   imported files and offer "import a copy".
+
+- Web preview: `npx expo start --web` (or `npx expo export --platform web`) serves a
+  demo-only surface — demo library plus mock playback — so people on iOS or a
+  laptop can try the UI. Scanning, background audio and notification controls
+  remain Android-only.

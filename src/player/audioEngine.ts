@@ -8,6 +8,7 @@ export const audioPlayer: AudioPlayer = createAudioPlayer(null, {
 });
 
 export async function configureAudio(): Promise<void> {
+  if (Platform.OS === 'web') return;
   await setAudioModeAsync({
     playsInSilentMode: true,
     shouldPlayInBackground: true,

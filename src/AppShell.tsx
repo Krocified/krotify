@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DEMO_TRACKS } from './library/demo';
@@ -24,6 +24,12 @@ export function AppShell() {
     async function loadLibrary() {
       setStatus('scanning');
       setStatusNote(null);
+      if (Platform.OS === 'web') {
+        setTracks(DEMO_TRACKS);
+        setStatus('ready');
+        setStatusNote('Web preview — demo library');
+        return;
+      }
       try {
         if (!(await ensureAudioPermission())) {
           setTracks(DEMO_TRACKS);
@@ -48,6 +54,7 @@ export function AppShell() {
   }, [scanId]);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (screen === 'nowPlaying' || screen === 'settings') {
         setScreen('library');
