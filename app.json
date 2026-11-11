@@ -43,7 +43,8 @@
         }
       ],
       "@react-native-vector-icons/ionicons",
-      "expo-sqlite"
+      "expo-sqlite",
+      "./plugins/with-media3-exclude.js"
     ]
   }
 }
