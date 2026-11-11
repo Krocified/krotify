@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,10 +28,11 @@ const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
   denied: 'Not granted',
 };
 
-const FADE_MS = 250;
+const SLIDE_MS = 280;
 
 export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [anim] = useState(() => new Animated.Value(0));
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
@@ -38,7 +40,7 @@ export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
   useEffect(() => {
     Animated.timing(anim, {
       toValue: visible ? 1 : 0,
-      duration: FADE_MS,
+      duration: SLIDE_MS,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== 'web',
     }).start();
@@ -49,10 +51,9 @@ export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
       style={[
         styles.root,
         {
-          opacity: anim,
           transform: [
             {
-              translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
+              translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [width, 0] }),
             },
           ],
         },

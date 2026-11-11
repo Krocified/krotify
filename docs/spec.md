@@ -151,8 +151,9 @@ v0 does not seed or fake it. Tapping a row opens Now Playing.
 large 1:1 cover, title/artist, progress, transport controls. Slides up from the
 mini-player.
 **Mini-player** — persistent bottom bar: small cover, title, play/pause, tap to expand.
-**Settings** — gear from the Library top bar. Rescan, permission status, hidden
-tracks, about. Grows one option at a time.
+**Settings** — gear from the Library top bar. Slides in from the right and back
+out to the right. Rescan, permission status, hidden tracks, about. Grows one
+option at a time.
 
 ```
 ┌──────────────────────────┐   ┌──────────────────────────┐

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
+  Animated,
+  Easing,
   PanResponder,
   StyleSheet,
   Text,
@@ -16,16 +18,21 @@ type Props = {
 };
 
 const STEP_MS = 10_000;
+const GLIDE_MS = 500;
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
   const [width, setWidth] = useState(0);
   const [dragMs, setDragMs] = useState<number | null>(null);
+  const [pendingSeekMs, setPendingSeekMs] = useState<number | null>(null);
   const barRef = useRef<ComponentRef<typeof View>>(null);
   const leftRef = useRef(0);
   const widthRef = useRef(0);
   const durationRef = useRef(durationMs);
   const draggingRef = useRef(false);
   const onSeekRef = useRef(onSeek);
+  const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     durationRef.current = durationMs;
@@ -35,11 +42,25 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
     onSeekRef.current = onSeek;
   }, [onSeek]);
 
+  const pendingVisible = pendingSeekMs !== null && Math.abs(positionMs - pendingSeekMs) > 1500;
+  const displayMs = dragMs ?? (pendingVisible ? pendingSeekMs : null) ?? positionMs;
+
+  useEffect(() => {
+    if (dragMs !== null) return;
+    const target = durationMs > 0 ? clamp01(displayMs / durationMs) : 0;
+    Animated.timing(progress, {
+      toValue: target,
+      duration: GLIDE_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [displayMs, durationMs, dragMs, progress]);
+
   const positionFromPageX = useCallback((pageX: number) => {
     const barWidth = widthRef.current;
     const barDuration = durationRef.current;
     if (barWidth <= 0 || barDuration <= 0) return 0;
-    const ratio = Math.min(1, Math.max(0, (pageX - leftRef.current) / barWidth));
+    const ratio = clamp01((pageX - leftRef.current) / barWidth);
     return Math.round(ratio * barDuration);
   }, []);
 
@@ -52,16 +73,23 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (event) => {
           draggingRef.current = true;
-          setDragMs(positionFromPageX(event.nativeEvent.pageX));
+          const ms = positionFromPageX(event.nativeEvent.pageX);
+          progress.stopAnimation();
+          progress.setValue(durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0);
+          setPendingSeekMs(null);
+          setDragMs(ms);
         },
         onPanResponderMove: (event) => {
           if (!draggingRef.current) return;
-          setDragMs(positionFromPageX(event.nativeEvent.pageX));
+          const ms = positionFromPageX(event.nativeEvent.pageX);
+          progress.setValue(durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0);
+          setDragMs(ms);
         },
         onPanResponderRelease: (event) => {
           const ms = positionFromPageX(event.nativeEvent.pageX);
           draggingRef.current = false;
           setDragMs(null);
+          setPendingSeekMs(ms);
           if (durationRef.current > 0) onSeekRef.current(ms);
         },
         onPanResponderTerminate: () => {
@@ -70,11 +98,8 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [positionFromPageX],
+    [positionFromPageX, progress],
   );
-
-  const displayMs = dragMs ?? positionMs;
-  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, displayMs / durationMs)) : 0;
 
   function handleLayout(event: LayoutChangeEvent) {
     const layoutWidth = event.nativeEvent.layout.width;
@@ -120,8 +145,24 @@ export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
         }}
       >
         <View style={styles.track} pointerEvents="none">
-          <View style={[styles.fill, { width: width * ratio }]} />
-          {width > 0 ? <View style={[styles.thumb, { left: width * ratio - 6 }]} /> : null}
+          <Animated.View style={[styles.fill, { transform: [{ scaleX: progress }] }]} />
+          {width > 0 ? (
+            <Animated.View
+              style={[
+                styles.thumb,
+                {
+                  transform: [
+                    {
+                      translateX: progress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-6, width - 6],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ) : null}
         </View>
       </View>
     </View>
@@ -149,13 +190,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff1f',
   },
   fill: {
+    width: '100%',
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.accent,
+    transformOrigin: 'left',
   },
   thumb: {
     position: 'absolute',
     top: -4,
+    left: 0,
     width: 12,
     height: 12,
     borderRadius: 6,

@@ -1,5 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, space, type } from '../theme';
@@ -12,15 +13,24 @@ type Props = {
 export function MiniPlayer({ onExpand }: Props) {
   const { track, isPlaying, positionMs, durationMs, toggle } = usePlayer();
   const insets = useSafeAreaInsets();
+  const [progress] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
+    Animated.timing(progress, {
+      toValue: ratio,
+      duration: 500,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [positionMs, durationMs, progress]);
 
   if (!track) return null;
-
-  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
 
   return (
     <View style={[styles.wrap, { paddingBottom: insets.bottom }]}>
       <View style={styles.progressTrack} pointerEvents="none">
-        <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
+        <Animated.View style={[styles.progressFill, { transform: [{ scaleX: progress }] }]} />
       </View>
       <View style={styles.bar}>
         <Pressable
@@ -61,8 +71,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff1f',
   },
   progressFill: {
+    width: '100%',
     height: 2,
     backgroundColor: colors.accent,
+    transformOrigin: 'left',
   },
   bar: {
     height: 64,
