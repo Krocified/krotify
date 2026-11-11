@@ -12,7 +12,7 @@ import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
-  const { track, playTrack } = usePlayer();
+  const { track: currentTrack, playTrack } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
@@ -64,8 +64,9 @@ export function AppShell() {
       if (!asset) throw new Error('missing asset');
       return asset.getUri();
     });
-    if (!ok) setStatusNote('Could not play this file');
-    else {
+    if (!ok) {
+      if (currentTrack?.id !== track.id) setStatusNote('Could not play this file');
+    } else {
       setStatusNote(null);
       setScreen('nowPlaying');
     }
@@ -89,7 +90,7 @@ export function AppShell() {
       {screen === 'library' ? (
         <MiniPlayer onExpand={() => setScreen('nowPlaying')} />
       ) : null}
-      {screen === 'nowPlaying' && track ? (
+      {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen onClose={() => setScreen('library')} />
       ) : null}
       {screen === 'settings' ? (

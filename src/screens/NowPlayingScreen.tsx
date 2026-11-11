@@ -14,7 +14,7 @@ import { CoverArt } from '../components/CoverArt';
 import { ProgressBar } from '../components/ProgressBar';
 import { coverColors } from '../lib/cover';
 import { usePlayer } from '../player/PlayerProvider';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 
 type Props = {
   onClose: () => void;
@@ -62,7 +62,7 @@ export function NowPlayingScreen({ onClose }: Props) {
       accessibilityViewIsModal
     >
       <LinearGradient
-        colors={[`${gradient[0]}CC`, `${gradient[1]}CC`]}
+        colors={[`${gradient[0]}59`, `${gradient[1]}59`]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -93,7 +93,7 @@ export function NowPlayingScreen({ onClose }: Props) {
         </View>
 
         <View style={styles.middle}>
-          <CoverArt hue={track.artworkHue} title={track.title} size={coverSize} radius={8} />
+          <CoverArt hue={track.artworkHue} title={track.title} size={coverSize} radius={radius.cover} />
           <Text style={styles.title} numberOfLines={2}>
             {track.title}
           </Text>

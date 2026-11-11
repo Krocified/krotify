@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { formatDuration } from '../lib/format';
 import { colors, space, type } from '../theme';
-import { Track } from '../types';
+import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
 
 type Props = {
@@ -11,11 +11,14 @@ type Props = {
 
 export function TrackRow({ track, onPress }: Props) {
   const duration = formatDuration(track.durationMs);
+  const label = track.artist
+    ? `${track.title} by ${track.artist}, ${duration}`
+    : `${track.title}, ${duration}`;
   return (
     <Pressable
       onPress={() => onPress(track)}
       accessibilityRole="button"
-      accessibilityLabel={`${track.title} by ${track.artist}, ${duration}`}
+      accessibilityLabel={label}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <CoverArt hue={track.artworkHue} title={track.title} size={56} radius={4} />

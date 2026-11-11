@@ -26,6 +26,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [mockPosition, setMockPosition] = useState(0);
   const [mockRunId, setMockRunId] = useState(0);
   const requestRef = useRef(0);
+  const lastHandledErrorRef = useRef<string | null>(null);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearMockTimer = useCallback(() => {
@@ -56,6 +57,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (mode === 'audio' && status.didJustFinish) pauseAudio();
   }, [mode, status.didJustFinish]);
+
+  useEffect(() => {
+    if (mode !== 'audio' || status.error === null) return;
+    if (lastHandledErrorRef.current === status.error) return;
+    lastHandledErrorRef.current = status.error;
+    setLastError('Could not play this file');
+    pauseAudio();
+  }, [mode, status.error]);
 
   const playTrack = useCallback(
     async (nextTrack: Track, resolveUri: (track: Track) => Promise<string>): Promise<boolean> => {

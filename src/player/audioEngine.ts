@@ -13,16 +13,19 @@ export async function configureAudio(): Promise<void> {
     shouldPlayInBackground: true,
     interruptionMode: 'doNotMix',
   });
-  if (Platform.OS === 'android') {
+}
+
+let notificationPermissionRequested = false;
+
+export async function playAudio(uri: string, track: Track): Promise<void> {
+  if (!notificationPermissionRequested && Platform.OS === 'android') {
+    notificationPermissionRequested = true;
     try {
       await requestNotificationPermissionsAsync();
     } catch {
       // ponytail: playback still works; only the notification controls are hidden
     }
   }
-}
-
-export async function playAudio(uri: string, track: Track): Promise<void> {
   audioPlayer.replace({ uri });
   audioPlayer.setActiveForLockScreen(
     true,
