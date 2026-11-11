@@ -1,4 +1,4 @@
-# krotify — Intent
+# Krotify: Intent
 
 ## One line
 A local-first, Spotify-feel Android music player for the songs you already own.
@@ -13,7 +13,7 @@ exactly what I want, and it is a project that grows one layer at a time.
 Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 
 ## Goals
-- Play my local audio files reliably, with background playback and lock-screen controls.
+- Play my local audio files reliably, with background playback plus notification and lock-screen controls.
 - Make album art the hero of every screen.
 - Look and feel like a premium music app, not a file browser.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
@@ -29,12 +29,14 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - A file manager with a play button. If it looks like a list of files, it failed.
 
 ## Success
-- I reach for krotify instead of my current player day to day.
+- I reach for Krotify instead of my current player day to day.
 - The now-playing screen is something I'd screenshot.
 - Adding the next milestone is a weekend, not a rewrite.
 
 ## Principles
 - **Local-first**: the MP3s are the truth; the app never needs the network.
+- **Consent first**: nothing scans or changes files without an explicit choice.
+  Scanning is opt-in; imports are deliberate.
 - **Art-first**: every track/album has a beautiful cover, real or generated.
 - **Incremental**: v0 proves the loop; each version deepens one axis.
 - **Lazy by design**: stdlib and Expo primitives before new dependencies.
