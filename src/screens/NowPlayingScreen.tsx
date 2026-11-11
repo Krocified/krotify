@@ -34,6 +34,8 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
     lastError,
     hasNext,
     hasPrevious,
+    repeat,
+    cycleRepeat,
     toggle,
     seek,
     next,
@@ -178,6 +180,24 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
             >
               <Ionicons name="play-skip-forward" size={24} color={colors.text} />
             </Pressable>
+            <Pressable
+              onPress={cycleRepeat}
+              accessibilityRole="button"
+              accessibilityLabel={`Repeat ${repeat}`}
+              accessibilityState={{ selected: repeat !== 'off' }}
+              style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+            >
+              <View style={styles.repeatIcon}>
+                <Ionicons
+                  name="repeat"
+                  size={24}
+                  color={repeat === 'off' ? colors.textDim : colors.accent}
+                />
+                {repeat === 'one' ? (
+                  <Text style={styles.repeatOne}>1</Text>
+                ) : null}
+              </View>
+            </Pressable>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
         </View>
@@ -249,6 +269,18 @@ const styles = StyleSheet.create({
   },
   sidePressed: {
     backgroundColor: '#ffffff14',
+  },
+  repeatIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repeatOne: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: '700',
   },
   disabled: {
     opacity: 0.35,

@@ -5,6 +5,8 @@ import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import type { Track } from '../types';
 import { audioPlayer, configureAudio, pauseAudio, playAudio, seekAudio, stopAudio } from './audioEngine';
 
+export type RepeatMode = 'off' | 'all' | 'one';
+
 export type PlayerContextValue = {
   track: Track | null;
   isPlaying: boolean;
@@ -13,6 +15,8 @@ export type PlayerContextValue = {
   lastError: string | null;
   hasNext: boolean;
   hasPrevious: boolean;
+  repeat: RepeatMode;
+  cycleRepeat: () => void;
   playTrack: (
     track: Track,
     resolveUri: (track: Track) => Promise<string>,
@@ -37,6 +41,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [mockPlaying, setMockPlaying] = useState(false);
   const [mockPosition, setMockPosition] = useState(0);
   const [mockRunId, setMockRunId] = useState(0);
+  const [repeat, setRepeat] = useState<RepeatMode>('off');
   const requestRef = useRef(0);
   const lastHandledErrorRef = useRef<string | null>(null);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -201,18 +206,32 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const hasNext = nextIndex(index, queue.length) !== -1;
   const hasPrevious = previousAction(positionMs, index, queue.length).type !== 'none';
 
+  const cycleRepeat = useCallback(() => {
+    setRepeat((mode) => (mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'));
+  }, []);
+
   const handleEnd = useCallback(() => {
     if (!track || endHandledForRef.current === track.id) return;
     endHandledForRef.current = track.id;
+    const resolveUri = resolveUriRef.current;
+    if (repeat === 'one') {
+      if (resolveUri) void playTrack(track, resolveUri, queue);
+      return;
+    }
+    if (repeat === 'all') {
+      const target = index + 1 < queue.length ? index + 1 : 0;
+      const nextTrack = queue[target];
+      if (nextTrack && resolveUri) void playTrack(nextTrack, resolveUri, queue);
+      return;
+    }
     if (!hasNext) {
       pauseAudio();
       setMockPlaying(false);
       return;
     }
     const nextTrack = queue[index + 1];
-    const resolveUri = resolveUriRef.current;
     if (nextTrack && resolveUri) void playTrack(nextTrack, resolveUri, queue);
-  }, [track, hasNext, queue, index, playTrack]);
+  }, [track, hasNext, queue, index, playTrack, repeat]);
 
   useEffect(() => {
     const finished = mode === 'audio' && status.didJustFinish;
@@ -236,6 +255,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       lastError,
       hasNext,
       hasPrevious,
+      repeat,
+      cycleRepeat,
       playTrack,
       toggle,
       seek,
@@ -251,6 +272,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       lastError,
       hasNext,
       hasPrevious,
+      repeat,
+      cycleRepeat,
       playTrack,
       toggle,
       seek,
