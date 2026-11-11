@@ -266,6 +266,38 @@ scan succeeds. Demo tracks are the only fallback — no fake play history.
 - Grain: the generated-cover grain overlay is deferred past v0; gradient plus
   initial is the v0 cover.
 
+## Next session (before v2 UI)
+
+Planned fixes and changes, in order:
+
+1. **Notification next/previous.** Confirmed in expo-audio source: a single
+   `AudioPlayer` reports `supportsNextTrack = false`, so notification/lock-screen
+   next/previous are ignored. Move the audio engine to `AudioPlaylist` with a
+   resolved window around the current track (for example +/- 4), `skipTo` for
+   app buttons, `trackChanged` to sync index and track, and
+   `showNextTrack/showPreviousTrack: true`. Rebuild the window when playback
+   reaches its edge. Mock demo playback keeps its own timer.
+2. **Scan opt-in.** First launch shows "Scan this device for audio?" with Scan
+   and Not now. Persist the choice in AsyncStorage (`krotify.scanEnabled.v1`).
+   Settings gets a "Scan device audio" switch; Rescan only when enabled. Imports
+   always show; demo stays the last fallback. Folder-level scanning is not
+   possible with `expo-media-library`, so the choice is all device audio or
+   none.
+3. **Mini-player above the system dock.** On Samsung 3-button navigation the bar
+   overlaps the nav buttons because the app draws edge to edge. Position the bar
+   with a bottom offset (safe-area bottom, fallback 48dp on Android) instead of
+   padding to the screen edge; keep the same gestures and progress line. Update
+   Library and Settings bottom padding to match.
+4. **Explicit badge.** Blocked: the chosen metadata library exposes no explicit
+   flag. Needs another parser or a deliberate drop from v2.
+5. **Build note.** `@missingcore/react-native-metadata-retriever` bundles a
+   Media3 fork that collides with expo-audio; `plugins/with-media3-exclude.js`
+   excludes the fork and must stay in `app.json` plugins before any prebuild.
+
+Done already: app renamed to Krotify with launcher icons matching the favicon
+(`838aa44`), and short tracks (<3s) no longer chain on auto-advance while the
+progress bar snaps on track change (`7718717`).
+
 ## Open decisions
 
 **When v2 lands**
