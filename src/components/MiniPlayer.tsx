@@ -60,9 +60,11 @@ export function MiniPlayer({ onExpand }: Props) {
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
         onPanResponderMove: (_, gesture) => {
-          if (Math.abs(gesture.dx) > Math.abs(gesture.dy)) offsetX.setValue(gesture.dx);
-          else offsetX.setValue(0);
+          offsetX.setValue(gesture.dx);
+          offsetY.setValue(Math.max(0, gesture.dy));
         },
         onPanResponderRelease: (_, gesture) => {
           if (gesture.dy < -40) {

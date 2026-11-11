@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrackRow } from '../components/TrackRow';
 import { colors, space, type } from '../theme';
@@ -28,7 +28,14 @@ export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSett
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Text style={styles.wordmark}>krotify</Text>
+        <View style={styles.brand}>
+          <Image
+            source={require('../../assets/lyrics.png')}
+            style={styles.brandIcon}
+            accessible={false}
+          />
+          <Text style={styles.wordmark}>krotify</Text>
+        </View>
         <Pressable
           onPress={onOpenSettings}
           accessibilityRole="button"
@@ -84,6 +91,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: space.md,
     paddingBottom: space.sm,
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  brandIcon: {
+    width: 26,
+    height: 26,
   },
   wordmark: {
     ...type.display,
