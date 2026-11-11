@@ -241,6 +241,11 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       if (resolveUri) void playTrack(track, resolveUri, queue);
       return;
     }
+    if (track.durationMs > 0 && track.durationMs < 3000) {
+      pauseAudio();
+      setMockPlaying(false);
+      return;
+    }
     if (repeat === 'all') {
       const target = index + 1 < queue.length ? index + 1 : 0;
       const nextTrack = queue[target];

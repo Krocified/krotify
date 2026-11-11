@@ -14,6 +14,7 @@ import { colors, space, type } from '../theme';
 type Props = {
   positionMs: number;
   durationMs: number;
+  trackId: string;
   onSeek: (positionMs: number) => void;
   resetToken?: number;
 };
@@ -23,13 +24,14 @@ const GLIDE_MS = 500;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export function ProgressBar({ positionMs, durationMs, onSeek, resetToken = 0 }: Props) {
+export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToken = 0 }: Props) {
   const [width, setWidth] = useState(0);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; duration: number } | null>(null);
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [justReset, setJustReset] = useState(false);
   const lastResetRef = useRef(resetToken);
+  const lastTrackRef = useRef(trackId);
   const barRef = useRef<ComponentRef<typeof View>>(null);
   const leftRef = useRef(0);
   const widthRef = useRef(0);
@@ -51,6 +53,15 @@ export function ProgressBar({ positionMs, durationMs, onSeek, resetToken = 0 }: 
   useEffect(() => {
     onSeekRef.current = onSeek;
   }, [onSeek]);
+
+  useEffect(() => {
+    if (lastTrackRef.current === trackId) return;
+    lastTrackRef.current = trackId;
+    progress.stopAnimation();
+    progress.setValue(0);
+    setDragMs(null);
+    setPendingSeek(null);
+  }, [trackId, progress]);
 
   useEffect(() => {
     if (lastResetRef.current === resetToken) return;

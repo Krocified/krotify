@@ -52,7 +52,9 @@ export function MiniPlayer({ onExpand }: Props) {
   useEffect(() => {
     offsetX.setValue(0);
     offsetY.setValue(0);
-  }, [track?.id, offsetX, offsetY]);
+    progress.stopAnimation();
+    progress.setValue(0);
+  }, [track?.id, offsetX, offsetY, progress]);
 
   const panResponder = useMemo(
     () =>

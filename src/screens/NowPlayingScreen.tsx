@@ -132,6 +132,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
           <ProgressBar
             positionMs={positionMs}
             durationMs={durationMs}
+            trackId={track.id}
             onSeek={(ms) => {
               void seek(ms);
             }}

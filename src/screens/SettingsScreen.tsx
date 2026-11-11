@@ -172,7 +172,7 @@ export function SettingsScreen({
               <Text style={styles.rowTitle}>About</Text>
               <Text style={styles.rowMeta}>Local files only. No network.</Text>
             </View>
-            <Text style={styles.rowValue}>krotify 0.1.0</Text>
+            <Text style={styles.rowValue}>Krotify 0.1.0</Text>
           </View>
         </View>
       </ScrollView>
