@@ -2,14 +2,20 @@
   "expo": {
     "name": "krotify",
     "slug": "krotify",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0F",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0B0B0F"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.maxjoong.krotify",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,6 +26,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      ["expo-audio", { "enableBackgroundPlayback": true }],
+      ["expo-media-library", { "granularPermissions": ["audio"] }]
+    ]
   }
 }
