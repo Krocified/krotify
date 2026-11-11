@@ -27,6 +27,7 @@ export type PlayerContextValue = {
   stop: () => void;
   next: () => void;
   previous: () => void;
+  removeFromQueue: (ids: string[]) => void;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -181,30 +182,52 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     lastHandledErrorRef.current = null;
   }, [clearMockTimer]);
 
+  const removeFromQueue = useCallback(
+    (ids: string[]): void => {
+      if (ids.length === 0) return;
+      const removed = new Set(ids);
+      if (!queue.some((item) => removed.has(item.id))) return;
+      const filtered = queue.filter((item) => !removed.has(item.id));
+      setQueue(filtered);
+      const current = queue[index];
+      if (!current || removed.has(current.id)) {
+        setIndex(-1);
+        return;
+      }
+      setIndex(filtered.findIndex((item) => item.id === current.id));
+    },
+    [queue, index],
+  );
+
+  const canWrap = repeat === 'all' && queue.length > 1;
+  const nextTarget = nextIndex(index, queue.length);
+  const wrappedNext = canWrap && index === queue.length - 1 ? 0 : nextTarget;
+  const previousResult = previousAction(positionMs, index, queue.length);
+  const wrapPrevious = canWrap && index === 0 && previousResult.type === 'none';
+
   const next = useCallback(() => {
-    const target = nextIndex(index, queue.length);
-    if (target === -1) return;
-    const nextTrack = queue[target];
+    if (wrappedNext === -1) return;
+    const nextTrack = queue[wrappedNext];
     const resolveUri = resolveUriRef.current;
     if (!nextTrack || !resolveUri) return;
     void playTrack(nextTrack, resolveUri, queue);
-  }, [index, queue, playTrack]);
+  }, [wrappedNext, queue, playTrack]);
 
   const previous = useCallback(() => {
-    const action = previousAction(positionMs, index, queue.length);
-    if (action.type === 'restart') {
+    if (previousResult.type === 'restart') {
       void seek(0);
       return;
     }
-    if (action.type === 'none') return;
-    const previousTrack = queue[action.index];
+    const target = previousResult.type === 'previous' ? previousResult.index : wrapPrevious ? queue.length - 1 : -1;
+    if (target === -1) return;
+    const previousTrack = queue[target];
     const resolveUri = resolveUriRef.current;
     if (!previousTrack || !resolveUri) return;
     void playTrack(previousTrack, resolveUri, queue);
-  }, [positionMs, index, queue, playTrack, seek]);
+  }, [previousResult, wrapPrevious, queue, playTrack, seek]);
 
-  const hasNext = nextIndex(index, queue.length) !== -1;
-  const hasPrevious = previousAction(positionMs, index, queue.length).type !== 'none';
+  const hasNext = wrappedNext !== -1;
+  const hasPrevious = previousResult.type !== 'none' || wrapPrevious;
 
   const cycleRepeat = useCallback(() => {
     setRepeat((mode) => (mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'));
@@ -263,6 +286,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       next,
       previous,
       stop,
+      removeFromQueue,
     }),
     [
       track,
@@ -280,6 +304,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       next,
       previous,
       stop,
+      removeFromQueue,
     ],
   );
 

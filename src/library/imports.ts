@@ -3,7 +3,7 @@ import { createAudioPlayer } from 'expo-audio';
 import { Directory, File, Paths } from 'expo-file-system';
 import type { Track } from '../types';
 import { titleFromFilename } from '../lib/format';
-import { hueFromSeed } from '../lib/hash';
+import { hashString, hueFromSeed } from '../lib/hash';
 
 const KEY = 'krotify.imports.v1';
 const PROBE_TIMEOUT_MS = 2000;
@@ -57,6 +57,14 @@ export async function loadImportedTracks(): Promise<Track[]> {
   return readTracks();
 }
 
+async function discardFile(file: File): Promise<void> {
+  try {
+    if (file.exists) file.delete();
+  } catch {
+    // ponytail: best-effort cleanup
+  }
+}
+
 export async function pickAndImportTracks(): Promise<Track[]> {
   const picked = await File.pickFileAsync({ multipleFiles: true, mimeTypes: ['audio/*'] });
   if (picked.canceled) return [];
@@ -65,19 +73,21 @@ export async function pickAndImportTracks(): Promise<Track[]> {
   dir.create({ idempotent: true, intermediates: true });
 
   const stored = await readTracks();
-  const knownUris = new Set(stored.map((track) => track.uri));
+  const knownIds = new Set(stored.map((track) => track.id));
   const added: Track[] = [];
+  const copied: File[] = [];
   const stamp = Date.now();
 
   for (const [index, file] of picked.result.entries()) {
+    const id = `import:${hashString(file.name + ':' + (file.size ?? 0))}`;
+    if (knownIds.has(id)) continue;
+    const destination = new File(dir, `${stamp}-${index}-${file.name}`);
     try {
-      const destination = new File(dir, `${stamp}-${index}-${file.name}`);
       await file.copy(destination);
+      copied.push(destination);
       const uri = destination.uri;
-      if (knownUris.has(uri)) continue;
-      knownUris.add(uri);
       added.push({
-        id: uri,
+        id,
         uri,
         source: 'import',
         title: titleFromFilename(file.name),
@@ -86,12 +96,20 @@ export async function pickAndImportTracks(): Promise<Track[]> {
         durationMs: await probeDurationMs(uri),
         artworkHue: hueFromSeed(file.name),
       });
+      knownIds.add(id);
     } catch {
-      // ponytail: one unreadable file must not abort the batch
+      await discardFile(destination);
     }
   }
 
-  if (added.length > 0) await writeTracks([...stored, ...added]);
+  if (added.length > 0) {
+    try {
+      await writeTracks([...stored, ...added]);
+    } catch (error) {
+      await Promise.all(copied.map(discardFile));
+      throw error;
+    }
+  }
   return added;
 }
 
@@ -101,10 +119,6 @@ export async function removeImportedTrack(id: string): Promise<void> {
 }
 
 export async function deleteImportedFile(uri: string): Promise<void> {
-  try {
-    const file = new File(uri);
-    if (file.exists) file.delete();
-  } catch {
-    // ponytail: already gone is fine
-  }
+  const file = new File(uri);
+  if (file.exists) file.delete();
 }

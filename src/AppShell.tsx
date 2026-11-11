@@ -20,7 +20,7 @@ import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
-  const { track: currentTrack, playTrack, stop } = usePlayer();
+  const { track: currentTrack, playTrack, stop, removeFromQueue } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [excluded, setExcluded] = useState<Track[]>([]);
@@ -134,6 +134,7 @@ export function AppShell() {
     const next = await excludeTrack(track);
     setExcluded(next);
     setTracks((prev) => prev.filter((item) => item.id !== track.id));
+    removeFromQueue([track.id]);
   }
 
   async function deleteTrack(track: Track) {
@@ -145,11 +146,13 @@ export function AppShell() {
         await removeImportedTrack(track.id);
       }
     } catch {
-      // ponytail: a failed delete keeps the row; the user can retry
+      setStatusNote('Could not delete this file');
+      return;
     }
     const nextExcluded = await restoreTrack(track.id);
     setExcluded(nextExcluded);
     setTracks((prev) => prev.filter((item) => item.id !== track.id));
+    removeFromQueue([track.id]);
     if (currentTrack?.id === track.id) stop();
   }
 
