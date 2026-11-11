@@ -1,3 +1,4 @@
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -24,7 +25,19 @@ type Props = {
 const SLIDE_MS = 300;
 
 export function NowPlayingScreen({ onClose }: Props) {
-  const { track, isPlaying, positionMs, durationMs, lastError, toggle, seek } = usePlayer();
+  const {
+    track,
+    isPlaying,
+    positionMs,
+    durationMs,
+    lastError,
+    hasNext,
+    hasPrevious,
+    toggle,
+    seek,
+    next,
+    previous,
+  } = usePlayer();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [slide] = useState(() => new Animated.Value(height));
@@ -82,14 +95,15 @@ export function NowPlayingScreen({ onClose }: Props) {
             hitSlop={space.sm}
             style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
           >
-            <Text style={styles.chevron}>⌄</Text>
+            <Ionicons name="chevron-down" size={28} color={colors.text} />
           </Pressable>
           <View
             style={styles.iconButton}
+            accessible={false}
             accessibilityElementsHidden
             importantForAccessibility="no"
           >
-            <Text style={styles.overflow}>⋯</Text>
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.textDim} />
           </View>
         </View>
 
@@ -115,12 +129,40 @@ export function NowPlayingScreen({ onClose }: Props) {
           />
           <View style={styles.transport}>
             <Pressable
+              onPress={previous}
+              disabled={!hasPrevious}
+              accessibilityRole="button"
+              accessibilityLabel="Previous track"
+              accessibilityState={{ disabled: !hasPrevious }}
+              style={({ pressed }) => [
+                styles.sideButton,
+                !hasPrevious && styles.disabled,
+                pressed && hasPrevious && styles.sidePressed,
+              ]}
+            >
+              <Ionicons name="play-skip-back" size={24} color={colors.text} />
+            </Pressable>
+            <Pressable
               onPress={toggle}
               accessibilityRole="button"
               accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
               style={({ pressed }) => [styles.playButton, pressed && styles.playPressed]}
             >
-              <Text style={styles.playGlyph}>{isPlaying ? '❚❚' : '▶'}</Text>
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#FFFFFF" />
+            </Pressable>
+            <Pressable
+              onPress={next}
+              disabled={!hasNext}
+              accessibilityRole="button"
+              accessibilityLabel="Next track"
+              accessibilityState={{ disabled: !hasNext }}
+              style={({ pressed }) => [
+                styles.sideButton,
+                !hasNext && styles.disabled,
+                pressed && hasNext && styles.sidePressed,
+              ]}
+            >
+              <Ionicons name="play-skip-forward" size={24} color={colors.text} />
             </Pressable>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
@@ -158,16 +200,6 @@ const styles = StyleSheet.create({
   iconPressed: {
     backgroundColor: '#ffffff14',
   },
-  chevron: {
-    color: colors.text,
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  overflow: {
-    color: colors.textDim,
-    fontSize: 22,
-    lineHeight: 26,
-  },
   middle: {
     flex: 1,
     alignItems: 'center',
@@ -188,8 +220,24 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
   },
   transport: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.lg,
     marginTop: space.lg,
+  },
+  sideButton: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+  },
+  sidePressed: {
+    backgroundColor: '#ffffff14',
+  },
+  disabled: {
+    opacity: 0.35,
   },
   playButton: {
     width: 64,
@@ -201,11 +249,6 @@ const styles = StyleSheet.create({
   },
   playPressed: {
     opacity: 0.85,
-  },
-  playGlyph: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
   },
   error: {
     ...type.meta,

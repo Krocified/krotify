@@ -28,8 +28,22 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["expo-audio", { "enableBackgroundPlayback": true }],
-      ["expo-media-library", { "granularPermissions": ["audio"] }]
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "granularPermissions": [
+            "audio"
+          ]
+        }
+      ],
+      "@react-native-vector-icons/ionicons",
+      "expo-font"
     ]
   }
 }

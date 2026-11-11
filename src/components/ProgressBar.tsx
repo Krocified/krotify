@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
-  Pressable,
+  PanResponder,
   StyleSheet,
   Text,
   View,
@@ -15,43 +15,115 @@ type Props = {
   onSeek: (positionMs: number) => void;
 };
 
+const STEP_MS = 10_000;
+
 export function ProgressBar({ positionMs, durationMs, onSeek }: Props) {
   const [width, setWidth] = useState(0);
-  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
+  const [dragMs, setDragMs] = useState<number | null>(null);
+  const barRef = useRef<ComponentRef<typeof View>>(null);
+  const leftRef = useRef(0);
+  const widthRef = useRef(0);
+  const durationRef = useRef(durationMs);
+  const draggingRef = useRef(false);
+  const onSeekRef = useRef(onSeek);
+
+  useEffect(() => {
+    durationRef.current = durationMs;
+  }, [durationMs]);
+
+  useEffect(() => {
+    onSeekRef.current = onSeek;
+  }, [onSeek]);
+
+  const positionFromPageX = useCallback((pageX: number) => {
+    const barWidth = widthRef.current;
+    const barDuration = durationRef.current;
+    if (barWidth <= 0 || barDuration <= 0) return 0;
+    const ratio = Math.min(1, Math.max(0, (pageX - leftRef.current) / barWidth));
+    return Math.round(ratio * barDuration);
+  }, []);
+
+  const panResponder = useMemo(
+    () =>
+      // ponytail: handlers read refs only at event time, never during render
+      // eslint-disable-next-line react-hooks/refs
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          draggingRef.current = true;
+          setDragMs(positionFromPageX(event.nativeEvent.pageX));
+        },
+        onPanResponderMove: (event) => {
+          if (!draggingRef.current) return;
+          setDragMs(positionFromPageX(event.nativeEvent.pageX));
+        },
+        onPanResponderRelease: (event) => {
+          const ms = positionFromPageX(event.nativeEvent.pageX);
+          draggingRef.current = false;
+          setDragMs(null);
+          if (durationRef.current > 0) onSeekRef.current(ms);
+        },
+        onPanResponderTerminate: () => {
+          draggingRef.current = false;
+          setDragMs(null);
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [positionFromPageX],
+  );
+
+  const displayMs = dragMs ?? positionMs;
+  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, displayMs / durationMs)) : 0;
 
   function handleLayout(event: LayoutChangeEvent) {
-    setWidth(event.nativeEvent.layout.width);
+    const layoutWidth = event.nativeEvent.layout.width;
+    widthRef.current = layoutWidth;
+    setWidth(layoutWidth);
+    barRef.current?.measureInWindow((x) => {
+      leftRef.current = x;
+    });
   }
 
-  function handlePress(locationX: number) {
-    if (width <= 0 || durationMs <= 0) return;
-    const clamped = Math.min(1, Math.max(0, locationX / width));
-    onSeek(Math.round(clamped * durationMs));
+  function step(deltaMs: number) {
+    if (durationMs <= 0) return;
+    const next = Math.min(durationMs, Math.max(0, displayMs + deltaMs));
+    onSeek(Math.round(next));
   }
 
   return (
     <View>
       <View style={styles.times}>
-        <Text style={styles.time}>{formatDuration(positionMs)}</Text>
+        <Text style={styles.time}>{formatDuration(displayMs)}</Text>
         <Text style={styles.time}>{formatDuration(durationMs)}</Text>
       </View>
-      <Pressable
+      <View
+        ref={barRef}
         onLayout={handleLayout}
-        onPress={(event) => handlePress(event.nativeEvent.locationX)}
-        accessibilityRole="progressbar"
+        {...panResponder.panHandlers}
+        style={styles.seeker}
+        accessible
+        accessibilityRole="adjustable"
         accessibilityLabel="Seek"
         accessibilityValue={{
           min: 0,
-          max: Math.round(durationMs / 1000),
-          now: Math.round(positionMs / 1000),
+          max: Math.round(durationMs),
+          now: Math.round(displayMs),
         }}
-        style={styles.seeker}
+        accessibilityActions={[
+          { name: 'increment', label: 'Seek forward' },
+          { name: 'decrement', label: 'Seek backward' },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment') step(STEP_MS);
+          else if (event.nativeEvent.actionName === 'decrement') step(-STEP_MS);
+        }}
       >
         <View style={styles.track} pointerEvents="none">
           <View style={[styles.fill, { width: width * ratio }]} />
           {width > 0 ? <View style={[styles.thumb, { left: width * ratio - 6 }]} /> : null}
         </View>
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -68,7 +140,8 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   seeker: {
-    paddingVertical: space.sm,
+    height: 44,
+    justifyContent: 'center',
   },
   track: {
     height: 4,

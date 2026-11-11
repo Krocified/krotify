@@ -1,3 +1,4 @@
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../player/PlayerProvider';
@@ -9,13 +10,18 @@ type Props = {
 };
 
 export function MiniPlayer({ onExpand }: Props) {
-  const { track, isPlaying, toggle } = usePlayer();
+  const { track, isPlaying, positionMs, durationMs, toggle } = usePlayer();
   const insets = useSafeAreaInsets();
 
   if (!track) return null;
 
+  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
+
   return (
     <View style={[styles.wrap, { paddingBottom: insets.bottom }]}>
+      <View style={styles.progressTrack} pointerEvents="none">
+        <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
+      </View>
       <View style={styles.bar}>
         <Pressable
           onPress={onExpand}
@@ -35,7 +41,7 @@ export function MiniPlayer({ onExpand }: Props) {
           hitSlop={space.sm}
           style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
         >
-          <Text style={styles.glyph}>{isPlaying ? '❚❚' : '▶'}</Text>
+          <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={colors.text} />
         </Pressable>
       </View>
     </View>
@@ -49,6 +55,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: colors.surfaceHi,
+  },
+  progressTrack: {
+    height: 2,
+    backgroundColor: '#ffffff1f',
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: colors.accent,
   },
   bar: {
     height: 64,
@@ -81,10 +95,5 @@ const styles = StyleSheet.create({
   },
   togglePressed: {
     backgroundColor: '#ffffff14',
-  },
-  glyph: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

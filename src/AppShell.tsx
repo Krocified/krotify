@@ -66,11 +66,15 @@ export function AppShell() {
   }, [screen]);
 
   async function handleSelect(track: Track) {
-    const ok = await playTrack(track, async (t) => {
-      const asset = assetsRef.current.get(t.id);
-      if (!asset) throw new Error('missing asset');
-      return asset.getUri();
-    });
+    const ok = await playTrack(
+      track,
+      async (t) => {
+        const asset = assetsRef.current.get(t.id);
+        if (!asset) throw new Error('missing asset');
+        return asset.getUri();
+      },
+      tracks,
+    );
     if (!ok) {
       if (currentTrack?.id !== track.id) setStatusNote('Could not play this file');
     } else {
@@ -100,13 +104,12 @@ export function AppShell() {
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen onClose={() => setScreen('library')} />
       ) : null}
-      {screen === 'settings' ? (
-        <SettingsScreen
-          status={status}
-          onRescan={() => setScanId((n) => n + 1)}
-          onBack={() => setScreen('library')}
-        />
-      ) : null}
+      <SettingsScreen
+        visible={screen === 'settings'}
+        status={status}
+        onRescan={() => setScanId((n) => n + 1)}
+        onBack={() => setScreen('library')}
+      />
     </View>
   );
 }

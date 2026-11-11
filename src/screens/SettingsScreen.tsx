@@ -1,9 +1,22 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus } from '../types';
 
 type Props = {
+  visible: boolean;
   status: LibraryStatus;
   onRescan: () => void;
   onBack: () => void;
@@ -14,13 +27,40 @@ const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
   denied: 'Not granted',
 };
 
-export function SettingsScreen({ status, onRescan, onBack }: Props) {
+const FADE_MS = 250;
+
+export function SettingsScreen({ visible, status, onRescan, onBack }: Props) {
   const insets = useSafeAreaInsets();
+  const [anim] = useState(() => new Animated.Value(0));
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
 
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: visible ? 1 : 0,
+      duration: FADE_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [anim, visible]);
+
   return (
-    <View style={styles.root}>
+    <Animated.View
+      style={[
+        styles.root,
+        {
+          opacity: anim,
+          transform: [
+            {
+              translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
+            },
+          ],
+        },
+      ]}
+      pointerEvents={visible ? 'auto' : 'none'}
+      accessibilityElementsHidden={!visible}
+      importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
+    >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <Pressable
           onPress={onBack}
@@ -29,7 +69,7 @@ export function SettingsScreen({ status, onRescan, onBack }: Props) {
           hitSlop={space.sm}
           style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
         >
-          <Text style={styles.chevron}>‹</Text>
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>Settings</Text>
         <View style={styles.iconButton} />
@@ -52,7 +92,7 @@ export function SettingsScreen({ status, onRescan, onBack }: Props) {
             {scanning ? (
               <ActivityIndicator color={colors.accent} />
             ) : (
-              <Text style={styles.rowGlyph}>›</Text>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
             )}
           </Pressable>
         </View>
@@ -74,7 +114,7 @@ export function SettingsScreen({ status, onRescan, onBack }: Props) {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -103,11 +143,6 @@ const styles = StyleSheet.create({
   },
   iconPressed: {
     backgroundColor: colors.surfaceHi,
-  },
-  chevron: {
-    color: colors.text,
-    fontSize: 30,
-    lineHeight: 34,
   },
   title: {
     ...type.body,
@@ -147,10 +182,5 @@ const styles = StyleSheet.create({
   rowValue: {
     ...type.meta,
     color: colors.textDim,
-  },
-  rowGlyph: {
-    color: colors.textDim,
-    fontSize: 24,
-    lineHeight: 26,
   },
 });

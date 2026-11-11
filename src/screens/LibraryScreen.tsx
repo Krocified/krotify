@@ -1,3 +1,4 @@
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrackRow } from '../components/TrackRow';
@@ -35,7 +36,7 @@ export function LibraryScreen({ tracks, status, statusNote, onSelect, onOpenSett
           hitSlop={space.sm}
           style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
         >
-          <Text style={styles.gearGlyph}>⚙</Text>
+          <Ionicons name="settings-outline" size={22} color={colors.textDim} />
         </Pressable>
       </View>
 
@@ -98,10 +99,6 @@ const styles = StyleSheet.create({
   },
   gearPressed: {
     backgroundColor: colors.surfaceHi,
-  },
-  gearGlyph: {
-    color: colors.textDim,
-    fontSize: 22,
   },
   scanning: {
     flex: 1,
