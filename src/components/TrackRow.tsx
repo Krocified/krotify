@@ -24,7 +24,13 @@ export function TrackRow({ track, onPress, onLongPress }: Props) {
       accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <CoverArt hue={track.artworkHue} title={track.title} size={56} radius={4} />
+      <CoverArt
+        hue={track.artworkHue}
+        title={track.title}
+        size={56}
+        radius={4}
+        uri={track.artworkUri}
+      />
       <Text style={styles.title} numberOfLines={1}>
         {track.title}
       </Text>

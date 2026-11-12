@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
+import { TabBar, type TabName } from './components/TabBar';
 import { DEMO_TRACKS } from './library/demo';
 import { excludeTrack, loadExcludedTracks, restoreTrack } from './library/exclusions';
 import {
@@ -13,10 +14,13 @@ import {
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { mergeLibrary } from './lib/library';
 import { enrichTracks } from './library/metadata';
-import { listFavoriteIds, listRecentTrackIds } from './db/repo';
+import { listFavoriteIds, listRecentTrackIds, recordPlay } from './db/repo';
 import { usePlayer } from './player/PlayerProvider';
+import { AlbumsScreen } from './screens/AlbumsScreen';
+import { ArtistsScreen } from './screens/ArtistsScreen';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
+import { SearchScreen } from './screens/SearchScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
@@ -24,9 +28,10 @@ import type { LibraryStatus, ScreenName, Track } from './types';
 export function AppShell() {
   const { track: currentTrack, playTrack, stop, removeFromQueue } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
+  const [tab, setTab] = useState<TabName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [, setFavoriteIds] = useState<Set<string>>(() => new Set());
-  const [, setRecentTrackIds] = useState<string[]>([]);
+  const [recentTrackIds, setRecentTrackIds] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<Track[]>([]);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
@@ -37,6 +42,19 @@ export function AppShell() {
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
+
+  const refreshRecent = useCallback(() => {
+    void listRecentTrackIds(20)
+      .then((ids) => setRecentTrackIds(ids))
+      .catch(() => {});
+  }, []);
+
+  const recentTracks = useMemo(() => {
+    const byId = new Map(tracks.map((track) => [track.id, track]));
+    return recentTrackIds
+      .map((id) => byId.get(id))
+      .filter((track): track is Track => track !== undefined);
+  }, [recentTrackIds, tracks]);
 
   useEffect(() => {
     async function loadLibrary() {
@@ -129,16 +147,20 @@ export function AppShell() {
         else setScreen('library');
         return true;
       }
-      if (screen === 'settings') {
-        setScreen('library');
+      if (screen === 'settings' || screen === 'search') {
+        setScreen(tab);
         return true;
       }
       return false;
     });
     return () => sub.remove();
-  }, [screen]);
+  }, [screen, tab]);
 
-  async function handleSelect(track: Track) {
+  useEffect(() => {
+    if (screen === 'library') refreshRecent();
+  }, [screen, refreshRecent]);
+
+  async function handleSelect(track: Track, queue?: Track[]) {
     if (currentTrack?.id === track.id) {
       setScreen('nowPlaying');
       return;
@@ -151,12 +173,13 @@ export function AppShell() {
         if (!asset) throw new Error('missing asset');
         return asset.getUri();
       },
-      tracks,
+      queue ?? tracks,
     );
     if (!ok) {
       if (currentTrack?.id !== track.id) setStatusNote('Could not play this file');
     } else {
       setStatusNote(null);
+      void recordPlay(track.id).then(refreshRecent).catch(() => {});
       setScreen('nowPlaying');
     }
   }
@@ -247,21 +270,37 @@ export function AppShell() {
     }
   }
 
+  const showTabs = screen === 'library' || screen === 'albums' || screen === 'artists';
+  const activeTab: TabName = showTabs ? screen : tab;
+
+  function selectTab(next: TabName) {
+    setTab(next);
+    setScreen(next);
+  }
+
   return (
     <View style={styles.root}>
       <View
         style={styles.library}
-        accessibilityElementsHidden={screen !== 'library'}
-        importantForAccessibility={screen !== 'library' ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={!showTabs}
+        importantForAccessibility={showTabs ? 'auto' : 'no-hide-descendants'}
       >
-        <LibraryScreen
-          tracks={tracks}
-          status={status}
-          statusNote={statusNote}
-          onSelect={handleSelect}
-          onManage={handleManage}
-          onOpenSettings={() => setScreen('settings')}
-        />
+        {activeTab === 'library' ? (
+          <LibraryScreen
+            tracks={tracks}
+            recentTracks={recentTracks}
+            status={status}
+            statusNote={statusNote}
+            onSelect={handleSelect}
+            onManage={handleManage}
+            onOpenSearch={() => setScreen('search')}
+            onOpenSettings={() => setScreen('settings')}
+          />
+        ) : activeTab === 'albums' ? (
+          <AlbumsScreen tracks={tracks} onSelect={handleSelect} />
+        ) : (
+          <ArtistsScreen tracks={tracks} onSelect={handleSelect} />
+        )}
       </View>
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
@@ -269,17 +308,31 @@ export function AppShell() {
           registerClose={registerClose}
         />
       ) : null}
+      <SearchScreen
+        visible={screen === 'search'}
+        tracks={tracks}
+        onSelect={handleSelect}
+        onBack={() => setScreen(activeTab)}
+      />
       <SettingsScreen
         visible={screen === 'settings'}
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
-        onBack={() => setScreen('library')}
+        onBack={() => setScreen(activeTab)}
         onImport={() => void handleImport()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}
         importing={importing}
       />
-      {screen !== 'nowPlaying' ? <MiniPlayer onExpand={() => setScreen('nowPlaying')} /> : null}
+      {screen !== 'nowPlaying' ? (
+        <View style={styles.bottom}>
+          <MiniPlayer
+            onExpand={() => setScreen('nowPlaying')}
+            standalone={!showTabs}
+          />
+          {showTabs ? <TabBar active={activeTab} onSelect={selectTab} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -292,5 +345,11 @@ const styles = StyleSheet.create({
   },
   library: {
     flex: 1,
+  },
+  bottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

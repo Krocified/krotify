@@ -17,9 +17,10 @@ import { CoverArt } from './CoverArt';
 
 type Props = {
   onExpand: () => void;
+  standalone?: boolean;
 };
 
-export function MiniPlayer({ onExpand }: Props) {
+export function MiniPlayer({ onExpand, standalone = false }: Props) {
   const { track, isPlaying, positionMs, durationMs, toggle, stop } = usePlayer();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -139,7 +140,10 @@ export function MiniPlayer({ onExpand }: Props) {
       {...panResponder.panHandlers}
       style={[
         styles.wrap,
-        { paddingBottom: insets.bottom, transform: [{ translateX: offsetX }, { translateY: offsetY }] },
+        {
+          paddingBottom: standalone ? insets.bottom : 0,
+          transform: [{ translateX: offsetX }, { translateY: offsetY }],
+        },
       ]}
     >
       <View style={styles.progressTrack} pointerEvents="none">
@@ -152,7 +156,13 @@ export function MiniPlayer({ onExpand }: Props) {
           accessibilityLabel="Open now playing"
           style={({ pressed }) => [styles.expand, pressed && styles.pressed]}
         >
-          <CoverArt hue={track.artworkHue} title={track.title} size={44} radius={4} />
+          <CoverArt
+            hue={track.artworkHue}
+            title={track.title}
+            size={44}
+            radius={4}
+            uri={track.artworkUri}
+          />
           <Text style={styles.title} numberOfLines={1}>
             {track.title}
           </Text>
@@ -182,10 +192,6 @@ export function MiniPlayer({ onExpand }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: colors.surfaceHi,
   },
   progressTrack: {

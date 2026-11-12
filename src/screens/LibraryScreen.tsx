@@ -1,20 +1,21 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RecentlyPlayed } from '../components/RecentlyPlayed';
 import { TrackRow } from '../components/TrackRow';
 import { colors, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
 type Props = {
   tracks: Track[];
+  recentTracks: Track[];
   status: LibraryStatus;
   statusNote: string | null;
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, queue: Track[]) => void;
   onManage: (track: Track) => void;
+  onOpenSearch: () => void;
   onOpenSettings: () => void;
 };
-
-const ROW = 72;
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
   denied: 'Showing demo tracks. Allow audio access in Settings.',
@@ -24,10 +25,12 @@ const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
 
 export function LibraryScreen({
   tracks,
+  recentTracks,
   status,
   statusNote,
   onSelect,
   onManage,
+  onOpenSearch,
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -44,15 +47,26 @@ export function LibraryScreen({
           />
           <Text style={styles.wordmark}>Krotify</Text>
         </View>
-        <Pressable
-          onPress={onOpenSettings}
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          hitSlop={space.sm}
-          style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
-        >
-          <Ionicons name="settings-outline" size={22} color={colors.textDim} />
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onOpenSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
+          >
+            <Ionicons name="search-outline" size={22} color={colors.textDim} />
+          </Pressable>
+          <Pressable
+            onPress={onOpenSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.textDim} />
+          </Pressable>
+        </View>
       </View>
 
       {status === 'scanning' ? (
@@ -76,13 +90,21 @@ export function LibraryScreen({
             data={tracks}
             keyExtractor={(t) => t.id}
             renderItem={({ item }) => (
-              <TrackRow track={item} onPress={onSelect} onLongPress={() => onManage(item)} />
+              <TrackRow
+                track={item}
+                onPress={(track) => onSelect(track, tracks)}
+                onLongPress={() => onManage(item)}
+              />
             )}
-            getItemLayout={(_, index) => ({ length: ROW, offset: ROW * index, index })}
+            ListHeaderComponent={
+              recentTracks.length > 0 ? (
+                <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
+              ) : undefined
+            }
             initialNumToRender={16}
             windowSize={9}
             removeClippedSubviews
-            contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
+            contentContainerStyle={{ paddingBottom: 88 + 56 + insets.bottom }}
           />
         </>
       )}
@@ -115,6 +137,11 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
   },
   gear: {
     width: 44,

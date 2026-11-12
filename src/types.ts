@@ -14,6 +14,12 @@ export type Track = {
   albumArtist?: string;
 };
 
-export type ScreenName = 'library' | 'nowPlaying' | 'settings';
+export type ScreenName =
+  | 'library'
+  | 'albums'
+  | 'artists'
+  | 'search'
+  | 'nowPlaying'
+  | 'settings';
 
 export type LibraryStatus = 'scanning' | 'ready' | 'denied' | 'empty' | 'error';
