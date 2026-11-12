@@ -1,7 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, space, type } from '../theme';
 
@@ -16,11 +16,13 @@ type Props = {
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const TABS: { name: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
+const ALL_TABS: { name: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
   { name: 'library', label: 'Library', icon: 'library-outline', iconActive: 'library' },
   { name: 'albums', label: 'Albums', icon: 'albums-outline', iconActive: 'albums' },
   { name: 'artists', label: 'Artists', icon: 'people-outline', iconActive: 'people' },
 ];
+
+const TABS = Platform.OS === 'web' ? ALL_TABS : ALL_TABS.filter((tab) => tab.name === 'library');
 
 export function TabBar({ active, onSelect }: Props) {
   const insets = useSafeAreaInsets();

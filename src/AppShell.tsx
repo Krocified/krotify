@@ -290,19 +290,6 @@ export function AppShell() {
     }
   }
 
-  async function handleRestore(id: string) {
-    const track = excluded.find((item) => item.id === id);
-    const next = await restoreTrack(id);
-    setExcluded(next);
-    if (track) {
-      setTracks((prev) =>
-        mergeLibrary(prev, [track], new Set(next.map((item) => item.id))),
-      );
-      setStatus('ready');
-      setStatusNote(null);
-    }
-  }
-
   const showTabs = screen === 'library' || screen === 'albums' || screen === 'artists';
   const showTabBar = screen !== 'nowPlaying' && screen !== 'search';
   const activeTab: TabName = showTabs ? screen : tab;
@@ -376,8 +363,6 @@ export function AppShell() {
         onRescan={() => setScanId((n) => n + 1)}
         onBack={() => setScreen(settingsReturnRef.current)}
         onImport={() => void handleImport()}
-        excluded={excluded}
-        onRestore={(id) => void handleRestore(id)}
         onExcludeAll={() => void excludeAllTracks()}
         canExcludeAll={tracks.some((track) => track.source === 'scan')}
         importing={importing}

@@ -18,7 +18,7 @@ import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { colors, radius, space, type } from '../theme';
-import type { LibraryStatus, Track } from '../types';
+import type { LibraryStatus } from '../types';
 
 type Props = {
   visible: boolean;
@@ -26,8 +26,6 @@ type Props = {
   onRescan: () => void;
   onBack: () => void;
   onImport: () => void;
-  excluded: Track[];
-  onRestore: (id: string) => void;
   onExcludeAll: () => void;
   canExcludeAll: boolean;
   importing?: boolean;
@@ -46,8 +44,6 @@ export function SettingsScreen({
   onRescan,
   onBack,
   onImport,
-  excluded,
-  onRestore,
   onExcludeAll,
   canExcludeAll,
   importing = false,
@@ -164,31 +160,6 @@ export function SettingsScreen({
             </View>
           </View>
 
-          {excluded.length > 0 ? (
-            <>
-              <Text style={styles.sectionTitle}>Hidden tracks</Text>
-              <View style={styles.card}>
-                {excluded.map((track) => (
-                  <View key={track.id} style={styles.row}>
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {track.title}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => onRestore(track.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Restore ${track.title}`}
-                      style={({ pressed }) => [styles.restore, pressed && styles.restorePressed]}
-                    >
-                      <Text style={styles.restoreText}>Restore</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
-
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
             <View style={styles.row}>
@@ -276,18 +247,5 @@ const styles = StyleSheet.create({
   rowValue: {
     ...type.meta,
     color: colors.textDim,
-  },
-  restore: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
-  },
-  restorePressed: {
-    opacity: 0.7,
-  },
-  restoreText: {
-    ...type.meta,
-    color: colors.accent2,
   },
 });
