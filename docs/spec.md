@@ -133,16 +133,17 @@ Blocked:
 ## Library management
 
 Two sources, one list.
-- **Scan** — every audio file the device exposes (all audio types, no duration
-  floor). Files are referenced in place. `expo-media-library` permission; denial
-  falls back to the demo library.
-- **Import** — system file picker (`File.pickFileAsync`, `audio/*`, multi-select).
-  Copies into app storage. Files already in the library are skipped by URI, never
-  duplicated.
+- **Scan**: device audio except ringtones, notifications, alarms and UI sounds,
+  and except files under 3s. Files are referenced in place with a resolved URI.
+  `expo-media-library` permission; denial falls back to imports, then demo.
+- **Import**: system file picker, copied into app storage. Already-imported files
+  are skipped by source name + size, never duplicated. Imports bypass the scan
+  filter.
 
 **Exclude vs delete**
-- Exclude is app state only: store the URI/id in a `excluded` table, filter it out
-  of every list and queue. Undo is one tap, file untouched.
+- Exclude is app state only: store the track in the AsyncStorage exclusion list,
+  filter it out of every list and the player queue. Undo is one tap, file
+  untouched. Settings can exclude all scanned tracks at once.
 - Delete is destructive: confirm in a dialog that names the track, then call
   `Asset.delete(assets)` for scanned media (Android shows its own system
   confirmation) or `File.delete()` for imported copies. (`deleteAssetsAsync` is
@@ -152,8 +153,9 @@ Two sources, one list.
 
 ## Settings
 
-A real screen from v0, minimal: library rescan, permission status, about. Every
-other option appears only once the feature behind it exists.
+Sectioned into Library (rescan, import, exclude all), Hidden tracks (restore),
+and About (version from `app.json`). Tabs and the mini-player remain visible
+while Settings is open.
 
 ## Screens & flows
 
