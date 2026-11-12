@@ -121,6 +121,10 @@ Prerequisite: the v2 leftovers (playlist UI, favorites UI, scan opt-in) and the
 Playback and listening:
 - Notification and lock-screen next/previous must work. This ships with the
   `AudioPlaylist` migration in Task 1; the single `AudioPlayer` ignores them.
+- Notification play/pause indicator must reflect the real playback state,
+  with a valid small icon, action buttons and the track artwork as the large
+  icon. A moving visualizer is not something Android MediaStyle supports; plan
+  a static waveform glyph or drop it, not a fake animation.
 - Shuffle: queue order snapshot vs random-next, with an explicit interaction
   rule for repeat one. Enabling preserves the current track; disabling restores
   the original order at the current position.

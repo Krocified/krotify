@@ -76,9 +76,18 @@
 - [ ] Implement `playlistWindow`.
 - [ ] Replace the single player with `createAudioPlaylist`; resolve the window with the existing `resolveUri` ref, `skipTo(localIndex)`, `play()`.
 - [ ] Set `setActiveForLockScreen(true, metadata, { showNextTrack: true, showPreviousTrack: true, showSeekBackward: true, showSeekForward: true })` and map `playlist.loop` to repeat.
+- [ ] Sync playback state and metadata on every play/pause/track change so the
+  notification play/pause icon is never stale. Update `updateLockScreenMetadata`
+  on track change, including `artworkUrl` when the track has real art.
+- [ ] Provide a proper monochrome notification small icon via a config plugin and
+  Android drawable; verify it renders instead of a blank/placeholder icon.
+- [ ] Spike visualizer feasibility in a MediaStyle notification. Android does not
+  support live animated RemoteViews there; if it cannot be done reliably, use a
+  static waveform glyph or omit it and record the decision.
 - [ ] Listen to `trackChanged`; update app index/track and rebuild the window when it reaches an edge.
 - [ ] Route app next/previous/skipNext/skipPrevious through the playlist; keep the mock engine untouched.
-- [ ] Verify on device: notification next/prev changes tracks, gapless between adjacent tracks, screen locked.
+- [ ] Verify on device: notification next/prev changes tracks, play/pause icon
+  matches state, artwork appears, gapless between adjacent tracks, screen locked.
 - [ ] Commit `feat: move playback to playlist engine`.
 
 ---
