@@ -169,7 +169,13 @@ Stretch:
 
 ### v4 — Discovery (exploration)
 
-Not committed features yet; v4 starts with API and legal spikes.
+Not committed features yet; v4 is a research milestone with legal and API spikes,
+and every adopted item still needs a decision memo before code.
+
+Sources to evaluate:
+- https://docs.genius.com
+- https://publicapis.dev/resource/radio-browser/mdybs5l2
+- https://publicapis.dev/resource/audiometa-io/wlceksvl
 
 - **Genius** (`https://docs.genius.com`): song/artist metadata and annotations.
   Its public API does not serve lyrics for playback; do not scrape the web
