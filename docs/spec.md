@@ -119,6 +119,8 @@ Prerequisite: the v2 leftovers (playlist UI, favorites UI, scan opt-in) and the
 `AudioPlaylist` migration that makes notification next/previous work.
 
 Playback and listening:
+- Notification and lock-screen next/previous must work. This ships with the
+  `AudioPlaylist` migration in Task 1; the single `AudioPlayer` ignores them.
 - Shuffle: queue order snapshot vs random-next, with an explicit interaction
   rule for repeat one. Enabling preserves the current track; disabling restores
   the original order at the current position.
