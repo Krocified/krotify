@@ -48,7 +48,7 @@ Each milestone must run on a real device and be usable on its own.
 
 **v0 details**
 - Scan every `MediaType.AUDIO` asset, paged (200 at a time) with a loading state;
-  dedupe by URI. Sort A→Z by title.
+  dedupe by asset id. Sort A→Z by title.
 - Single player instance owned above the screens (`createAudioPlayer`) so it
   survives navigation; `useAudioPlayerStatus` polls at 500ms.
 - Request notification permission via `Audio.requestNotificationPermissionsAsync()`
@@ -64,48 +64,54 @@ Each milestone must run on a real device and be usable on its own.
 ID3 retriever in v2.
 
 ### v1 — It's a music app
-- Queue: tap-to-play sets queue; next/prev work, including from lock screen.
-- Now Playing: draggable progress, repeat.
-- Previous follows the standard two-tier rule: past 3 seconds it restarts the
-  current track; at or before 3 seconds it skips to the previous queue entry,
-  and does nothing at the first track.
-- Reopening the track that is already loaded resumes from its position; it never
-  restarts. Hardware back from Now Playing plays the same slide-down as the
-  chevron.
-- At the end of a track, playback advances to the next queue entry; at the last
-  track it stops at the end, and Play restarts that track from 0:00.
-- Next/previous take effect instantly: the progress bar jumps to the new
-  position instead of animating back across the old one.
-- Notification artwork for tracks that have real art (generated covers have no
-  file yet — acceptable to omit `artworkUrl`).
-- Import: pick audio files with the system file picker; imported files are
-  copied into app storage. An AsyncStorage index keeps imported tracks across
-  restarts; duplicates are skipped by URI.
-- Library management per track: **exclude** (hide, keep the file, reversible,
-  persisted) or **delete** (remove from device storage, confirmed first,
-  irreversible; `Asset.delete` for scanned files, `File.delete` for imported
-  copies).
+
+Delivered:
+- Queue from the visible list; in-app next/previous, auto-advance and repeat
+  off/all/one.
+- Two-tier previous (past 3s restarts, otherwise previous), instant track
+  switches, resume when reopening the current track.
+- Import via the system file picker, copied into app storage, deduped by source
+  name + size, indexed in AsyncStorage.
+- Exclude/delete per track; exclude all scanned tracks; restore from Settings.
+- Scan filters: ringtones/notifications/alarms/UI sounds and files under 3s are
+  skipped. Imports bypass the filter.
+- Background playback with notification/lock-screen play, pause and seek.
+
+Pending:
+- Notification/lock-screen next and previous. A single `AudioPlayer` ignores
+  them; this needs the `AudioPlaylist` engine planned in Next session.
+- Scan opt-in prompt.
 
 **Acceptance**
-- Next/prev traverse the queue in order.
-- Notification controls drive the same player state as the in-app controls.
+- Next/prev traverse the queue in order in the app.
 - An imported file plays after a restart and appears once, not twice.
-- An excluded track disappears from the library and comes back when re-included;
-  its file still exists. A deleted track is gone from storage after confirmation.
+- An excluded track disappears and returns with its file intact.
+- A deleted track is gone from storage after confirmation.
 
 ### v2 — Real library
-- Group by Album and Artist using ID3 tags; show embedded art when present.
-- Search across title/artist/album.
-- Playlists: create, add, reorder, delete (SQLite).
-- Favorites/heart via a `+` toggle with "Added to Liked Songs" / "Removed from
-  Liked Songs" confirmation.
-- Play-history store; Library gains the "Recently played" rail from real plays.
-- Explicit badge next to track titles when the tag is present.
+
+Delivered:
+- ID3 metadata enrichment in batches, cached in SQLite; filename titles remain
+  the fallback when tags are missing.
+- Albums and Artists tabs, albums sectioned by artist, album/artist detail pages
+  with hero cover, title and counts.
+- Search across title, artist and album, accent-folded.
+- Recently played rail fed by real play history.
+- Bottom tabs, one shared header, Settings sections, custom blue scrollbar, and
+  a varied demo library for the web preview.
+
+Data layer only:
+- Playlists and favorites tables and repository functions exist; their UI is not
+  built yet.
+
+Blocked:
+- Explicit badge: the metadata library exposes no explicit flag.
 
 **Acceptance**
-- Albums/Artists screens reflect real tags, not filenames.
-- A playlist survives app restart.
-- Search returns matches across all three fields.
+- Albums/Artists reflect tags rather than filenames.
+- Search matches title, artist and album.
+- Recently played contains only tracks actually played.
+- Playlists and favorites persistence are ready for their UI.
 
 ### v3 — Delight
 - Shuffle (deferred from v1): define queue-order vs random-next, and how it
@@ -151,35 +157,41 @@ other option appears only once the feature behind it exists.
 
 ## Screens & flows
 
-**Library (home)** — top bar (`krotify` wordmark), then a track list. A horizontal
-"Recently played" rail slots in above the list once real play history exists (v2);
-v0 does not seed or fake it. Tapping a row opens Now Playing.
-**Now Playing** — full-bleed backdrop extracted from the current cover's color, a
-large 1:1 cover, title/artist, progress, transport controls. Slides up from the
-mini-player.
-**Mini-player** — persistent bottom bar on Library and Settings: 2px progress line,
-small cover, title, close, play/pause. Tap or swipe up expands; swipe down, left
-or right dismisses the player (stops playback). Reopening the playing track
-resumes its position.
-**Settings** — gear from the Library top bar. Slides in from the right and back
-out to the right. Rescan, permission status, hidden tracks, about. Grows one
-option at a time.
+**Tabs** — Library, Albums, Artists. Persistent on Settings, hidden on Now
+Playing and Search. Fine at the bottom above the system inset; active tab uses a
+filled icon and white label, inactive uses an outline icon and dim label.
 
-```
-┌──────────────────────────┐   ┌──────────────────────────┐
-│ krotify            ⚙      │   │ ⌄                   ⋯     │
-│ Recently played          │   │        ▟▛▟▛▟▛▟▛▟▛         │
-│ ▢  ▢  ▢  ▢               │   │        ▙▟▙▟▙▟▙▟▙▟         │  cover
-│                          │   │        ▟▛▟▛▟▛▟▛▟▛         │  color
-│ ▢ Track — Artist   3:24  │   │        ▙▟▙▟▙▟▙▟▙▟  cover  │  backdrop
-│ ▢ Track — Artist   4:01  │   │                          │
-│ ▢ Track — Artist   2:59  │   │ Track title              │
-│ ▢ Track — Artist   5:12  │   │ Artist · Album           │
-│                          │   │ ────●──────────────  1:12 │
-│ ──────────────────────── │   │ ⤨   ⏮   ⏯   ⏭   ↻        │
-│ ▢ Track    ⏯             │   └──────────────────────────┘
-└──────────────────────────┘
-```
+**Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
+optional Recently played rail, track list. Rows show cover, title, artist,
+duration; long press opens exclude/delete. Scrolling shows a thin blue scrollbar
+from below the header to the mini-player.
+
+**Albums** — header with albums icon and title; artist section headers; rows with
+cover, album title, and "N tracks · M min". Album detail has a back pill, hero
+(160px cover, title, artist, count), then the track list.
+
+**Artists** — header with artists icon and title; circular covers, artist name,
+"N albums · M tracks". Artist detail mirrors the album detail with a circular
+hero.
+
+**Search** — slide-in overlay with a borderless field (accent cursor) and
+incremental results across title, artist and album.
+
+**Now Playing** — plain back/down control aligned with the other back pills, no
+black pill. Full-bleed cover-color backdrop, large cover, title/artist, draggable
+progress (larger bar and thumb while dragging), previous/play/next centered on
+play, repeat at the right. Closes instantly to the screen it was opened from.
+
+**Mini-player** — floating card inset from the edges, radius 4, 2px inset
+progress line, cover, title, artist, close and play/pause. It stacks above the
+tabs and is never dimmed by their fade. Horizontal swipe slides only the content
+and moves to the next or previous track with queue wrap; vertical swipe does
+nothing; the bar itself never moves. Closing the song page returns to this card
+at the current position with no slide.
+
+**Settings** — slide-in page, sectioned into Library (rescan, import, exclude
+all), Hidden tracks (restore), About (version from `app.json`). Tabs and the
+mini-player stay available.
 
 ## Visual design system
 
@@ -218,20 +230,34 @@ Explicit tracks get a badge next to the title (v2, when the tag exists).
 **Brand separateness** — krotify's name, logo and accent must not resemble
 Spotify's: no Spotify Green, no circle-and-waves mark, no co-branding.
 
-**Motion** — 250–350ms ease-out for Now Playing expand/collapse; progress bar
-animates imperatively; list rows use a light press-scale. No gratuitous bounces.
+**Tab bar** — no border, transparent to `#0B0B0F` gradient starting a quarter of
+the row height above the tabs and ending at 75% opacity, filled icon + white text
+for the active tab, outline icon + dim text otherwise.
+
+**Scrollbar** — thin accent-blue thumb on a faint track, right edge, active only
+while scrolling, 37.5% of the proportional length, widens to 6px while held or
+hovered, draggable. Runs from below the header to the mini-player bottom.
+
+**Motion** — Now Playing opens with a 300ms ease-out slide; closing is instant.
+Album/artist detail and tab changes are instant. Settings slides in/out over
+280ms. Progress glides 500ms while playing, snaps on track changes and swipes.
+List rows use a light press-scale. No gratuitous bounces.
 
 ## Data model
 ```ts
 type Track = {
   id: string;
-  uri: string;        // file:// on device; empty for demo tracks
+  uri: string;          // file:// on device; empty for demo tracks
   source: 'scan' | 'import' | 'demo';
   title: string;
-  artist: string;     // '' in v0; real tags from v2
-  album: string;      // '' in v0; real tags from v2
+  artist: string;
+  album: string;
+  albumArtist?: string;
+  trackNumber?: number;
+  year?: number;
+  genre?: string;
   durationMs: number;
-  artworkHue: number; // seed for generated cover when no real art
+  artworkHue: number;   // seed for generated cover when no real art
   artworkUri?: string;
 };
 type PlayerState = {
@@ -239,15 +265,24 @@ type PlayerState = {
   index: number;
   isPlaying: boolean;
   positionMs: number;
+  repeat: 'off' | 'all' | 'one';
 };
-// v2 SQLite: excluded(uri) is the only new table needed for library hiding;
-// playlists, favorites and history are their own tables.
 ```
 
+SQLite tables (`krotify.db`, `PRAGMA user_version` migrations):
+- `playlists`, `playlist_tracks` (gap-numbered positions)
+- `favorites`
+- `play_history`
+- `track_metadata` (cached ID3 fields and artwork URI)
+
+Imports and exclusions remain in AsyncStorage from v1.
+
 ## Demo data
-A small in-memory library (6–8 tracks with distinct hues) shipped in v0 so the UI
-can be judged and the app runs anywhere. Real device audio replaces it when the
-scan succeeds. Demo tracks are the only fallback — no fake play history.
+Ten in-memory tracks across four artists and five albums (Mira Vale with two
+albums, Kite Season, Low Meridian, Sable & Ash), with distinct hues and tag
+fields, so Albums, Artists and Search are meaningful in the web preview. Demo
+tracks are the only fallback; no fake play history and no fictional real-world
+claims.
 
 ## Decisions
 - Fonts: platform default sans (Helvetica Neue → Helvetica → Arial as fallback),
@@ -255,63 +290,60 @@ scan succeeds. Demo tracks are the only fallback — no fake play history.
   face later.
 - Accent: krotify blue `#215BED` confirmed. Spotify Green is off-limits — brand
   separateness rules forbid resembling their mark or color.
-- Recently played: not seeded. The rail ships with the real history store in v2;
-  v0 has no rail.
-- Scan: all audio files, no duration filter. Rescan from Settings.
-- Settings: ships in v0 as a real screen; options are added only when the feature
-  behind them exists.
-- Shuffle: deferred. Revisit after v2, before v3.
-- Metadata: v0 uses filename-derived titles, no artist column. ID3 tags and
-  embedded art stay in v2.
-- Grain: the generated-cover grain overlay is deferred past v0; gradient plus
-  initial is the v0 cover.
+- Recently played: never seeded; the rail shows real history only.
+- Scan: all device audio except ringtones, notifications, alarms and UI sounds,
+  and except files under 3s. Imports bypass the filter. Rescan from Settings.
+- Settings: sectioned into Library, Hidden tracks and About; options exist only
+  for shipped features.
+- Shuffle: deferred past v2.
+- Metadata: ID3 tags via `@missingcore/react-native-metadata-retriever`, cached in
+  SQLite; filename titles remain the fallback. Embedded art loads lazily and is
+  propagated to every screen that shows the track.
+- Navigation: state-based tabs in `AppShell` (Library, Albums, Artists), not
+  expo-router. Settings and Search are overlays with slide transitions.
+- Search: incremental, accent-folded, across title/artist/album.
+- History: play history deduped by track, most recent first.
+- Tagless tracks: keep the filename-derived title; never hide a playable file.
+- Excluded tracks: surfaced in Settings under Hidden tracks with Restore.
+- Scrollbar: custom accent-blue thumb, active only while scrolling, draggable,
+  ends level with the bottom player.
+- Grain: still deferred; covers are gradient plus initial when no real art.
+- Version: 0.2.0 (`versionCode` 2). Release `v0.1.0` exists; CI release automation
+  is planned in `docs/superpowers/plans/2026-11-12-gh-actions-release.md`.
 
-## Next session (before v2 UI)
+## Remaining after v2
 
-Planned fixes and changes, in order:
-
-1. **Notification next/previous.** Confirmed in expo-audio source: a single
-   `AudioPlayer` reports `supportsNextTrack = false`, so notification/lock-screen
-   next/previous are ignored. Move the audio engine to `AudioPlaylist` with a
-   resolved window around the current track (for example +/- 4), `skipTo` for
-   app buttons, `trackChanged` to sync index and track, and
-   `showNextTrack/showPreviousTrack: true`. Rebuild the window when playback
-   reaches its edge. Mock demo playback keeps its own timer.
-2. **Scan opt-in.** First launch shows "Scan this device for audio?" with Scan
-   and Not now. Persist the choice in AsyncStorage (`krotify.scanEnabled.v1`).
-   Settings gets a "Scan device audio" switch; Rescan only when enabled. Imports
-   always show; demo stays the last fallback. Folder-level scanning is not
-   possible with `expo-media-library`, so the choice is all device audio or
-   none.
-3. **Mini-player above the system dock.** On Samsung 3-button navigation the bar
-   overlaps the nav buttons because the app draws edge to edge. Position the bar
-   with a bottom offset (safe-area bottom, fallback 48dp on Android) instead of
-   padding to the screen edge; keep the same gestures and progress line. Update
-   Library and Settings bottom padding to match.
-4. **Explicit badge.** Blocked: the chosen metadata library exposes no explicit
-   flag. Needs another parser or a deliberate drop from v2.
-5. **Build note.** `@missingcore/react-native-metadata-retriever` bundles a
+1. **Notification next/previous.** A single `AudioPlayer` ignores these commands
+   (`supportsNextTrack = false` in expo-audio). Move the audio engine to
+   `AudioPlaylist` with a resolved window around the current track, `skipTo` for
+   app buttons, `trackChanged` to sync index/track, and
+   `showNextTrack/showPreviousTrack: true`. Rebuild the window at its edges; mock
+   demo playback keeps its own timer.
+2. **Scan opt-in.** First launch asks "Scan this device for audio?" with Scan and
+   Not now. Persist in AsyncStorage (`krotify.scanEnabled.v1`), expose a Settings
+   switch, and keep imports visible regardless. Folder-level scanning is not
+   possible with `expo-media-library`.
+3. **Playlists UI.** The SQLite repository exists. Build create/rename/delete,
+   add/remove tracks, and up/down reorder on top of it.
+4. **Favorites UI.** Table and repository exist. Add the `+`/heart toggle with
+   "Added to Liked Songs" feedback and a Liked list.
+5. **Explicit badge.** Blocked: the metadata library exposes no explicit flag.
+   Needs another parser or a deliberate drop.
+6. **Real-art backdrop.** Now Playing still derives its backdrop from the hash
+   hue; extract color from `artworkUri` when available.
+7. **Build note.** `@missingcore/react-native-metadata-retriever` bundles a
    Media3 fork that collides with expo-audio; `plugins/with-media3-exclude.js`
-   excludes the fork and must stay in `app.json` plugins before any prebuild.
-
-Done already: app renamed to Krotify with launcher icons matching the favicon
-(`838aa44`), and short tracks (<3s) no longer chain on auto-advance while the
-progress bar snaps on track change (`7718717`).
+   excludes the fork and must stay in `app.json` plugins before prebuild.
 
 ## Open decisions
 
-**When v2 lands**
-- Navigation: `expo-router` files (AGENTS.md rule) vs adding a navigator lib
-  for Albums/Artists/Search.
-- Playlist reorder: drag handle or long-press-drag.
-- Search: incremental filtering vs submit; diacritic/case folding.
-- Play history: retention window, dedupe, ordering.
-- Tagless tracks: fall back to filename/folder naming, or hide them?
-- Artwork color extraction for the Now Playing backdrop: which
-  already-installed tool if any, before adding a dependency.
+**After v2**
+- Playlist reorder: up/down buttons now; decide whether drag is worth a gesture
+  library later.
+- Artwork color extraction for the Now Playing backdrop: pick a library or a
+  native palette module before adding a dependency.
 - Resume position across app restarts.
-- Where excluded tracks are surfaced: a "Hidden" list in Settings, or only
-  re-includable from search.
+- Playlist/favorite sync if a second device ever exists (currently non-goal).
 
 **v3**
 - Shuffle semantics: reorder the queue once, or pick a random next each time?

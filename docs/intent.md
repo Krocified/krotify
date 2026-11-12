@@ -16,6 +16,9 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Play my local audio files reliably, with background playback plus notification and lock-screen controls.
 - Make album art the hero of every screen.
 - Look and feel like a premium music app, not a file browser.
+- Browse and search a real collection by album and artist, not by filenames.
+- Keep playback contextual: what I open (album, artist, search, recent) becomes
+  the queue, and repeat/history follow that context.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
@@ -32,11 +35,14 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - I reach for Krotify instead of my current player day to day.
 - The now-playing screen is something I'd screenshot.
 - Adding the next milestone is a weekend, not a rewrite.
+- The library reads as a collection of albums and artists, not a file listing.
 
 ## Principles
 - **Local-first**: the MP3s are the truth; the app never needs the network.
-- **Consent first**: nothing scans or changes files without an explicit choice.
-  Scanning is opt-in; imports are deliberate.
+- **Consent first**: nothing changes files without an explicit choice. Imports
+  and deletes are deliberate; scanning is being made opt-in.
+- **Truthful metadata**: tags come from the files; filenames are only a fallback
+  and nothing is invented.
 - **Art-first**: every track/album has a beautiful cover, real or generated.
 - **Incremental**: v0 proves the loop; each version deepens one axis.
 - **Lazy by design**: stdlib and Expo primitives before new dependencies.

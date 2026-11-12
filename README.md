@@ -5,12 +5,12 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-v0 is built: library scanning, playback with background audio and
-notification/lock-screen controls, generated gradient covers, an animated Now
-Playing screen, a draggable mini-player, settings, and a browser demo.
+v0 and v1 are built, plus the v2 catalog: library scanning and filtering,
+background playback, import/exclude/delete, ID3 metadata, Albums/Artists/Search,
+Recently played, a draggable mini-player, a browser demo, and Settings.
 
-Not built yet: file import, exclude/delete, playlists, favorites, play history,
-ID3 tags, shuffle, search, lyrics.
+Not built yet: playlist UI, favorites UI, notification next/previous, shuffle,
+lyrics, and tag editing.
 
 ## Stack
 
