@@ -24,7 +24,6 @@ export async function playAudio(uri: string, track: Track): Promise<void> {
     try {
       await requestNotificationPermissionsAsync();
     } catch {
-      // ponytail: playback still works; only the notification controls are hidden
     }
   }
   audioPlayer.replace({ uri });

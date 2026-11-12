@@ -61,7 +61,6 @@ async function discardFile(file: File): Promise<void> {
   try {
     if (file.exists) file.delete();
   } catch {
-    // ponytail: best-effort cleanup
   }
 }
 

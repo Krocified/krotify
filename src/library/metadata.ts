@@ -105,7 +105,6 @@ async function enrichChunk(
       tagsByUri = new Map(results.map((result) => [result.uri, result.data]));
       fetched = true;
     } catch {
-      // ponytail: unreadable batch is skipped, tracks keep their current tags
     }
 
     for (const { index, track } of pending) {

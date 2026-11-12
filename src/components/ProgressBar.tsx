@@ -106,7 +106,6 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
 
   const panResponder = useMemo(
     () =>
-      // ponytail: handlers read refs only at event time, never during render
       // eslint-disable-next-line react-hooks/refs
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
