@@ -47,7 +47,8 @@
 | `src/library/tagWriter.ts` | TS wrapper over the native tag module |
 | `modules/audio-tags/` | local Expo module: jaudiotagger read/write, atomic replace, write requests |
 | `src/screens/EditTrackScreen.tsx` | metadata edit form and save flow |
-| `src/screens/NowPlayingScreen.tsx` | shuffle, lyrics panel, sleep indicator |
+| `src/screens/NowPlayingScreen.tsx` | shuffle, art/lyrics mode, sleep indicator |
+| `src/components/LyricsPanel.tsx` | timed lyric list, active-line scroll, seek on tap |
 | `src/screens/SettingsScreen.tsx` | Playback section (shuffle default, sleep timer), editing notes |
 | `tests/playlistWindow.test.ts` | window edges |
 | `tests/shuffle.test.ts` | order, restore, repeat interaction |
@@ -115,7 +116,7 @@
 
 ### Task 4: Lyrics (.lrc and LRCLIB)
 
-**Files:** `src/lib/lrc.ts`, `src/library/lyrics.ts`, `src/library/lrclib.ts`, `src/screens/NowPlayingScreen.tsx`, `tests/lrc.test.ts`
+**Files:** `src/lib/lrc.ts`, `src/library/lyrics.ts`, `src/library/lrclib.ts`, `src/components/LyricsPanel.tsx`, `src/screens/NowPlayingScreen.tsx`, `tests/lrc.test.ts`
 
 **Interfaces:**
 - `parseLrc(text): { lines: { atMs: number; text: string }[]; offsetMs: number }`
@@ -134,7 +135,15 @@ LRCLIB rules:
 - [ ] Tests: LRC timestamps, multiple timestamps per line, `[offset:]`, CRLF, malformed lines skipped.
 - [ ] Implement parser and sidecar discovery via `expo-file-system`.
 - [ ] Implement the LRCLIB client with identification, duration matching (±2s), cache and error mapping.
-- [ ] Now Playing: lyrics toggle; when on, show the lyric panel, highlight the active line, auto-scroll, tap a line to seek.
+### Now Playing layout revamp
+
+- [ ] Keep two modes on the same screen. **Art mode** is the current full layout. **Lyrics mode** keeps the art visible: shrink the cover to about 200px (min 160) at the top, keep title/artist under it, and give the rest of the height to `LyricsPanel`.
+- [ ] Backdrop, top controls and bottom transport/progress stay fixed in both modes; only the cover, title block and lyric area reflow. Use a 200ms crossfade/height transition, no bounce.
+- [ ] Add a lyrics control (Ionicons `document-text-outline`, accent when active) in the top bar, with `accessibilityLabel` and selected state.
+- [ ] `LyricsPanel`: scrollable lines, active line in `colors.text` at full size, surrounding lines dim; auto-scroll the active line to about one third of the panel; tapping a line seeks to its timestamp. Screen readers get a labelled list, no per-line live announcements.
+- [ ] No lyrics or failed lookup: stay in art mode and show a small "Lyrics not found" note only after the user asks; never an empty full screen.
+- [ ] Check small screens and long lines: no overlap with the transport, titles truncate, lyrics wrap.
+- [ ] Device: toggle art/lyrics, confirm art stays visible, sync scroll, tap-to-seek, progress keeps updating.
 - [ ] Offline with no cache: show "No lyrics" after the request fails, no crash.
 - [ ] Device: synced scroll on a real `.lrc` and a fetched LRCLIB result.
 - [ ] Commit `feat: add local and LRCLIB lyrics`.

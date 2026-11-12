@@ -210,9 +210,13 @@ hero.
 incremental results across title, artist and album.
 
 **Now Playing** — plain back/down control aligned with the other back pills, no
-black pill. Full-bleed cover-color backdrop, large cover, title/artist, draggable
-progress (larger bar and thumb while dragging), previous/play/next centered on
-play, repeat at the right. Closes instantly to the screen it was opened from.
+black pill. Full-bleed cover-color backdrop and draggable progress with previous/
+play/next centered on play and repeat at the right. Two content modes share the
+screen: **art** (large 1:1 cover, title, artist) and **lyrics** (a smaller cover
+stays visible at the top while the timed lyrics fill the remaining space, active
+line highlighted, quote lines tappable to seek). The mode toggle sits in the top
+bar or beside the transport. Closing is instant and returns to the screen it was
+opened from.
 
 **Mini-player** — floating card inset from the edges, radius 4, 2px inset
 progress line, cover, title, artist, close and play/pause. It stacks above the
