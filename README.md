@@ -5,16 +5,24 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-v0 and v1 are built, plus the v2 catalog: library scanning and filtering,
-background playback, import/exclude/delete, ID3 metadata, Albums/Artists/Search,
-Recently played, a draggable mini-player, a browser demo, and Settings.
+v0 and v1 are built, plus the v2 catalog data layer: ID3 metadata, albums,
+artists, search, play history, background playback, import/exclude/delete,
+repeat, Recently played, a draggable mini-player, Settings and a browser demo.
+
+The phone UI currently shows Library only: Albums and Artists are hidden until
+the v3 integration, while the web preview keeps them. The Settings Hidden tracks
+list is also removed until v3; individual exclude/delete still work.
+
+Scanning keeps the system filters: ringtones, notifications, alarms, UI sounds
+and files under 3s are skipped.
 
 Not built yet: playlist UI, favorites UI, notification next/previous, shuffle,
 lyrics, and tag editing.
 
 ## Stack
 
-Expo SDK 58, React Native 0.88, TypeScript, `expo-audio`, `expo-media-library`.
+Expo SDK 58, React Native 0.88, TypeScript, `expo-audio`, `expo-media-library`,
+`expo-sqlite`, `@missingcore/react-native-metadata-retriever`, Ionicons.
 
 ## Run it
 
@@ -44,7 +52,8 @@ npx expo export --platform web
 Pushing to `main` runs `.github/workflows/release.yml` on a GitHub-hosted
 Ubuntu runner. It reads Conventional Commits since the last tag (`feat` minor,
 `fix`/others patch, `BREAKING CHANGE` or `type!:` major), verifies the project,
-builds a signed APK, and publishes a GitHub release with the APK and a sha256.
+builds a signed **arm64** APK (about 24-28MB instead of the 76MB universal
+build), and publishes a GitHub release with the APK and a sha256.
 
 Manual runs take a `bump` input (`auto`, `major`, `minor`, `patch`) so a major
 release can be forced.
@@ -58,16 +67,21 @@ debug keystore, which is installable but not upgrade-stable across runners.
 
 - `docs/intent.md`: why this exists
 - `docs/spec.md`: behaviour, design tokens, milestones
-- `docs/superpowers/plans/`: the v0 implementation plan
+- `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3 plan and release
+  workflow plan
 
 ## Layout
 
 ```
 src/
-  AppShell.tsx        screen state, library load, back handling
+  AppShell.tsx        screen state, library load, scan/import wiring
   player/             single expo-audio player plus a mock engine for demos
-  library/            device scan and demo tracks
-  screens/            Library, Now Playing, Settings
-  components/         cover art, track row, mini-player, progress bar
-  lib/                hashing, formatting, queue, mock clock (tested)
+  library/            scan, metadata, imports, exclusions, demo tracks
+  db/                 SQLite schema and repository
+  screens/            Library, Albums, Artists, Search, Now Playing, Settings
+  components/         headers, tabs, cover art, rows, mini-player, scrollbar
+  lib/                hashing, formatting, queue, groups, search, clock (tested)
+scripts/              release version helper
+plugins/              Media3 exclusion and release signing config plugins
+.github/workflows/    release pipeline
 ```
