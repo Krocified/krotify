@@ -1,13 +1,12 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
+  View,
   type ListViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,24 +71,14 @@ export function AlbumsScreen({
   const closeDetail = () => setSelectedKey(null);
   const coverSize = (width - space.md * 2 - space.md) / 2;
 
-  const [fade] = useState(() => new Animated.Value(1));
-
-  useEffect(() => {
-    fade.setValue(0);
-    Animated.timing(fade, {
-      toValue: 1,
-      duration: 140,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [fade, selectedKey]);
+  const trackLabel = selected && selected.tracks.length === 1 ? 'track' : 'tracks';
 
   return (
-    <Animated.View style={[styles.root, { opacity: fade }]}>
+    <View style={styles.root}>
       {selected ? (
         <>
           <ScreenHeader
             leading={<BackPill onPress={closeDetail} />}
-            title={selected.title}
             trailing={
               <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
             }
@@ -98,6 +87,26 @@ export function AlbumsScreen({
             key={selected.key}
             data={selected.tracks}
             keyExtractor={(track) => track.id}
+            ListHeaderComponent={
+              <View style={styles.hero}>
+                <CoverArt
+                  hue={selected.artworkHue}
+                  title={selected.title}
+                  size={160}
+                  radius={radius.coverLarge}
+                  uri={selected.tracks[0]?.artworkUri}
+                />
+                <Text style={styles.heroTitle} numberOfLines={2}>
+                  {selected.title}
+                </Text>
+                <Text style={styles.heroMeta} numberOfLines={1}>
+                  {selected.artist}
+                </Text>
+                <Text style={styles.heroMeta}>
+                  {selected.tracks.length} {trackLabel}
+                </Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
             )}
@@ -136,7 +145,7 @@ export function AlbumsScreen({
           />
         </>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -198,5 +207,22 @@ const styles = StyleSheet.create({
   cardArtist: {
     ...type.meta,
     color: colors.textDim,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: space.xs,
+    paddingVertical: space.lg,
+    paddingHorizontal: space.md,
+  },
+  heroTitle: {
+    ...type.display,
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: space.sm,
+  },
+  heroMeta: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
   },
 });

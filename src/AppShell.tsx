@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { Alert, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar, type TabName } from './components/TabBar';
@@ -42,7 +42,6 @@ export function AppShell() {
   const returnScreenRef = useRef<ScreenName>('library');
   const settingsReturnRef = useRef<ScreenName>('library');
   const searchReturnRef = useRef<ScreenName>('library');
-  const [tabFade] = useState(() => new Animated.Value(1));
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
@@ -297,15 +296,6 @@ export function AppShell() {
   const showTabBar = screen !== 'nowPlaying' && screen !== 'search';
   const activeTab: TabName = showTabs ? screen : tab;
 
-  useEffect(() => {
-    tabFade.setValue(0);
-    Animated.timing(tabFade, {
-      toValue: 1,
-      duration: 120,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [tabFade, activeTab]);
-
   function openSearch() {
     searchReturnRef.current = activeTab;
     setScreen('search');
@@ -323,8 +313,8 @@ export function AppShell() {
 
   return (
     <View style={styles.root}>
-      <Animated.View
-        style={[styles.library, { opacity: tabFade }]}
+      <View
+        style={styles.library}
         accessibilityElementsHidden={!showTabs}
         importantForAccessibility={showTabs ? 'auto' : 'no-hide-descendants'}
       >
@@ -356,7 +346,7 @@ export function AppShell() {
             onOpenSettings={openSettings}
           />
         )}
-      </Animated.View>
+      </View>
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}

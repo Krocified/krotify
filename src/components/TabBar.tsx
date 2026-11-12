@@ -35,7 +35,7 @@ export function TabBar({ active, onSelect }: Props) {
         pointerEvents="none"
         colors={['rgba(11,11,15,0)', 'rgba(11,11,15,0.85)', '#0B0B0F']}
         locations={[0, 0.55, 1]}
-        style={styles.fade}
+        style={[styles.fade, { height: TAB_BAR_HEIGHT + TAB_BAR_HEIGHT / 2 + insets.bottom }]}
       />
       <View style={{ height: TAB_BAR_HEIGHT }}>
         <View style={styles.row}>
@@ -71,8 +71,6 @@ export function TabBar({ active, onSelect }: Props) {
   );
 }
 
-const FADE_HEIGHT = 96;
-
 const styles = StyleSheet.create({
   bar: {
     position: 'relative',
@@ -82,7 +80,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    top: -FADE_HEIGHT,
   },
   row: {
     flex: 1,

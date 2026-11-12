@@ -1,9 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -71,24 +69,15 @@ export function ArtistsScreen({
   const selected = selectedKey ? artists.find((artist) => artist.key === selectedKey) : null;
   const closeDetail = () => setSelectedKey(null);
 
-  const [fade] = useState(() => new Animated.Value(1));
-
-  useEffect(() => {
-    fade.setValue(0);
-    Animated.timing(fade, {
-      toValue: 1,
-      duration: 140,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [fade, selectedKey]);
+  const albumLabel = selected && selected.albumCount === 1 ? 'album' : 'albums';
+  const trackLabel = selected && selected.tracks.length === 1 ? 'track' : 'tracks';
 
   return (
-    <Animated.View style={[styles.root, { opacity: fade }]}>
+    <View style={styles.root}>
       {selected ? (
         <>
           <ScreenHeader
             leading={<BackPill onPress={closeDetail} />}
-            title={selected.name}
             trailing={
               <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
             }
@@ -97,6 +86,23 @@ export function ArtistsScreen({
             key={selected.key}
             data={selected.tracks}
             keyExtractor={(track) => track.id}
+            ListHeaderComponent={
+              <View style={styles.hero}>
+                <CoverArt
+                  hue={selected.tracks[0]?.artworkHue ?? 0}
+                  title={selected.name}
+                  size={160}
+                  radius={80}
+                  uri={selected.tracks[0]?.artworkUri}
+                />
+                <Text style={styles.heroTitle} numberOfLines={2}>
+                  {selected.name}
+                </Text>
+                <Text style={styles.heroMeta}>
+                  {selected.albumCount} {albumLabel} · {selected.tracks.length} {trackLabel}
+                </Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
             )}
@@ -125,7 +131,7 @@ export function ArtistsScreen({
           />
         </>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -184,5 +190,22 @@ const styles = StyleSheet.create({
   rowMeta: {
     ...type.meta,
     color: colors.textDim,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: space.xs,
+    paddingVertical: space.lg,
+    paddingHorizontal: space.md,
+  },
+  heroTitle: {
+    ...type.display,
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: space.sm,
+  },
+  heroMeta: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
   },
 });
