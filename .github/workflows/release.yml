@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [auto, major, minor, patch]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      versionCode: ${{ steps.version.outputs.versionCode }}
+      tag: ${{ steps.version.outputs.tag }}
+      bump: ${{ steps.version.outputs.bump }}
+      skip: ${{ steps.version.outputs.skip }}
+      latest: ${{ steps.latest.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: latest
+        run: echo "tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+      - name: Collect commits
+        run: |
+          LATEST="${{ steps.latest.outputs.tag }}"
+          if [ -n "$LATEST" ]; then RANGE="$LATEST..HEAD"; else RANGE="HEAD"; fi
+          git log "$RANGE" --pretty=format:'%B%x00' > /tmp/commits.txt
+      - id: version
+        run: |
+          node scripts/next-version.mts \
+            --latest "${{ steps.latest.outputs.tag }}" \
+            --bump "${{ inputs.bump || 'auto' }}" \
+            --commits /tmp/commits.txt > /tmp/version.env
+          cat /tmp/version.env >> "$GITHUB_OUTPUT"
+          TAG=$(grep '^tag=' /tmp/version.env | cut -d= -f2)
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Summary
+        run: echo "${{ steps.version.outputs.bump }} -> ${{ steps.version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    needs: version
+    if: needs.version.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npx expo lint
+
+  build:
+    needs: [version, verify]
+    if: needs.version.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;27.1.12297006"
+      - run: npm ci
+      - name: Set version
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          VERSION_CODE: ${{ needs.version.outputs.versionCode }}
+        run: |
+          node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.version=process.env.VERSION;j.expo.android={...(j.expo.android||{}),versionCode:Number(process.env.VERSION_CODE)};fs.writeFileSync('app.json',JSON.stringify(j,null,2)+'\n')"
+      - name: Configure signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+              echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+              echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+              echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::warning::Release keystore secrets are missing; the APK will be debug-signed."
+          fi
+      - run: npx expo prebuild --platform android --clean --no-install
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build release APK
+        run: cd android && ./gradlew :app:assembleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krotify-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    if: needs.version.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: krotify-apk
+          path: dist
+      - name: Checksum
+        run: sha256sum dist/app-release.apk > dist/app-release.apk.sha256
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST="${{ needs.version.outputs.latest }}"
+          if [ -n "$LATEST" ]; then RANGE="$LATEST..HEAD"; else RANGE="HEAD"; fi
+          git log "$RANGE" --pretty=format:'- %s' > /tmp/notes.md
+          gh release create "${{ needs.version.outputs.tag }}" \
+            dist/app-release.apk dist/app-release.apk.sha256 \
+            --title "Krotify ${{ needs.version.outputs.version }}" \
+            --notes-file /tmp/notes.md \
+            --target "$GITHUB_SHA"

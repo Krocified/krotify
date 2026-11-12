@@ -39,6 +39,21 @@ npx expo lint
 npx expo export --platform web
 ```
 
+## Releases
+
+Pushing to `main` runs `.github/workflows/release.yml` on a GitHub-hosted
+Ubuntu runner. It reads Conventional Commits since the last tag (`feat` minor,
+`fix`/others patch, `BREAKING CHANGE` or `type!:` major), verifies the project,
+builds a signed APK, and publishes a GitHub release with the APK and a sha256.
+
+Manual runs take a `bump` input (`auto`, `major`, `minor`, `patch`) so a major
+release can be forced.
+
+Release signing uses these repository secrets:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+`ANDROID_KEY_PASSWORD`. Without them the workflow warns and builds with the
+debug keystore, which is installable but not upgrade-stable across runners.
+
 ## Docs
 
 - `docs/intent.md`: why this exists
