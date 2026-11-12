@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { ProgressBar } from '../components/ProgressBar';
+import { BackPill } from '../components/ScreenHeader';
 import { coverColors } from '../lib/cover';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -87,15 +88,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
         ]}
       >
         <View style={styles.topBar}>
-          <Pressable
-            onPress={close}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-          >
-            <Ionicons name="chevron-down" size={28} color={colors.text} />
-          </Pressable>
+          <BackPill onPress={close} icon="chevron-down" label="Close" />
         </View>
 
         <View style={styles.middle}>
@@ -204,22 +197,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: space.md,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  iconPressed: {
-    backgroundColor: '#ffffff14',
   },
   middle: {
     flex: 1,

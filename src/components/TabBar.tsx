@@ -16,10 +16,10 @@ type Props = {
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const TABS: { name: TabName; label: string; icon: IconName }[] = [
-  { name: 'library', label: 'Library', icon: 'library-outline' },
-  { name: 'albums', label: 'Albums', icon: 'albums-outline' },
-  { name: 'artists', label: 'Artists', icon: 'people-outline' },
+const TABS: { name: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
+  { name: 'library', label: 'Library', icon: 'library-outline', iconActive: 'library' },
+  { name: 'albums', label: 'Albums', icon: 'albums-outline', iconActive: 'albums' },
+  { name: 'artists', label: 'Artists', icon: 'people-outline', iconActive: 'people' },
 ];
 
 export function TabBar({ active, onSelect }: Props) {
@@ -50,13 +50,11 @@ export function TabBar({ active, onSelect }: Props) {
                 accessibilityState={{ selected }}
                 style={styles.tab}
               >
-                <View style={[styles.pill, selected && styles.pillActive]}>
-                  <Ionicons
-                    name={tab.icon}
-                    size={24}
-                    color={selected ? colors.accent2 : colors.textDim}
-                  />
-                </View>
+                <Ionicons
+                  name={selected ? tab.iconActive : tab.icon}
+                  size={24}
+                  color={selected ? colors.text : colors.textDim}
+                />
                 <Text
                   style={[styles.label, { color: selected ? colors.text : colors.textDim }]}
                 >
@@ -91,14 +89,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,
-  },
-  pill: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    borderRadius: 999,
-  },
-  pillActive: {
-    backgroundColor: 'rgba(33,91,237,0.16)',
   },
   label: {
     ...type.meta,

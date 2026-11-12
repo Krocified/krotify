@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, space, type } from '../theme';
@@ -59,17 +59,22 @@ export function HeaderActions({ onOpenSearch, onOpenSettings }: ActionsProps) {
   );
 }
 
-export function BackPill({ onPress }: { onPress: () => void }) {
+type BackPillProps = {
+  onPress: () => void;
+  icon?: ComponentProps<typeof Ionicons>['name'];
+  label?: string;
+};
+
+export function BackPill({ onPress, icon = 'arrow-back', label = 'Back' }: BackPillProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Back"
+      accessibilityLabel={label}
       hitSlop={space.sm}
       style={({ pressed }) => [styles.backPill, pressed && styles.backPillPressed]}
     >
-      <Ionicons name="arrow-back" size={22} color={colors.text} />
-      <Text style={styles.backText}>Back</Text>
+      <Ionicons name={icon} size={22} color={colors.text} />
     </Pressable>
   );
 }
@@ -116,16 +121,12 @@ const styles = StyleSheet.create({
     height: 36,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.xs,
+    justifyContent: 'center',
     paddingHorizontal: 12,
     borderRadius: 18,
     backgroundColor: colors.surfaceHi,
   },
   backPillPressed: {
     opacity: 0.7,
-  },
-  backText: {
-    ...type.meta,
-    color: colors.text,
   },
 });

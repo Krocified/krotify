@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { usePlayer } from '../player/PlayerProvider';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 import { CoverArt } from './CoverArt';
 
 type Props = {
@@ -197,12 +197,13 @@ const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 12,
     marginBottom: 8,
-    borderRadius: 16,
+    borderRadius: radius.cover,
     overflow: 'hidden',
     backgroundColor: colors.surfaceHi,
   },
   progressTrack: {
     height: 2,
+    marginHorizontal: radius.cover,
     backgroundColor: '#ffffff1f',
   },
   progressFill: {

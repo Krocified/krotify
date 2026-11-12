@@ -149,7 +149,7 @@ function ArtistRow({ artist, onPress }: { artist: Artist; onPress: () => void })
         hue={artist.tracks[0]?.artworkHue ?? 0}
         title={artist.name}
         size={48}
-        radius={4}
+        radius={24}
         uri={artist.tracks[0]?.artworkUri}
       />
       <View style={styles.rowText}>

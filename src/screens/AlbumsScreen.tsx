@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -29,6 +30,11 @@ type Props = {
 
 const BOTTOM_PAD = 66 + TAB_BAR_HEIGHT;
 
+type AlbumSection = { title: string; data: Album[][] };
+
+const compareName = (a: string, b: string) =>
+  a.localeCompare(b, undefined, { sensitivity: 'base' });
+
 export function AlbumsScreen({
   tracks,
   onSelect,
@@ -39,6 +45,22 @@ export function AlbumsScreen({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const albums = useMemo(() => buildAlbums(tracks), [tracks]);
+  const sections = useMemo<AlbumSection[]>(() => {
+    const byArtist = new Map<string, Album[]>();
+    for (const album of albums) {
+      const list = byArtist.get(album.artist);
+      if (list) list.push(album);
+      else byArtist.set(album.artist, [album]);
+    }
+    return [...byArtist.entries()]
+      .sort(([a], [b]) => compareName(a, b))
+      .map(([title, list]) => {
+        const sorted = [...list].sort((a, b) => compareName(a.title, b.title));
+        const rows: Album[][] = [];
+        for (let i = 0; i < sorted.length; i += 2) rows.push(sorted.slice(i, i + 2));
+        return { title, data: rows };
+      });
+  }, [albums]);
   const requested = useRef(new Set<string>());
   const mounted = useRef(true);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -54,7 +76,7 @@ export function AlbumsScreen({
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
       for (const { item } of viewableItems) {
-        const first = item.tracks[0];
+        const first = item[0]?.tracks[0];
         if (!first || first.artworkUri || requested.current.has(first.id)) continue;
         requested.current.add(first.id);
         loadArtwork(first)
@@ -122,26 +144,34 @@ export function AlbumsScreen({
               <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
             }
           />
-          <FlatList
+          <SectionList
             key="albums"
-            data={albums}
-            keyExtractor={(album) => album.key}
-            numColumns={2}
-            columnWrapperStyle={styles.column}
+            sections={sections}
+            keyExtractor={(row) => row[0].key}
+            stickySectionHeadersEnabled={false}
+            renderSectionHeader={({ section }) => (
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+            )}
+            renderItem={({ item }) => (
+              <View style={styles.column}>
+                {item.map((album) => (
+                  <AlbumCard
+                    key={album.key}
+                    album={album}
+                    size={coverSize}
+                    uri={album.tracks[0]?.artworkUri}
+                    onPress={() => setSelectedKey(album.key)}
+                  />
+                ))}
+                {item.length === 1 ? <View style={styles.card} /> : null}
+              </View>
+            )}
             contentContainerStyle={[
               styles.grid,
               { paddingBottom: BOTTOM_PAD + insets.bottom },
             ]}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
-            renderItem={({ item }) => (
-              <AlbumCard
-                album={item}
-                size={coverSize}
-                uri={item.tracks[0]?.artworkUri}
-                onPress={() => setSelectedKey(item.key)}
-              />
-            )}
           />
         </>
       )}
@@ -207,6 +237,11 @@ const styles = StyleSheet.create({
   cardArtist: {
     ...type.meta,
     color: colors.textDim,
+  },
+  sectionTitle: {
+    ...type.body,
+    color: colors.textDim,
+    marginBottom: -space.sm,
   },
   hero: {
     alignItems: 'center',

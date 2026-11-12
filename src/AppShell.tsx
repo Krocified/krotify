@@ -371,13 +371,17 @@ export function AppShell() {
       />
       {showTabBar ? (
         <View style={styles.bottom}>
-          <MiniPlayer
-            onExpand={() => {
-              rememberReturnScreen();
-              setScreen('nowPlaying');
-            }}
-          />
-          <TabBar active={activeTab} onSelect={selectTab} />
+          <View style={styles.miniPlayer}>
+            <MiniPlayer
+              onExpand={() => {
+                rememberReturnScreen();
+                setScreen('nowPlaying');
+              }}
+            />
+          </View>
+          <View style={styles.tabBar}>
+            <TabBar active={activeTab} onSelect={selectTab} />
+          </View>
         </View>
       ) : null}
     </View>
@@ -398,5 +402,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  miniPlayer: {
+    zIndex: 2,
+    elevation: 2,
+  },
+  tabBar: {
+    zIndex: 1,
   },
 });
