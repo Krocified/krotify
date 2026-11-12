@@ -36,6 +36,7 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - The now-playing screen is something I'd screenshot.
 - Adding the next milestone is a weekend, not a rewrite.
 - The library reads as a collection of albums and artists, not a file listing.
+- I can fix a wrong tag or cover without opening another app.
 
 ## Principles
 - **Local-first**: the MP3s are the truth; the app never needs the network.

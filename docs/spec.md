@@ -113,22 +113,33 @@ Blocked:
 - Recently played contains only tracks actually played.
 - Playlists and favorites persistence are ready for their UI.
 
-### v3 — Delight
-- Shuffle (deferred from v1): define queue-order vs random-next, and how it
-  interacts with repeat.
-- Sleep timer, gapless/crossfade, lyrics (local `.lrc`).
-- Settings screen grows as features land; each new toggle/option is added when
-  it actually exists, no placeholder rows.
-- Android Auto / media browser (stretch).
+### v3 — Delight and ownership
 
-### v4 — Own your library
-- Edit a track's details: title, artist, album, track/disc number, year, genre,
-  artwork. Writes back into the file's tags, not just the app DB.
-- Saving rewrites the file atomically (temp + replace), then re-reads tags for
-  that track. A failed write leaves the original intact and says so.
-- Imported copies are always editable (app owns them). Scanned files are only
-  editable when writable; if not, offer "import a copy and edit that".
-- Batch edit for a selection is optional, not v4 baseline.
+Prerequisite: the v2 leftovers (playlist UI, favorites UI, scan opt-in) and the
+`AudioPlaylist` migration that makes notification next/previous work.
+
+Playback and listening:
+- Shuffle: queue order snapshot vs random-next, with an explicit interaction
+  rule for repeat one. Enabling preserves the current track; disabling restores
+  the original order at the current position.
+- Sleep timer: presets plus end-of-track, with a short fade before stopping.
+- Gapless playback through `AudioPlaylist`. Crossfade is not exposed by
+  expo-audio; drop it unless a second engine is explicitly wanted later.
+- Local `.lrc` lyrics: sidecar discovery, timed highlighting and auto-scroll,
+  no licensed lyric sources.
+- Settings grows only when a feature actually exists.
+
+Library ownership:
+- Edit track tags in the file itself: title, artist, album, album artist,
+  track/disc number, year, genre and artwork.
+- Writes are atomic: temp file plus replace, then tags are re-read. A failed
+  write leaves the original intact and reports the failure.
+- Imported copies are always editable. Scanned files are editable only with
+  write access; otherwise offer "import a copy and edit that".
+- Batch edit is a stretch, not baseline.
+
+Stretch:
+- Android Auto / media browser.
 
 ## Library management
 
@@ -356,12 +367,11 @@ claims.
 - Distribution: release-signed APK now, or ship debug builds until the app
   settles.
 
-**v4**
-- Tag writer: which library can write ID3/MP4 tags on Android? None is in the
-  stack yet. Decide between a maintained native writer or writing only through
-  app-owned copies.
-- Write access to scanned files: SAF re-grant per folder, or restrict editing to
-  imported files and offer "import a copy".
+**v3 editing**
+- Tag writer: no tag-writing library is in the stack. Plan assumes a small local
+  native module backed by jaudiotagger; confirm or replace during the spike.
+- Write access to scanned files: `MediaStore.createWriteRequest` per selection
+  vs restricting edits to imported copies.
 
 - Web preview: `npx expo start --web` (or `npx expo export --platform web`) serves a
   demo-only surface — demo library plus mock playback — so people on iOS or a
