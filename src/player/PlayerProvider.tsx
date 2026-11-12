@@ -28,6 +28,7 @@ export type PlayerContextValue = {
   next: () => void;
   previous: () => void;
   removeFromQueue: (ids: string[]) => void;
+  setQueue: (queue: Track[]) => void;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -35,7 +36,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: PropsWithChildren) {
   const status = useAudioPlayerStatus(audioPlayer);
   const [track, setTrack] = useState<Track | null>(null);
-  const [queue, setQueue] = useState<Track[]>([]);
+  const [queue, setQueueState] = useState<Track[]>([]);
   const [index, setIndex] = useState(-1);
   const [mode, setMode] = useState<'audio' | 'mock' | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         setMockPosition(0);
         setMockPlaying(true);
         setTrack(nextTrack);
-        setQueue(nextQueue);
+        setQueueState(nextQueue);
         setIndex(targetIndex >= 0 ? targetIndex : 0);
         setLastError(null);
         return true;
@@ -112,7 +113,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         await playAudio(uri, nextTrack);
         setMode('audio');
         setTrack(nextTrack);
-        setQueue(nextQueue);
+        setQueueState(nextQueue);
         setIndex(targetIndex >= 0 ? targetIndex : 0);
         setLastError(null);
         return true;
@@ -174,7 +175,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     clearMockTimer();
     setMode(null);
     setTrack(null);
-    setQueue([]);
+    setQueueState([]);
     setIndex(-1);
     setMockPlaying(false);
     setMockPosition(0);
@@ -188,7 +189,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const removed = new Set(ids);
       if (!queue.some((item) => removed.has(item.id))) return;
       const filtered = queue.filter((item) => !removed.has(item.id));
-      setQueue(filtered);
+      setQueueState(filtered);
       const current = queue[index];
       if (!current || removed.has(current.id)) {
         setIndex(-1);
@@ -197,6 +198,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setIndex(filtered.findIndex((item) => item.id === current.id));
     },
     [queue, index],
+  );
+
+  const setQueue = useCallback(
+    (nextQueue: Track[]): void => {
+      setQueueState(nextQueue);
+      setIndex(track ? nextQueue.findIndex((item) => item.id === track.id) : -1);
+    },
+    [track],
   );
 
   const canWrap = repeat === 'all' && queue.length > 1;
@@ -292,6 +301,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       previous,
       stop,
       removeFromQueue,
+      setQueue,
     }),
     [
       track,
@@ -310,6 +320,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       previous,
       stop,
       removeFromQueue,
+      setQueue,
     ],
   );
 

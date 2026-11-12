@@ -1,33 +1,70 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ListViewToken,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { TrackRow } from '../components/TrackRow';
 import { buildArtists, type Artist } from '../lib/groups';
+import { loadArtwork } from '../library/metadata';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 
 type Props = {
   tracks: Track[];
   onSelect: (track: Track, queue: Track[]) => void;
+  onArtworkLoaded: (trackId: string, uri: string) => void;
 };
 
 const BOTTOM_PAD = 88 + 56;
 
-export function ArtistsScreen({ tracks, onSelect }: Props) {
+export function ArtistsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
   const insets = useSafeAreaInsets();
   const artists = useMemo(() => buildArtists(tracks), [tracks]);
+  const requested = useRef(new Set<string>());
+  const mounted = useRef(true);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+
+  const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 10 }), []);
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+      for (const { item } of viewableItems) {
+        const artist = item as Artist;
+        const first = artist.tracks[0];
+        if (!first || first.artworkUri || requested.current.has(first.id)) continue;
+        requested.current.add(first.id);
+        loadArtwork(first)
+          .then((uri) => {
+            if (uri && mounted.current) onArtworkLoaded(first.id, uri);
+          })
+          .catch(() => {});
+      }
+    },
+    [onArtworkLoaded],
+  );
+
   const selected = selectedKey ? artists.find((artist) => artist.key === selectedKey) : null;
+  const closeDetail = () => setSelectedKey(null);
 
   if (selected) {
     return (
       <View style={styles.root}>
         <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
           <Pressable
-            onPress={() => setSelectedKey(null)}
+            onPress={closeDetail}
             accessibilityRole="button"
             accessibilityLabel="Back to artists"
             hitSlop={space.sm}
@@ -63,6 +100,8 @@ export function ArtistsScreen({ tracks, onSelect }: Props) {
         data={artists}
         keyExtractor={(artist) => artist.key}
         contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         renderItem={({ item }) => <ArtistRow artist={item} onPress={() => setSelectedKey(item.key)} />}
       />
     </View>

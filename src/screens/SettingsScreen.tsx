@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
@@ -46,6 +47,7 @@ export function SettingsScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { track } = usePlayer();
   const [anim] = useState(() => new Animated.Value(0));
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
@@ -89,7 +91,12 @@ export function SettingsScreen({
         <View style={styles.iconButton} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + space.xl + (track ? 72 : 0) },
+        ]}
+      >
         <View style={styles.card}>
           <Pressable
             onPress={onRescan}

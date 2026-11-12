@@ -24,9 +24,10 @@ export function TabBar({ active, onSelect }: Props) {
   return (
     <View
       accessibilityRole="tablist"
-      style={[styles.bar, { paddingBottom: insets.bottom }]}
+      style={[styles.bar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}
     >
-      {TABS.map((tab) => {
+      <View style={styles.row}>
+        {TABS.map((tab) => {
         const selected = tab.name === active;
         return (
           <Pressable
@@ -46,19 +47,22 @@ export function TabBar({ active, onSelect }: Props) {
               {tab.label}
             </Text>
           </Pressable>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
-    height: 56,
-    flexDirection: 'row',
     backgroundColor: colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#ffffff10',
+  },
+  row: {
+    height: 56,
+    flexDirection: 'row',
   },
   tab: {
     flex: 1,

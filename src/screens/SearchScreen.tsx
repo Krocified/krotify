@@ -51,6 +51,16 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
     return () => clearTimeout(timer);
   }, [visible]);
 
+  function close() {
+    setQuery('');
+    onBack();
+  }
+
+  function select(track: Track, queue: Track[]) {
+    setQuery('');
+    onSelect(track, queue);
+  }
+
   return (
     <Animated.View
       style={[
@@ -67,7 +77,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <Pressable
-          onPress={onBack}
+          onPress={close}
           accessibilityRole="button"
           accessibilityLabel="Close search"
           hitSlop={space.sm}
@@ -98,7 +108,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
           keyExtractor={(track) => track.id}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
-            <TrackRow track={item} onPress={(track) => onSelect(track, results)} />
+            <TrackRow track={item} onPress={(track) => select(track, results)} />
           )}
           ListEmptyComponent={<Text style={styles.hint}>No matches</Text>}
           contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}

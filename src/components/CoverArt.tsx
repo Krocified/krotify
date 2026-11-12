@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { coverColors, coverInitial } from '../lib/cover';
 
@@ -12,6 +13,9 @@ type Props = {
 
 export function CoverArt({ hue, title, size, radius, uri }: Props) {
   const gradient = coverColors(hue);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const showImage = uri !== undefined && uri !== failedUri;
+
   return (
     <View
       style={[
@@ -19,9 +23,11 @@ export function CoverArt({ hue, title, size, radius, uri }: Props) {
         { width: size, height: size, borderRadius: radius, backgroundColor: gradient[0] },
       ]}
     >
-      {uri ? (
+      {showImage ? (
         <Image
-          source={{ uri }}
+          source={{ uri: uri as string }}
+          resizeMode="contain"
+          onError={() => setFailedUri(uri ?? null)}
           style={{ width: size, height: size, borderRadius: radius }}
           accessible={false}
         />

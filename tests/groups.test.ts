@@ -67,3 +67,30 @@ test('buildArtists groups and counts distinct albums', () => {
   assert.equal(artists.find((artist) => artist.name === 'Unknown Artist')?.albumCount, 1);
   assert.equal(artists.find((artist) => artist.name === 'A')?.tracks.length, 3);
 });
+
+test('buildAlbums groups by albumArtist when set', () => {
+  const albums = buildAlbums([
+    track({ title: 'One', artist: 'Guest', albumArtist: 'Main', album: 'Record' }),
+    track({ title: 'Two', artist: 'Main', album: 'Record' }),
+  ]);
+  assert.equal(albums.length, 1);
+  assert.equal(albums[0].artist, 'Main');
+  assert.equal(albums[0].key, 'Main|Record');
+  assert.equal(albums[0].tracks.length, 2);
+});
+
+test('album and artist detail tracks sort by track number then title', () => {
+  const albums = buildAlbums([
+    track({ title: 'B', artist: 'A', album: 'Record', trackNumber: 2 }),
+    track({ title: 'C', artist: 'A', album: 'Record' }),
+    track({ title: 'A', artist: 'A', album: 'Record', trackNumber: 1 }),
+  ]);
+  assert.deepEqual(albums[0].tracks.map((item) => item.title), ['A', 'B', 'C']);
+
+  const artists = buildArtists([
+    track({ title: 'B', artist: 'A', album: 'Record', trackNumber: 2 }),
+    track({ title: 'C', artist: 'A', album: 'Record' }),
+    track({ title: 'A', artist: 'A', album: 'Record', trackNumber: 1 }),
+  ]);
+  assert.deepEqual(artists[0].tracks.map((item) => item.title), ['A', 'B', 'C']);
+});

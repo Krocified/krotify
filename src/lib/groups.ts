@@ -27,11 +27,24 @@ function artistName(track: Track): string {
   return track.artist.trim() || UNKNOWN_ARTIST;
 }
 
+function albumArtistName(track: Track): string {
+  return track.albumArtist?.trim() || artistName(track);
+}
+
+function compareTracks(a: Track, b: Track): number {
+  if (a.trackNumber != null && b.trackNumber != null && a.trackNumber !== b.trackNumber) {
+    return a.trackNumber - b.trackNumber;
+  }
+  if (a.trackNumber != null && b.trackNumber == null) return -1;
+  if (a.trackNumber == null && b.trackNumber != null) return 1;
+  return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+}
+
 export function buildAlbums(tracks: Track[]): Album[] {
   const albums = new Map<string, Album>();
   for (const track of tracks) {
     const title = albumName(track);
-    const artist = artistName(track);
+    const artist = albumArtistName(track);
     const key = `${artist}|${title}`;
     const existing = albums.get(key);
     if (existing) {
@@ -40,6 +53,7 @@ export function buildAlbums(tracks: Track[]): Album[] {
       albums.set(key, { key, title, artist, tracks: [track], artworkHue: hueFromSeed(key) });
     }
   }
+  for (const album of albums.values()) album.tracks.sort(compareTracks);
   return [...albums.values()].sort(
     (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }) || a.artist.localeCompare(b.artist, undefined, { sensitivity: 'base' }),
   );
@@ -59,6 +73,10 @@ export function buildArtists(tracks: Track[]): Artist[] {
     artist.albums.add(albumName(track));
   }
   return [...artists.values()]
-    .map(({ albums, ...artist }) => ({ ...artist, albumCount: albums.size }))
+    .map(({ albums, ...artist }) => ({
+      ...artist,
+      albumCount: albums.size,
+      tracks: artist.tracks.sort(compareTracks),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }

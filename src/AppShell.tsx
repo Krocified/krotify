@@ -26,7 +26,7 @@ import { colors } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 export function AppShell() {
-  const { track: currentTrack, playTrack, stop, removeFromQueue } = usePlayer();
+  const { track: currentTrack, playTrack, stop, removeFromQueue, setQueue } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -39,6 +39,7 @@ export function AppShell() {
   const [scanId, setScanId] = useState(0);
   const assetsRef = useRef(new Map<string, Asset>());
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
+  const returnScreenRef = useRef<ScreenName>('library');
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
@@ -144,10 +145,14 @@ export function AppShell() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (screen === 'nowPlaying') {
         if (closeNowPlayingRef.current) closeNowPlayingRef.current();
-        else setScreen('library');
+        else setScreen(returnScreenRef.current);
         return true;
       }
-      if (screen === 'settings' || screen === 'search') {
+      if (screen === 'settings') {
+        setScreen('library');
+        return true;
+      }
+      if (screen === 'search') {
         setScreen(tab);
         return true;
       }
@@ -160,8 +165,22 @@ export function AppShell() {
     if (screen === 'library') refreshRecent();
   }, [screen, refreshRecent]);
 
+  const handleArtworkLoaded = useCallback((trackId: string, uri: string) => {
+    setTracks((prev) =>
+      prev.map((track) =>
+        track.id === trackId && !track.artworkUri ? { ...track, artworkUri: uri } : track,
+      ),
+    );
+  }, []);
+
+  function rememberReturnScreen() {
+    returnScreenRef.current = showTabs ? screen : 'library';
+  }
+
   async function handleSelect(track: Track, queue?: Track[]) {
     if (currentTrack?.id === track.id) {
+      setQueue(queue ?? tracks);
+      rememberReturnScreen();
       setScreen('nowPlaying');
       return;
     }
@@ -180,6 +199,7 @@ export function AppShell() {
     } else {
       setStatusNote(null);
       void recordPlay(track.id).then(refreshRecent).catch(() => {});
+      rememberReturnScreen();
       setScreen('nowPlaying');
     }
   }
@@ -297,14 +317,22 @@ export function AppShell() {
             onOpenSettings={() => setScreen('settings')}
           />
         ) : activeTab === 'albums' ? (
-          <AlbumsScreen tracks={tracks} onSelect={handleSelect} />
+          <AlbumsScreen
+            tracks={tracks}
+            onSelect={handleSelect}
+            onArtworkLoaded={handleArtworkLoaded}
+          />
         ) : (
-          <ArtistsScreen tracks={tracks} onSelect={handleSelect} />
+          <ArtistsScreen
+            tracks={tracks}
+            onSelect={handleSelect}
+            onArtworkLoaded={handleArtworkLoaded}
+          />
         )}
       </View>
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
-          onClose={() => setScreen('library')}
+          onClose={() => setScreen(returnScreenRef.current)}
           registerClose={registerClose}
         />
       ) : null}
@@ -318,7 +346,7 @@ export function AppShell() {
         visible={screen === 'settings'}
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
-        onBack={() => setScreen(activeTab)}
+        onBack={() => setScreen('library')}
         onImport={() => void handleImport()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}
@@ -327,7 +355,10 @@ export function AppShell() {
       {screen !== 'nowPlaying' ? (
         <View style={styles.bottom}>
           <MiniPlayer
-            onExpand={() => setScreen('nowPlaying')}
+            onExpand={() => {
+              rememberReturnScreen();
+              setScreen('nowPlaying');
+            }}
             standalone={!showTabs}
           />
           {showTabs ? <TabBar active={activeTab} onSelect={selectTab} /> : null}
