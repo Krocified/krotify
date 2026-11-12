@@ -138,6 +138,14 @@ Library ownership:
   write access; otherwise offer "import a copy and edit that".
 - Batch edit is a stretch, not baseline.
 
+Release packaging:
+- The current universal APK is about 76MB because it carries arm64-v8a,
+  armeabi-v7a, x86 and x86_64 native libraries. Ship an arm64-only build
+  (roughly 24-28MB) for phones, or per-ABI APKs; keep one universal build only
+  for emulator/testing use.
+- CI builds the release architecture explicitly and the release notes name the
+  ABI. Measure size before and after and record the result.
+
 Stretch:
 - Android Auto / media browser.
 

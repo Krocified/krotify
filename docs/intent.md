@@ -37,6 +37,8 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Adding the next milestone is a weekend, not a rewrite.
 - The library reads as a collection of albums and artists, not a file listing.
 - I can fix a wrong tag or cover without opening another app.
+- The download stays lean: a phone build around 25MB, not a 76MB universal
+  bundle of architectures I do not own.
 
 ## Principles
 - **Local-first**: the MP3s are the truth; the app never needs the network.
@@ -47,3 +49,5 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - **Art-first**: every track/album has a beautiful cover, real or generated.
 - **Incremental**: v0 proves the loop; each version deepens one axis.
 - **Lazy by design**: stdlib and Expo primitives before new dependencies.
+- **Lean artifacts**: ship only the ABIs the target needs; no unused native
+  payload in the release.

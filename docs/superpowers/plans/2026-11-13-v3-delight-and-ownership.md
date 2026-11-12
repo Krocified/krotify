@@ -177,7 +177,22 @@
 
 ---
 
-### Task 8: Stretch, only after the above
+### Task 8: Release packaging and APK size
+
+**Files:** `.github/workflows/release.yml`, `docs/spec.md` if the packaging note
+changes.
+
+- [ ] Record the current universal APK size from the latest release (about 76MB)
+  and the arm64-only local build (about 24MB).
+- [ ] Build release with `-PreactNativeArchitectures=arm64-v8a`; confirm the APK
+  installs and plays on an arm64 phone.
+- [ ] Keep an optional universal job or flag for emulator testing, clearly named.
+- [ ] Release notes include the ABI and the size.
+- [ ] Acceptance: the published phone APK is under ~30MB and installs over the
+  previous release signature.
+- [ ] Commit `build: ship arm64 release apk`.
+
+### Task 9: Stretch, only after the above
 
 - [ ] Batch edit: selection mode in Library, apply shared fields, reuse the native writer per file with progress and partial-failure reporting.
 - [ ] Android Auto / media browser research: evaluate `expo-audio` limits against the AudioPlaylist engine; record findings, build only if the path is native and small.
@@ -192,3 +207,4 @@
 - `.lrc` sidecars highlight and auto-scroll; no network.
 - Editing tags writes real file tags on imported copies; scanned files work after a write grant; failures leave originals intact.
 - Settings shows only shipped options.
+- The published phone APK is arm64-only and under ~30MB; CI builds it explicitly.
