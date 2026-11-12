@@ -53,6 +53,8 @@
 | `src/screens/EditTrackScreen.tsx` | metadata edit form and save flow |
 | `src/components/TrackActionsSheet.tsx` | in-app long-press action sheet |
 | `src/components/ConfirmSheet.tsx` | in-app destructive confirmation |
+| `src/screens/PlaylistsScreen.tsx` | playlist index and detail |
+| `src/screens/LikedScreen.tsx` | favorites list |
 | `src/screens/CatalogScreen.tsx` | Albums/Artists segmented catalog |
 | `src/screens/ImportScreen.tsx` | local import plus link-import entry |
 | `src/library/linkImport.ts` | resolver client, progress, save-to-library |
@@ -216,7 +218,39 @@ LRCLIB rules:
 
 ---
 
-### Task 7: Catalog consolidation and Import tab
+### Task 7: Playlists
+
+**Files:** `src/screens/PlaylistsScreen.tsx`, `src/AppShell.tsx`, `src/components/TrackActionsSheet.tsx`, `src/db/repo.ts`
+
+- [ ] Index: create, rename, delete; empty state. Entry from Library.
+- [ ] Detail: playlist tracks, remove, up/down reorder using `movePlaylistTrack`, play playlist as its queue.
+- [ ] Action sheet "Add to playlist" opens a playlist picker; confirm duplicates are skipped.
+- [ ] Persist through the existing SQLite repository; no AsyncStorage fallback on native.
+- [ ] Device: create, reorder, play, delete, restart persistence.
+- [ ] Commit `feat: add playlist ui`.
+
+### Task 8: Favorites and Liked Songs
+
+**Files:** `src/screens/LikedScreen.tsx`, `src/player/PlayerProvider.tsx` or a favorites hook, `src/AppShell.tsx`, `src/components/TrackActionsSheet.tsx`
+
+- [ ] Load favorite ids from SQLite; expose a toggle shared by Now Playing, the action sheet, and rows.
+- [ ] Show active state; feedback "Added to Liked Songs" / "Removed from Liked Songs" in-app, not a native toast/dialog.
+- [ ] Liked Songs list opens from the Library row and plays with its own queue.
+- [ ] Device: toggle, restart persistence, removed track disappears from the list.
+- [ ] Commit `feat: add favorites`.
+
+### Task 9: Scan opt-in, hidden restore, resume
+
+**Files:** `src/library/scanPrefs.ts`, `src/AppShell.tsx`, `src/screens/LibraryScreen.tsx`, `src/screens/SettingsScreen.tsx`
+
+- [ ] First-run prompt "Scan this device for audio?" with Scan and Not now; persist in AsyncStorage `krotify.scanEnabled.v1`; no permission request on Not now.
+- [ ] Settings switch: on requests permission and scans, off keeps imports and stops scanning.
+- [ ] Restore the Hidden tracks section with Restore.
+- [ ] Resume the last track and position after restart (AsyncStorage, native only).
+- [ ] Device: first run, deny/allow, toggle, restore, kill and relaunch resumes.
+- [ ] Commit `feat: add scan opt-in and resume`.
+
+### Task 10: Catalog consolidation and Import tab
 
 **Files:** `src/screens/CatalogScreen.tsx`, `src/screens/ImportScreen.tsx`, `src/AppShell.tsx`, `src/components/TabBar.tsx`, `src/screens/SettingsScreen.tsx`
 
@@ -226,7 +260,7 @@ LRCLIB rules:
 - [ ] Local import keeps its AsyncStorage index and dedupe.
 - [ ] Device: catalog segments, import a local file, tab persistence.
 
-### Task 8: Link import spike (YouTube to MP3, planned)
+### Task 11: Link import spike (YouTube to MP3, planned)
 
 **Files:** `src/library/linkImport.ts`, `src/screens/ImportScreen.tsx`
 
@@ -236,7 +270,7 @@ LRCLIB rules:
 - [ ] Rights gate: only content the user has the rights to download; explain this in the UI.
 - [ ] If no acceptable resolver exists, ship the section disabled with a clear note rather than a broken flow.
 
-### Task 9: Blur pill navigation
+### Task 12: Blur pill navigation
 
 **Files:** `src/components/TabBar.tsx`, `src/AppShell.tsx`, screen bottom paddings, `app.json` if a plugin is needed
 
@@ -257,7 +291,7 @@ LRCLIB rules:
   no layout jump when the mini-player appears.
 - [ ] Commit `feat: add blur pill tab bar`.
 
-### Task 10: Settings growth and polish
+### Task 13: Settings growth and polish
 
 **Files:** `src/screens/SettingsScreen.tsx`, `src/screens/NowPlayingScreen.tsx`
 
@@ -268,7 +302,7 @@ LRCLIB rules:
 
 ---
 
-### Task 11: Release packaging and APK size
+### Task 14: Release packaging and APK size
 
 **Files:** `.github/workflows/release.yml`, `docs/spec.md` if the packaging note
 changes.
@@ -283,7 +317,7 @@ changes.
   previous release signature.
 - [ ] Commit `build: ship arm64 release apk`.
 
-### Task 12: Stretch, only after the above
+### Task 15: Stretch, only after the above
 
 - [ ] Batch edit: selection mode in Library, apply shared fields, reuse the native writer per file with progress and partial-failure reporting.
 - [ ] Android Auto / media browser research: evaluate `expo-audio` limits against the AudioPlaylist engine; record findings, build only if the path is native and small.
@@ -299,6 +333,8 @@ changes.
 - Editing tags writes real file tags on imported copies; scanned files work after a write grant; failures leave originals intact.
 - Settings shows only shipped options.
 - Albums and Artists live in one Catalog tab; Import is its own tab; the phone UI exposes both.
+- Playlists and favorites persist across restarts; Liked Songs and playlist queues play correctly.
+- Scanning is opt-in, hidden tracks restore, and the last track/position resumes after restart.
 - Link import either works through a documented resolver or is visibly disabled; no scraping.
 - The tab bar is a floating blur pill with no gradient fade and remains legible over artwork.
 - The published phone APK is arm64-only and under ~30MB; CI builds it explicitly.

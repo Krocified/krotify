@@ -115,8 +115,20 @@ Blocked:
 
 ### v3 — Delight and ownership
 
-Prerequisite: the v2 leftovers (playlist UI, favorites UI, scan opt-in) and the
-`AudioPlaylist` migration that makes notification next/previous work.
+Prerequisite: the `AudioPlaylist` migration that makes notification next/previous
+work. The remaining v2 essentials (playlists, favorites, scan opt-in, hidden
+restore, resume position) are part of this milestone, not prerequisites.
+
+Library essentials:
+- Playlists: create, rename, delete, add/remove tracks, up/down reorder, play a
+  playlist as its own queue, persisted in SQLite.
+- Favorites: `+`/heart toggle in Now Playing and the track action sheet, a Liked
+  Songs list, persisted in SQLite.
+- Scan: first-run opt-in ("Scan this device for audio?"), a Settings switch,
+  and imports always visible.
+- Hidden tracks return to Settings with Restore.
+- Resume the last track and position after an app restart.
+- Explicit badge stays blocked until a tag source exposes the flag.
 
 Playback and listening:
 - Notification and lock-screen next/previous must work. This ships with the
@@ -250,9 +262,10 @@ sectioned by artist; Artists is a list. Both keep their detail pages, heroes and
 Search/Settings actions. The phone UI re-enables catalog here in v3.
 
 **Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
-optional Recently played rail, track list. Rows show cover, title, artist,
+a Liked Songs row, a playlists rail with create/open actions, optional Recently
+played rail, and the track list. Rows show cover, title, artist,
 duration; long press opens the in-app action sheet (details, edit, rename,
-exclude, delete). Scrolling shows a thin blue scrollbar
+exclude, delete, favorite, add to playlist). Scrolling shows a thin blue scrollbar
 from below the header to the mini-player.
 
 **Catalog / Albums** — segmented control; artist section headers; rows with
@@ -261,6 +274,11 @@ cover, album title, and "N tracks · M min". Album detail has a back pill, hero
 
 **Catalog / Artists** — circular covers, artist name, "N albums · M tracks".
 Artist detail mirrors the album detail with a circular hero.
+
+**Playlists** — index (create/rename/delete), detail with reorder, and play as
+queue. Entry from Library.
+
+**Liked Songs** — favorites list with the same rows and action sheet.
 
 **Import** — a dedicated tab, not a Settings row. Local file picker with a
 recent-imports list, progress, empty and error states. A second section is
