@@ -88,7 +88,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
         ]}
       >
         <View style={styles.topBar}>
-          <BackPill onPress={close} icon="chevron-down" label="Close" />
+          <BackPill onPress={close} icon="chevron-down" label="Close" plain />
         </View>
 
         <View style={styles.middle}>

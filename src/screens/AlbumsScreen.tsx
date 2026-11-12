@@ -6,7 +6,6 @@ import {
   SectionList,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
   type ListViewToken,
 } from 'react-native';
@@ -28,9 +27,9 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-const BOTTOM_PAD = 66 + TAB_BAR_HEIGHT;
+const BOTTOM_PAD = TAB_BAR_HEIGHT + 170;
 
-type AlbumSection = { title: string; data: Album[][] };
+type AlbumSection = { title: string; data: Album[] };
 
 const compareName = (a: string, b: string) =>
   a.localeCompare(b, undefined, { sensitivity: 'base' });
@@ -43,7 +42,6 @@ export function AlbumsScreen({
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const albums = useMemo(() => buildAlbums(tracks), [tracks]);
   const sections = useMemo<AlbumSection[]>(() => {
     const byArtist = new Map<string, Album[]>();
@@ -54,12 +52,10 @@ export function AlbumsScreen({
     }
     return [...byArtist.entries()]
       .sort(([a], [b]) => compareName(a, b))
-      .map(([title, list]) => {
-        const sorted = [...list].sort((a, b) => compareName(a.title, b.title));
-        const rows: Album[][] = [];
-        for (let i = 0; i < sorted.length; i += 2) rows.push(sorted.slice(i, i + 2));
-        return { title, data: rows };
-      });
+      .map(([title, list]) => ({
+        title,
+        data: [...list].sort((a, b) => compareName(a.title, b.title)),
+      }));
   }, [albums]);
   const requested = useRef(new Set<string>());
   const mounted = useRef(true);
@@ -76,7 +72,7 @@ export function AlbumsScreen({
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
       for (const { item } of viewableItems) {
-        const first = item[0]?.tracks[0];
+        const first = (item as Album).tracks[0];
         if (!first || first.artworkUri || requested.current.has(first.id)) continue;
         requested.current.add(first.id);
         loadArtwork(first)
@@ -91,7 +87,6 @@ export function AlbumsScreen({
 
   const selected = selectedKey ? albums.find((album) => album.key === selectedKey) : null;
   const closeDetail = () => setSelectedKey(null);
-  const coverSize = (width - space.md * 2 - space.md) / 2;
 
   const trackLabel = selected && selected.tracks.length === 1 ? 'track' : 'tracks';
 
@@ -147,29 +142,19 @@ export function AlbumsScreen({
           <SectionList
             key="albums"
             sections={sections}
-            keyExtractor={(row) => row[0].key}
+            keyExtractor={(album) => album.key}
             stickySectionHeadersEnabled={false}
             renderSectionHeader={({ section }) => (
               <Text style={styles.sectionTitle}>{section.title}</Text>
             )}
             renderItem={({ item }) => (
-              <View style={styles.column}>
-                {item.map((album) => (
-                  <AlbumCard
-                    key={album.key}
-                    album={album}
-                    size={coverSize}
-                    uri={album.tracks[0]?.artworkUri}
-                    onPress={() => setSelectedKey(album.key)}
-                  />
-                ))}
-                {item.length === 1 ? <View style={styles.card} /> : null}
-              </View>
+              <AlbumRow
+                album={item}
+                uri={item.tracks[0]?.artworkUri}
+                onPress={() => setSelectedKey(item.key)}
+              />
             )}
-            contentContainerStyle={[
-              styles.grid,
-              { paddingBottom: BOTTOM_PAD + insets.bottom },
-            ]}
+            contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
           />
@@ -179,34 +164,39 @@ export function AlbumsScreen({
   );
 }
 
-type CardProps = {
+type RowProps = {
   album: Album;
-  size: number;
   uri?: string;
   onPress: () => void;
 };
 
-function AlbumCard({ album, size, uri, onPress }: CardProps) {
+function AlbumRow({ album, uri, onPress }: RowProps) {
+  const trackLabel = album.tracks.length === 1 ? 'track' : 'tracks';
+  const minutes = Math.round(
+    album.tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0) / 60000,
+  );
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${album.title} by ${album.artist}`}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      accessibilityLabel={`${album.title} by ${album.artist}, ${album.tracks.length} ${trackLabel}`}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <CoverArt
         hue={album.artworkHue}
         title={album.title}
-        size={size}
-        radius={radius.coverLarge}
+        size={64}
+        radius={4}
         uri={uri}
       />
-      <Text style={styles.cardTitle} numberOfLines={1}>
-        {album.title}
-      </Text>
-      <Text style={styles.cardArtist} numberOfLines={1}>
-        {album.artist}
-      </Text>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {album.title}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {album.tracks.length} {trackLabel} · {minutes} min
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -216,32 +206,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  grid: {
-    paddingHorizontal: space.md,
-    gap: space.lg,
-  },
-  column: {
+  row: {
+    height: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ffffff10',
   },
-  card: {
+  rowPressed: {
+    backgroundColor: colors.surface,
+  },
+  rowText: {
     flex: 1,
     gap: space.xs,
   },
-  cardPressed: {
-    opacity: 0.8,
-  },
-  cardTitle: {
+  rowTitle: {
     ...type.body,
     color: colors.text,
   },
-  cardArtist: {
+  rowMeta: {
     ...type.meta,
     color: colors.textDim,
   },
   sectionTitle: {
-    ...type.body,
+    ...type.meta,
     color: colors.textDim,
-    marginBottom: -space.sm,
+    paddingHorizontal: space.md,
+    paddingTop: space.lg,
+    paddingBottom: space.xs,
   },
   hero: {
     alignItems: 'center',

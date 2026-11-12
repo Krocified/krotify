@@ -15,6 +15,7 @@ export type PlayerContextValue = {
   lastError: string | null;
   hasNext: boolean;
   hasPrevious: boolean;
+  queueLength: number;
   repeat: RepeatMode;
   cycleRepeat: () => void;
   playTrack: (
@@ -27,6 +28,8 @@ export type PlayerContextValue = {
   stop: () => void;
   next: () => void;
   previous: () => void;
+  skipNext: () => void;
+  skipPrevious: () => void;
   removeFromQueue: (ids: string[]) => void;
   setQueue: (queue: Track[]) => void;
 };
@@ -235,8 +238,29 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     void playTrack(previousTrack, resolveUri, queue);
   }, [previousResult, wrapPrevious, queue, playTrack, seek]);
 
+  const skipNext = useCallback(() => {
+    if (queue.length < 2) return;
+    const current = index < 0 ? 0 : index;
+    const target = (current + 1) % queue.length;
+    const nextTrack = queue[target];
+    const resolveUri = resolveUriRef.current;
+    if (!nextTrack || !resolveUri) return;
+    void playTrack(nextTrack, resolveUri, queue);
+  }, [index, queue, playTrack]);
+
+  const skipPrevious = useCallback(() => {
+    if (queue.length < 2) return;
+    const current = index < 0 ? 0 : index;
+    const target = (current - 1 + queue.length) % queue.length;
+    const previousTrack = queue[target];
+    const resolveUri = resolveUriRef.current;
+    if (!previousTrack || !resolveUri) return;
+    void playTrack(previousTrack, resolveUri, queue);
+  }, [index, queue, playTrack]);
+
   const hasNext = wrappedNext !== -1;
   const hasPrevious = previousResult.type !== 'none' || wrapPrevious;
+  const queueLength = queue.length;
 
   const cycleRepeat = useCallback(() => {
     setRepeat((mode) => (mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'));
@@ -292,6 +316,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       lastError,
       hasNext,
       hasPrevious,
+      queueLength,
       repeat,
       cycleRepeat,
       playTrack,
@@ -299,6 +324,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       seek,
       next,
       previous,
+      skipNext,
+      skipPrevious,
       stop,
       removeFromQueue,
       setQueue,
@@ -311,6 +338,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       lastError,
       hasNext,
       hasPrevious,
+      queueLength,
       repeat,
       cycleRepeat,
       playTrack,
@@ -318,6 +346,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       seek,
       next,
       previous,
+      skipNext,
+      skipPrevious,
       stop,
       removeFromQueue,
       setQueue,

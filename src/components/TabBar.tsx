@@ -33,9 +33,8 @@ export function TabBar({ active, onSelect }: Props) {
     >
       <LinearGradient
         pointerEvents="none"
-        colors={['rgba(11,11,15,0)', 'rgba(11,11,15,0.85)', '#0B0B0F']}
-        locations={[0, 0.55, 1]}
-        style={[styles.fade, { height: TAB_BAR_HEIGHT + TAB_BAR_HEIGHT / 2 + insets.bottom }]}
+        colors={['rgba(11,11,15,0)', 'rgba(11,11,15,0.75)']}
+        style={[styles.fade, { height: TAB_BAR_HEIGHT + TAB_BAR_HEIGHT / 4 + insets.bottom }]}
       />
       <View style={{ height: TAB_BAR_HEIGHT }}>
         <View style={styles.row}>

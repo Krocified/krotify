@@ -26,7 +26,7 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-const BOTTOM_PAD = 66 + TAB_BAR_HEIGHT;
+const BOTTOM_PAD = TAB_BAR_HEIGHT + 170;
 
 export function ArtistsScreen({
   tracks,

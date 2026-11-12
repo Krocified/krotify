@@ -18,25 +18,23 @@ type Props = {
 };
 
 export function MiniPlayer({ onExpand }: Props) {
-  const { track, isPlaying, positionMs, durationMs, hasNext, hasPrevious, toggle, next, previous, stop } =
+  const { track, isPlaying, positionMs, durationMs, queueLength, toggle, skipNext, skipPrevious, stop } =
     usePlayer();
   const [progress] = useState(() =>
     new Animated.Value(durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0),
   );
   const [contentX] = useState(() => new Animated.Value(0));
   const [contentOpacity] = useState(() => new Animated.Value(1));
-  const hasNextRef = useRef(hasNext);
-  const hasPreviousRef = useRef(hasPrevious);
-  const nextRef = useRef(next);
-  const previousRef = useRef(previous);
+  const canSkipRef = useRef(queueLength > 1);
+  const skipNextRef = useRef(skipNext);
+  const skipPreviousRef = useRef(skipPrevious);
   const animatingRef = useRef(false);
 
   useEffect(() => {
-    hasNextRef.current = hasNext;
-    hasPreviousRef.current = hasPrevious;
-    nextRef.current = next;
-    previousRef.current = previous;
-  }, [hasNext, hasPrevious, next, previous]);
+    canSkipRef.current = queueLength > 1;
+    skipNextRef.current = skipNext;
+    skipPreviousRef.current = skipPrevious;
+  }, [queueLength, skipNext, skipPrevious]);
 
   useEffect(() => {
     const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
@@ -65,9 +63,8 @@ export function MiniPlayer({ onExpand }: Props) {
           if (animatingRef.current) return;
           const forward = gesture.dx < -50;
           const backward = gesture.dx > 50;
-          const allowed = forward ? hasNextRef.current : backward ? hasPreviousRef.current : false;
 
-          if (!(forward || backward) || !allowed) {
+          if (!(forward || backward) || !canSkipRef.current) {
             Animated.parallel([
               Animated.spring(contentX, { toValue: 0, useNativeDriver: true }),
               Animated.timing(contentOpacity, {
@@ -94,8 +91,8 @@ export function MiniPlayer({ onExpand }: Props) {
               useNativeDriver: true,
             }),
           ]).start(() => {
-            if (forward) nextRef.current();
-            else previousRef.current();
+            if (forward) skipNextRef.current();
+            else skipPreviousRef.current();
             contentX.setValue(-direction * 40);
             Animated.parallel([
               Animated.timing(contentX, {

@@ -90,7 +90,7 @@ export function LibraryScreen({
             initialNumToRender={16}
             windowSize={9}
             removeClippedSubviews
-            contentContainerStyle={{ paddingBottom: 66 + TAB_BAR_HEIGHT + insets.bottom }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 170 }}
           />
         </>
       )}

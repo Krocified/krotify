@@ -63,16 +63,26 @@ type BackPillProps = {
   onPress: () => void;
   icon?: ComponentProps<typeof Ionicons>['name'];
   label?: string;
+  plain?: boolean;
 };
 
-export function BackPill({ onPress, icon = 'arrow-back', label = 'Back' }: BackPillProps) {
+export function BackPill({
+  onPress,
+  icon = 'arrow-back',
+  label = 'Back',
+  plain = false,
+}: BackPillProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={space.sm}
-      style={({ pressed }) => [styles.backPill, pressed && styles.backPillPressed]}
+      style={({ pressed }) => [
+        styles.backPill,
+        plain && styles.backPillPlain,
+        pressed && styles.backPillPressed,
+      ]}
     >
       <Ionicons name={icon} size={22} color={colors.text} />
     </Pressable>
@@ -125,6 +135,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 18,
     backgroundColor: colors.surfaceHi,
+  },
+  backPillPlain: {
+    backgroundColor: 'transparent',
   },
   backPillPressed: {
     opacity: 0.7,
