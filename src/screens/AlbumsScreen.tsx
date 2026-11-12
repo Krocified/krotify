@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   SectionList,
@@ -165,6 +166,11 @@ export function AlbumsScreen({
             maxToRenderPerBatch={20}
             windowSize={21}
             removeClippedSubviews={false}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            }
           />
         </>
       )}
@@ -210,6 +216,10 @@ function AlbumRow({ album, uri, onPress }: RowProps) {
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    paddingVertical: space.xl,
+    alignItems: 'center',
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

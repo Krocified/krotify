@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { ActivityIndicator } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -111,6 +112,11 @@ export function ArtistsScreen({
             maxToRenderPerBatch={20}
             windowSize={21}
             removeClippedSubviews={false}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            }
           />
         </>
       ) : (
@@ -169,6 +175,10 @@ function ArtistRow({ artist, onPress }: { artist: Artist; onPress: () => void })
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

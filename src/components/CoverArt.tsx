@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { coverColors, coverInitial } from '../lib/cover';
 
 type Props = {
@@ -14,6 +14,7 @@ type Props = {
 export function CoverArt({ hue, title, size, radius, uri }: Props) {
   const gradient = coverColors(hue);
   const [failedUri, setFailedUri] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(uri));
   const showImage = uri !== undefined && uri !== failedUri;
 
   return (
@@ -23,26 +24,35 @@ export function CoverArt({ hue, title, size, radius, uri }: Props) {
         { width: size, height: size, borderRadius: radius, backgroundColor: gradient[0] },
       ]}
     >
+      <LinearGradient
+        colors={gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gradient, { borderRadius: radius }]}
+      >
+        <Text style={[styles.initial, { fontSize: size * 0.3 }]}>{coverInitial(title)}</Text>
+      </LinearGradient>
       {showImage ? (
-        <Image
-          source={{ uri: uri as string }}
-          resizeMode="contain"
-          onError={() => setFailedUri(uri ?? null)}
-          style={{ width: size, height: size, borderRadius: radius }}
-          accessible={false}
-        />
-      ) : (
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.gradient, { borderRadius: radius }]}
-        >
-          <Text style={[styles.initial, { fontSize: size * 0.3 }]}>
-            {coverInitial(title)}
-          </Text>
-        </LinearGradient>
-      )}
+        <>
+          <Image
+            source={{ uri: uri as string }}
+            resizeMode="contain"
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => {
+              setLoading(false);
+              setFailedUri(uri ?? null);
+            }}
+            style={[styles.image, { width: size, height: size, borderRadius: radius }]}
+            accessible={false}
+          />
+          {loading ? (
+            <View style={styles.spinner} pointerEvents="none">
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            </View>
+          ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -54,6 +64,20 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+  },
+  image: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  spinner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gradient: {
     flex: 1,
