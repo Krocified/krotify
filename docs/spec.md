@@ -214,7 +214,7 @@ black pill. Full-bleed cover-color backdrop and draggable progress with previous
 play/next centered on play and repeat at the right. Two content modes share the
 screen: **art** (large 1:1 cover, title, artist) and **lyrics** (a smaller cover
 stays visible at the top while the timed lyrics fill the remaining space, active
-line highlighted, quote lines tappable to seek). The mode toggle sits in the top
+line highlighted, lyric lines tappable to seek). The mode toggle sits in the top
 bar or beside the transport. Closing is instant and returns to the screen it was
 opened from.
 
