@@ -139,6 +139,11 @@ Library ownership:
   write leaves the original intact and reports the failure.
 - Imported copies are always editable. Scanned files are editable only with
   write access; otherwise offer "import a copy and edit that".
+- Catalog: Albums and Artists consolidated into one tab with a segmented control.
+- Import becomes its own tab: local files move there from Settings, with a
+  planned link-import section for YouTube-to-MP3 through a resolver service.
+  The resolver is a server-side dependency; the app never scrapes YouTube, and
+  the flow is limited to content the user has the rights to download.
 - Batch edit is a stretch, not baseline.
 
 Release packaging:
@@ -186,25 +191,40 @@ while Settings is open.
   `X-User-Agent` on web), are sequential with a short delay, and cache the
   response locally. Only title, artist, album and duration leave the device.
   Publishing, flagging and bulk prefetch are out of scope.
+- **Link importer resolver** (planned, not selected): a self-hosted or
+  third-party service that accepts a URL and returns audio plus metadata. It
+  must not be scraped from the client. Requires a legal check: only content the
+  user has the rights to download, and the service's terms must allow it.
 
 ## Screens & flows
 
-**Tabs** — Library, Albums, Artists. Persistent on Settings, hidden on Now
+**Tabs** — Library, Catalog, Import. Persistent on Settings, hidden on Now
 Playing and Search. Fine at the bottom above the system inset; active tab uses a
 filled icon and white label, inactive uses an outline icon and dim label.
+Settings stays in the header.
+
+**Catalog** — Albums and Artists are one tab with a segmented control. Albums is
+sectioned by artist; Artists is a list. Both keep their detail pages, heroes and
+Search/Settings actions. The phone UI re-enables catalog here in v3.
 
 **Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
 optional Recently played rail, track list. Rows show cover, title, artist,
 duration; long press opens exclude/delete. Scrolling shows a thin blue scrollbar
 from below the header to the mini-player.
 
-**Albums** — header with albums icon and title; artist section headers; rows with
+**Catalog / Albums** — segmented control; artist section headers; rows with
 cover, album title, and "N tracks · M min". Album detail has a back pill, hero
 (160px cover, title, artist, count), then the track list.
 
-**Artists** — header with artists icon and title; circular covers, artist name,
-"N albums · M tracks". Artist detail mirrors the album detail with a circular
-hero.
+**Catalog / Artists** — circular covers, artist name, "N albums · M tracks".
+Artist detail mirrors the album detail with a circular hero.
+
+**Import** — a dedicated tab, not a Settings row. Local file picker with a
+recent-imports list, progress, empty and error states. A second section is
+reserved for link import: paste a URL, resolve it through a server-side
+converter, fetch metadata and artwork, then save into the app library. Direct
+scraping of YouTube inside the app is out of scope; only content the user has
+the rights to download is supported.
 
 **Search** — slide-in overlay with a borderless field (accent cursor) and
 incremental results across title, artist and album.

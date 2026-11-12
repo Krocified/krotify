@@ -15,6 +15,8 @@
 - Android only. Dev build required; no Expo Go.
 - Local files only. No lyrics or metadata fetch from the network.
 - Crossfade is dropped. Gapless comes from `AudioPlaylist`; do not add a second playback engine.
+- Link import goes through a resolver service, never direct scraping. Only
+  content the user has the rights to download; document the legal check.
 - Any tag write is explicit, confirmed, atomic (temp file then replace) and followed by a re-read. A failed write leaves the original intact.
 - Scanned files are written only after `MediaStore.createWriteRequest` grants access; otherwise offer "import a copy".
 - No new runtime dependency without an Expo-compatible version check first.
@@ -47,6 +49,9 @@
 | `src/library/tagWriter.ts` | TS wrapper over the native tag module |
 | `modules/audio-tags/` | local Expo module: jaudiotagger read/write, atomic replace, write requests |
 | `src/screens/EditTrackScreen.tsx` | metadata edit form and save flow |
+| `src/screens/CatalogScreen.tsx` | Albums/Artists segmented catalog |
+| `src/screens/ImportScreen.tsx` | local import plus link-import entry |
+| `src/library/linkImport.ts` | resolver client, progress, save-to-library |
 | `src/screens/NowPlayingScreen.tsx` | shuffle, art/lyrics mode, sleep indicator |
 | `src/components/LyricsPanel.tsx` | timed lyric list, active-line scroll, seek on tap |
 | `src/screens/SettingsScreen.tsx` | Playback section (shuffle default, sleep timer), editing notes |
@@ -185,7 +190,27 @@ LRCLIB rules:
 
 ---
 
-### Task 7: Settings growth and polish
+### Task 7: Catalog consolidation and Import tab
+
+**Files:** `src/screens/CatalogScreen.tsx`, `src/screens/ImportScreen.tsx`, `src/AppShell.tsx`, `src/components/TabBar.tsx`, `src/screens/SettingsScreen.tsx`
+
+- [ ] One `CatalogScreen` with a segmented Albums/Artists control, reusing the existing list and detail components. One tab in `TabBar` replaces the two hidden entries; re-enable on phone.
+- [ ] New `ImportScreen` tab: the existing local picker and recent imports, with progress, empty and error states.
+- [ ] Move the import control out of Settings; keep exclude-all there.
+- [ ] Local import keeps its AsyncStorage index and dedupe.
+- [ ] Device: catalog segments, import a local file, tab persistence.
+
+### Task 8: Link import spike (YouTube to MP3, planned)
+
+**Files:** `src/library/linkImport.ts`, `src/screens/ImportScreen.tsx`
+
+- [ ] Spike a resolver first: self-hosted yt-dlp service or a licensed converter API. Record legal/terms constraints and the request/response shape. No direct scraping in the client, ever.
+- [ ] Client: paste URL, call the resolver, receive audio plus title/artist/artwork/duration, save into app storage, add to imports, show progress and cancel.
+- [ ] Failure states: unsupported link, blocked/private video, resolver offline, disk full.
+- [ ] Rights gate: only content the user has the rights to download; explain this in the UI.
+- [ ] If no acceptable resolver exists, ship the section disabled with a clear note rather than a broken flow.
+
+### Task 9: Settings growth and polish
 
 **Files:** `src/screens/SettingsScreen.tsx`, `src/screens/NowPlayingScreen.tsx`
 
@@ -196,7 +221,7 @@ LRCLIB rules:
 
 ---
 
-### Task 8: Release packaging and APK size
+### Task 10: Release packaging and APK size
 
 **Files:** `.github/workflows/release.yml`, `docs/spec.md` if the packaging note
 changes.
@@ -211,7 +236,7 @@ changes.
   previous release signature.
 - [ ] Commit `build: ship arm64 release apk`.
 
-### Task 9: Stretch, only after the above
+### Task 11: Stretch, only after the above
 
 - [ ] Batch edit: selection mode in Library, apply shared fields, reuse the native writer per file with progress and partial-failure reporting.
 - [ ] Android Auto / media browser research: evaluate `expo-audio` limits against the AudioPlaylist engine; record findings, build only if the path is native and small.
@@ -226,4 +251,6 @@ changes.
 - `.lrc` sidecars highlight and auto-scroll; no network.
 - Editing tags writes real file tags on imported copies; scanned files work after a write grant; failures leave originals intact.
 - Settings shows only shipped options.
+- Albums and Artists live in one Catalog tab; Import is its own tab; the phone UI exposes both.
+- Link import either works through a documented resolver or is visibly disabled; no scraping.
 - The published phone APK is arm64-only and under ~30MB; CI builds it explicitly.

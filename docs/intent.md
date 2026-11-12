@@ -19,6 +19,8 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Browse and search a real collection by album and artist, not by filenames.
 - Keep playback contextual: what I open (album, artist, search, recent) becomes
   the queue, and repeat/history follow that context.
+- Make adding music a first-class flow: pick local files, and where permitted
+  pull audio from a link, without leaving the app.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
