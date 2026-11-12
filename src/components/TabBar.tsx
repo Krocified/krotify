@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,49 +26,68 @@ export function TabBar({ active, onSelect }: Props) {
   const insets = useSafeAreaInsets();
   return (
     <View
-      accessibilityRole="tablist"
       style={[
         styles.bar,
         { height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom },
       ]}
     >
-      <View style={styles.row}>
-        {TABS.map((tab) => {
-        const selected = tab.name === active;
-        return (
-          <Pressable
-            key={tab.name}
-            onPress={() => onSelect(tab.name)}
-            accessibilityRole="tab"
-            accessibilityLabel={tab.label}
-            accessibilityState={{ selected }}
-            style={styles.tab}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={24}
-              color={selected ? colors.accent : colors.textDim}
-            />
-            <Text style={[styles.label, { color: selected ? colors.accent : colors.textDim }]}>
-              {tab.label}
-            </Text>
-          </Pressable>
-          );
-        })}
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(11,11,15,0)', 'rgba(11,11,15,0.85)', '#0B0B0F']}
+        locations={[0, 0.55, 1]}
+        style={styles.fade}
+      />
+      <View style={{ height: TAB_BAR_HEIGHT }}>
+        <View style={styles.row}>
+          {TABS.map((tab) => {
+            const selected = tab.name === active;
+            return (
+              <Pressable
+                key={tab.name}
+                onPress={() => onSelect(tab.name)}
+                accessibilityRole="tab"
+                accessibilityLabel={tab.label}
+                accessibilityState={{ selected }}
+                style={styles.tab}
+              >
+                <View style={[styles.pill, selected && styles.pillActive]}>
+                  <Ionicons
+                    name={tab.icon}
+                    size={24}
+                    color={selected ? colors.accent2 : colors.textDim}
+                  />
+                </View>
+                <Text
+                  style={[styles.label, { color: selected ? colors.text : colors.textDim }]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 }
 
+const FADE_HEIGHT = 96;
+
 const styles = StyleSheet.create({
   bar: {
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ffffff10',
+    position: 'relative',
+  },
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: -FADE_HEIGHT,
   },
   row: {
-    height: TAB_BAR_HEIGHT,
+    flex: 1,
     flexDirection: 'row',
+    paddingHorizontal: space.sm,
   },
   tab: {
     flex: 1,
@@ -75,8 +95,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: space.xs,
   },
+  pill: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: 999,
+  },
+  pillActive: {
+    backgroundColor: 'rgba(33,91,237,0.16)',
+  },
   label: {
     ...type.meta,
     fontSize: 11,
+    fontWeight: '500',
   },
 });

@@ -1,8 +1,7 @@
-import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecentlyPlayed } from '../components/RecentlyPlayed';
-import { ScreenHeader } from '../components/ScreenHeader';
+import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { colors, space, type } from '../theme';
@@ -52,26 +51,7 @@ export function LibraryScreen({
           </>
         }
         trailing={
-          <>
-            <Pressable
-              onPress={onOpenSearch}
-              accessibilityRole="button"
-              accessibilityLabel="Search"
-              hitSlop={space.sm}
-              style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
-            >
-              <Ionicons name="search-outline" size={22} color={colors.textDim} />
-            </Pressable>
-            <Pressable
-              onPress={onOpenSettings}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              hitSlop={space.sm}
-              style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
-            >
-              <Ionicons name="settings-outline" size={22} color={colors.textDim} />
-            </Pressable>
-          </>
+          <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
         }
       />
 
@@ -131,16 +111,6 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
-  },
-  gear: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  gearPressed: {
-    backgroundColor: colors.surfaceHi,
   },
   scanning: {
     flex: 1,

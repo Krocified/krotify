@@ -1,17 +1,18 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
-  View,
   type ListViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
-import { ScreenHeader } from '../components/ScreenHeader';
+import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { buildAlbums, type Album } from '../lib/groups';
@@ -23,11 +24,19 @@ type Props = {
   tracks: Track[];
   onSelect: (track: Track, queue: Track[]) => void;
   onArtworkLoaded: (trackId: string, uri: string) => void;
+  onOpenSearch: () => void;
+  onOpenSettings: () => void;
 };
 
 const BOTTOM_PAD = 66 + TAB_BAR_HEIGHT;
 
-export function AlbumsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
+export function AlbumsScreen({
+  tracks,
+  onSelect,
+  onArtworkLoaded,
+  onOpenSearch,
+  onOpenSettings,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const albums = useMemo(() => buildAlbums(tracks), [tracks]);
@@ -61,65 +70,73 @@ export function AlbumsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
 
   const selected = selectedKey ? albums.find((album) => album.key === selectedKey) : null;
   const closeDetail = () => setSelectedKey(null);
-
-  if (selected) {
-    return (
-      <View style={styles.root}>
-        <ScreenHeader
-          leading={
-            <Pressable
-              onPress={closeDetail}
-              accessibilityRole="button"
-              accessibilityLabel="Back to albums"
-              hitSlop={space.sm}
-              style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-            >
-              <Ionicons name="chevron-back" size={26} color={colors.text} />
-            </Pressable>
-          }
-          title={selected.title}
-          trailing={<View style={styles.iconButton} />}
-        />
-        <FlatList
-          key={selected.key}
-          data={selected.tracks}
-          keyExtractor={(track) => track.id}
-          renderItem={({ item }) => (
-            <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
-          )}
-          contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
-        />
-      </View>
-    );
-  }
-
   const coverSize = (width - space.md * 2 - space.md) / 2;
 
+  const [fade] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    fade.setValue(0);
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 140,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [fade, selectedKey]);
+
   return (
-    <View style={styles.root}>
-      <ScreenHeader
-        leading={<Ionicons name="albums-outline" size={26} color={colors.text} />}
-        title="Albums"
-      />
-      <FlatList
-        key="albums"
-        data={albums}
-        keyExtractor={(album) => album.key}
-        numColumns={2}
-        columnWrapperStyle={styles.column}
-        contentContainerStyle={[styles.grid, { paddingBottom: BOTTOM_PAD + insets.bottom }]}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        renderItem={({ item }) => (
-          <AlbumCard
-            album={item}
-            size={coverSize}
-            uri={item.tracks[0]?.artworkUri}
-            onPress={() => setSelectedKey(item.key)}
+    <Animated.View style={[styles.root, { opacity: fade }]}>
+      {selected ? (
+        <>
+          <ScreenHeader
+            leading={<BackPill onPress={closeDetail} />}
+            title={selected.title}
+            trailing={
+              <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
+            }
           />
-        )}
-      />
-    </View>
+          <FlatList
+            key={selected.key}
+            data={selected.tracks}
+            keyExtractor={(track) => track.id}
+            renderItem={({ item }) => (
+              <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
+            )}
+            contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+          />
+        </>
+      ) : (
+        <>
+          <ScreenHeader
+            leading={<Ionicons name="albums-outline" size={26} color={colors.text} />}
+            title="Albums"
+            trailing={
+              <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
+            }
+          />
+          <FlatList
+            key="albums"
+            data={albums}
+            keyExtractor={(album) => album.key}
+            numColumns={2}
+            columnWrapperStyle={styles.column}
+            contentContainerStyle={[
+              styles.grid,
+              { paddingBottom: BOTTOM_PAD + insets.bottom },
+            ]}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            renderItem={({ item }) => (
+              <AlbumCard
+                album={item}
+                size={coverSize}
+                uri={item.tracks[0]?.artworkUri}
+                onPress={() => setSelectedKey(item.key)}
+              />
+            )}
+          />
+        </>
+      )}
+    </Animated.View>
   );
 }
 
@@ -159,16 +176,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  iconPressed: {
-    backgroundColor: colors.surfaceHi,
   },
   grid: {
     paddingHorizontal: space.md,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, Platform, StyleSheet, View } from 'react-native';
+import { Alert, Animated, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar, type TabName } from './components/TabBar';
@@ -40,6 +40,9 @@ export function AppShell() {
   const assetsRef = useRef(new Map<string, Asset>());
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const returnScreenRef = useRef<ScreenName>('library');
+  const settingsReturnRef = useRef<ScreenName>('library');
+  const searchReturnRef = useRef<ScreenName>('library');
+  const [tabFade] = useState(() => new Animated.Value(1));
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
@@ -149,11 +152,11 @@ export function AppShell() {
         return true;
       }
       if (screen === 'settings') {
-        setScreen(tab);
+        setScreen(settingsReturnRef.current);
         return true;
       }
       if (screen === 'search') {
-        setScreen(tab);
+        setScreen(searchReturnRef.current);
         return true;
       }
       return false;
@@ -294,6 +297,25 @@ export function AppShell() {
   const showTabBar = screen !== 'nowPlaying' && screen !== 'search';
   const activeTab: TabName = showTabs ? screen : tab;
 
+  useEffect(() => {
+    tabFade.setValue(0);
+    Animated.timing(tabFade, {
+      toValue: 1,
+      duration: 120,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [tabFade, activeTab]);
+
+  function openSearch() {
+    searchReturnRef.current = activeTab;
+    setScreen('search');
+  }
+
+  function openSettings() {
+    settingsReturnRef.current = activeTab;
+    setScreen('settings');
+  }
+
   function selectTab(next: TabName) {
     setTab(next);
     setScreen(next);
@@ -301,8 +323,8 @@ export function AppShell() {
 
   return (
     <View style={styles.root}>
-      <View
-        style={styles.library}
+      <Animated.View
+        style={[styles.library, { opacity: tabFade }]}
         accessibilityElementsHidden={!showTabs}
         importantForAccessibility={showTabs ? 'auto' : 'no-hide-descendants'}
       >
@@ -314,23 +336,27 @@ export function AppShell() {
             statusNote={statusNote}
             onSelect={handleSelect}
             onManage={handleManage}
-            onOpenSearch={() => setScreen('search')}
-            onOpenSettings={() => setScreen('settings')}
+            onOpenSearch={openSearch}
+            onOpenSettings={openSettings}
           />
         ) : activeTab === 'albums' ? (
           <AlbumsScreen
             tracks={tracks}
             onSelect={handleSelect}
             onArtworkLoaded={handleArtworkLoaded}
+            onOpenSearch={openSearch}
+            onOpenSettings={openSettings}
           />
         ) : (
           <ArtistsScreen
             tracks={tracks}
             onSelect={handleSelect}
             onArtworkLoaded={handleArtworkLoaded}
+            onOpenSearch={openSearch}
+            onOpenSettings={openSettings}
           />
         )}
-      </View>
+      </Animated.View>
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
@@ -341,13 +367,13 @@ export function AppShell() {
         visible={screen === 'search'}
         tracks={tracks}
         onSelect={handleSelect}
-        onBack={() => setScreen(activeTab)}
+        onBack={() => setScreen(searchReturnRef.current)}
       />
       <SettingsScreen
         visible={screen === 'settings'}
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
-        onBack={() => setScreen(tab)}
+        onBack={() => setScreen(settingsReturnRef.current)}
         onImport={() => void handleImport()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}

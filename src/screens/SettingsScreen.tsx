@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackPill } from '../components/ScreenHeader';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
@@ -78,15 +79,7 @@ export function SettingsScreen({
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Pressable
-          onPress={onBack}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={space.sm}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-        >
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackPill onPress={onBack} />
         <Text style={styles.title}>Settings</Text>
         <View style={styles.iconButton} />
       </View>
@@ -203,12 +196,6 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  iconPressed: {
-    backgroundColor: colors.surfaceHi,
   },
   title: {
     ...type.body,
