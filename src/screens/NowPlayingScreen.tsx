@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -45,7 +45,6 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
   const insets = useSafeAreaInsets();
   const [slide] = useState(() => new Animated.Value(height));
   const [resetToken, setResetToken] = useState(0);
-  const closingRef = useRef(false);
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -57,17 +56,8 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
   }, [slide]);
 
   const close = useCallback(() => {
-    if (closingRef.current) return;
-    closingRef.current = true;
-    Animated.timing(slide, {
-      toValue: height,
-      duration: SLIDE_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== 'web',
-    }).start(({ finished }) => {
-      if (finished) onClose();
-    });
-  }, [height, onClose, slide]);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     registerClose?.(close);
@@ -106,14 +96,6 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
           >
             <Ionicons name="chevron-down" size={28} color={colors.text} />
           </Pressable>
-          <View
-            style={styles.iconButton}
-            accessible={false}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.textDim} />
-          </View>
         </View>
 
         <View style={styles.middle}>

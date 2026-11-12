@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePlayer } from '../player/PlayerProvider';
+import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
@@ -47,10 +47,10 @@ export function SettingsScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { track } = usePlayer();
   const [anim] = useState(() => new Animated.Value(0));
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
+  const bottomPad = TAB_BAR_HEIGHT + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -92,10 +92,7 @@ export function SettingsScreen({
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + space.xl + (track ? 72 : 0) },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
       >
         <View style={styles.card}>
           <Pressable

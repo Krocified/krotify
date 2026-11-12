@@ -10,19 +10,16 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, space, type } from '../theme';
 import { CoverArt } from './CoverArt';
 
 type Props = {
   onExpand: () => void;
-  standalone?: boolean;
 };
 
-export function MiniPlayer({ onExpand, standalone = false }: Props) {
+export function MiniPlayer({ onExpand }: Props) {
   const { track, isPlaying, positionMs, durationMs, toggle, stop } = usePlayer();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [progress] = useState(() =>
     new Animated.Value(durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0),
@@ -140,10 +137,7 @@ export function MiniPlayer({ onExpand, standalone = false }: Props) {
       {...panResponder.panHandlers}
       style={[
         styles.wrap,
-        {
-          paddingBottom: standalone ? insets.bottom : 0,
-          transform: [{ translateX: offsetX }, { translateY: offsetY }],
-        },
+        { transform: [{ translateX: offsetX }, { translateY: offsetY }] },
       ]}
     >
       <View style={styles.progressTrack} pointerEvents="none">

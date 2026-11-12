@@ -149,7 +149,7 @@ export function AppShell() {
         return true;
       }
       if (screen === 'settings') {
-        setScreen('library');
+        setScreen(tab);
         return true;
       }
       if (screen === 'search') {
@@ -174,7 +174,7 @@ export function AppShell() {
   }, []);
 
   function rememberReturnScreen() {
-    returnScreenRef.current = showTabs ? screen : 'library';
+    returnScreenRef.current = screen === 'search' ? tab : screen;
   }
 
   async function handleSelect(track: Track, queue?: Track[]) {
@@ -291,6 +291,7 @@ export function AppShell() {
   }
 
   const showTabs = screen === 'library' || screen === 'albums' || screen === 'artists';
+  const showTabBar = screen !== 'nowPlaying' && screen !== 'search';
   const activeTab: TabName = showTabs ? screen : tab;
 
   function selectTab(next: TabName) {
@@ -346,22 +347,21 @@ export function AppShell() {
         visible={screen === 'settings'}
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
-        onBack={() => setScreen('library')}
+        onBack={() => setScreen(tab)}
         onImport={() => void handleImport()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}
         importing={importing}
       />
-      {screen !== 'nowPlaying' ? (
+      {showTabBar ? (
         <View style={styles.bottom}>
           <MiniPlayer
             onExpand={() => {
               rememberReturnScreen();
               setScreen('nowPlaying');
             }}
-            standalone={!showTabs}
           />
-          {showTabs ? <TabBar active={activeTab} onSelect={selectTab} /> : null}
+          <TabBar active={activeTab} onSelect={selectTab} />
         </View>
       ) : null}
     </View>

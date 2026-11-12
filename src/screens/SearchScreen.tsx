@@ -11,11 +11,12 @@ import {
   TextInput,
   useWindowDimensions,
   View,
+  type TextStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrackRow } from '../components/TrackRow';
 import { searchTracks } from '../lib/search';
-import { colors, radius, space, type } from '../theme';
+import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 
 type Props = {
@@ -27,6 +28,8 @@ type Props = {
 
 const SLIDE_MS = 280;
 const BOTTOM_PAD = 88;
+const webInput =
+  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
 export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
   const insets = useSafeAreaInsets();
@@ -96,8 +99,11 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            underlineColorAndroid="transparent"
+            selectionColor={colors.accent}
+            cursorColor={colors.accent}
             accessibilityLabel="Search title, artist, or album"
-            style={styles.input}
+            style={[styles.input, webInput]}
           />
         </View>
       </View>
@@ -152,9 +158,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.sm,
     height: 44,
-    paddingHorizontal: space.md,
-    borderRadius: radius.screen,
-    backgroundColor: colors.surface,
   },
   input: {
     ...type.body,

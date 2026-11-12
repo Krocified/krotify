@@ -2,6 +2,8 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecentlyPlayed } from '../components/RecentlyPlayed';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { colors, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
@@ -38,36 +40,40 @@ export function LibraryScreen({
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <View style={styles.brand}>
-          <Image
-            source={require('../../assets/lyrics.png')}
-            style={styles.brandIcon}
-            accessible={false}
-          />
-          <Text style={styles.wordmark}>Krotify</Text>
-        </View>
-        <View style={styles.actions}>
-          <Pressable
-            onPress={onOpenSearch}
-            accessibilityRole="button"
-            accessibilityLabel="Search"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
-          >
-            <Ionicons name="search-outline" size={22} color={colors.textDim} />
-          </Pressable>
-          <Pressable
-            onPress={onOpenSettings}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
-          >
-            <Ionicons name="settings-outline" size={22} color={colors.textDim} />
-          </Pressable>
-        </View>
-      </View>
+      <ScreenHeader
+        leading={
+          <>
+            <Image
+              source={require('../../assets/lyrics.png')}
+              style={styles.brandIcon}
+              accessible={false}
+            />
+            <Text style={styles.wordmark}>Krotify</Text>
+          </>
+        }
+        trailing={
+          <>
+            <Pressable
+              onPress={onOpenSearch}
+              accessibilityRole="button"
+              accessibilityLabel="Search"
+              hitSlop={space.sm}
+              style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
+            >
+              <Ionicons name="search-outline" size={22} color={colors.textDim} />
+            </Pressable>
+            <Pressable
+              onPress={onOpenSettings}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              hitSlop={space.sm}
+              style={({ pressed }) => [styles.gear, pressed && styles.gearPressed]}
+            >
+              <Ionicons name="settings-outline" size={22} color={colors.textDim} />
+            </Pressable>
+          </>
+        }
+      />
 
       {status === 'scanning' ? (
         <View style={styles.scanning}>
@@ -104,7 +110,7 @@ export function LibraryScreen({
             initialNumToRender={16}
             windowSize={9}
             removeClippedSubviews
-            contentContainerStyle={{ paddingBottom: 88 + 56 + insets.bottom }}
+            contentContainerStyle={{ paddingBottom: 66 + TAB_BAR_HEIGHT + insets.bottom }}
           />
         </>
       )}
@@ -117,18 +123,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-  },
   brandIcon: {
     width: 26,
     height: 26,
@@ -137,11 +131,6 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
   },
   gear: {
     width: 44,

@@ -6,6 +6,8 @@ import { colors, space, type } from '../theme';
 
 export type TabName = 'library' | 'albums' | 'artists';
 
+export const TAB_BAR_HEIGHT = 56;
+
 type Props = {
   active: TabName;
   onSelect: (tab: TabName) => void;
@@ -24,7 +26,10 @@ export function TabBar({ active, onSelect }: Props) {
   return (
     <View
       accessibilityRole="tablist"
-      style={[styles.bar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}
+      style={[
+        styles.bar,
+        { height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom },
+      ]}
     >
       <View style={styles.row}>
         {TABS.map((tab) => {
@@ -61,7 +66,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#ffffff10',
   },
   row: {
-    height: 56,
+    height: TAB_BAR_HEIGHT,
     flexDirection: 'row',
   },
   tab: {

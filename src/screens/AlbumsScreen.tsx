@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { buildAlbums, type Album } from '../lib/groups';
 import { loadArtwork } from '../library/metadata';
@@ -23,7 +25,7 @@ type Props = {
   onArtworkLoaded: (trackId: string, uri: string) => void;
 };
 
-const BOTTOM_PAD = 88 + 56;
+const BOTTOM_PAD = 66 + TAB_BAR_HEIGHT;
 
 export function AlbumsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
   const insets = useSafeAreaInsets();
@@ -63,26 +65,21 @@ export function AlbumsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
   if (selected) {
     return (
       <View style={styles.root}>
-        <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-          <Pressable
-            onPress={closeDetail}
-            accessibilityRole="button"
-            accessibilityLabel="Back to albums"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-          >
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {selected.title}
-            </Text>
-            <Text style={styles.headerMeta} numberOfLines={1}>
-              {selected.artist}
-            </Text>
-          </View>
-          <View style={styles.iconButton} />
-        </View>
+        <ScreenHeader
+          leading={
+            <Pressable
+              onPress={closeDetail}
+              accessibilityRole="button"
+              accessibilityLabel="Back to albums"
+              hitSlop={space.sm}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
+            >
+              <Ionicons name="chevron-back" size={26} color={colors.text} />
+            </Pressable>
+          }
+          title={selected.title}
+          trailing={<View style={styles.iconButton} />}
+        />
         <FlatList
           key={selected.key}
           data={selected.tracks}
@@ -100,9 +97,10 @@ export function AlbumsScreen({ tracks, onSelect, onArtworkLoaded }: Props) {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Text style={styles.title}>Albums</Text>
-      </View>
+      <ScreenHeader
+        leading={<Ionicons name="albums-outline" size={26} color={colors.text} />}
+        title="Albums"
+      />
       <FlatList
         key="albums"
         data={albums}
@@ -161,29 +159,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  title: {
-    ...type.display,
-    color: colors.text,
-  },
-  headerText: {
-    flex: 1,
-    gap: space.xs,
-  },
-  headerTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  headerMeta: {
-    ...type.meta,
-    color: colors.textDim,
   },
   iconButton: {
     width: 44,
