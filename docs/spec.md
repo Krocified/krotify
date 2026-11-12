@@ -145,6 +145,10 @@ Library ownership:
   write leaves the original intact and reports the failure.
 - Imported copies are always editable. Scanned files are editable only with
   write access; otherwise offer "import a copy and edit that".
+- Track actions: long-press opens an in-app action sheet, never an Android
+  `Alert`. Options: Details, Edit metadata, Rename, Exclude, Delete, Cancel.
+  Delete uses a second in-app confirmation sheet. Settings bulk actions use the
+  same sheet, so the app looks and behaves the same on Android and web.
 - Catalog: Albums and Artists consolidated into one tab with a segmented control.
 - Import becomes its own tab: local files move there from Settings, with a
   planned link-import section for YouTube-to-MP3 through a resolver service.
@@ -215,7 +219,8 @@ Search/Settings actions. The phone UI re-enables catalog here in v3.
 
 **Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
 optional Recently played rail, track list. Rows show cover, title, artist,
-duration; long press opens exclude/delete. Scrolling shows a thin blue scrollbar
+duration; long press opens the in-app action sheet (details, edit, rename,
+exclude, delete). Scrolling shows a thin blue scrollbar
 from below the header to the mini-player.
 
 **Catalog / Albums** — segmented control; artist section headers; rows with

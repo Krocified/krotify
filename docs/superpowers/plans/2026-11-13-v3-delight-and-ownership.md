@@ -31,6 +31,8 @@
 3. **Playlist window edges:** notification next/prev, shuffle and repeat can never strand playback at a window boundary or replay the wrong index.
 4. **Timer and fade:** cancelling, changing tracks, or stop() never leaves a running fade, a muted volume, or a late stop.
 5. **Lyrics sync:** bad encoding, missing sidecar, or malformed timestamps never crash Now Playing or scroll to nowhere.
+6. **Sheets and destructive actions:** every sheet traps focus, closes on back,
+   and a delete is never triggered without an in-app confirmation.
 
 ---
 
@@ -49,6 +51,8 @@
 | `src/library/tagWriter.ts` | TS wrapper over the native tag module |
 | `modules/audio-tags/` | local Expo module: jaudiotagger read/write, atomic replace, write requests |
 | `src/screens/EditTrackScreen.tsx` | metadata edit form and save flow |
+| `src/components/TrackActionsSheet.tsx` | in-app long-press action sheet |
+| `src/components/ConfirmSheet.tsx` | in-app destructive confirmation |
 | `src/screens/CatalogScreen.tsx` | Albums/Artists segmented catalog |
 | `src/screens/ImportScreen.tsx` | local import plus link-import entry |
 | `src/library/linkImport.ts` | resolver client, progress, save-to-library |
@@ -184,7 +188,7 @@ LRCLIB rules:
 
 ### Task 6: Write access and edit UI
 
-**Files:** `modules/audio-tags/` (write request), `src/screens/EditTrackScreen.tsx`, `src/AppShell.tsx`, `src/screens/LibraryScreen.tsx`
+**Files:** `modules/audio-tags/` (write request), `src/screens/EditTrackScreen.tsx`, `src/components/TrackActionsSheet.tsx`, `src/components/ConfirmSheet.tsx`, `src/AppShell.tsx`, `src/screens/LibraryScreen.tsx`
 
 **Interfaces:**
 - Native: `requestWriteAccess(uris): Promise<string[]>` using `MediaStore.createWriteRequest` on Android 11+.
@@ -193,8 +197,21 @@ LRCLIB rules:
 - [ ] Request write access for scanned tracks before the edit flow; deny → offer "Import a copy and edit" reusing the import path.
 - [ ] Form: title, artist, album, album artist, track/disc number, year, genre, artwork picker (system file picker, image mime), Save/Cancel, busy and error states.
 - [ ] On save: validate, write, re-read, update `tracks`, close with the refreshed track.
-- [ ] Entry points: track long-press manage sheet gains "Edit details"; imported and scanned both show it.
-- [ ] Device: cancel permission, failed write, successful write, artwork change.
+- [ ] Replace every management `Alert.alert` with an in-app sheet. Long-press a
+  track opens `TrackActionsSheet` with Details, Edit metadata, Rename, Exclude,
+  Delete, Cancel. Delete opens `ConfirmSheet` naming the track. Settings bulk
+  actions use `ConfirmSheet` too.
+- [ ] Details shows read-only title, artist, album, album artist, track/year,
+  genre, duration, format, file size and path when available.
+- [ ] Rename edits the title only (quick path), then flows through the same
+  validator/writer and updates lists.
+- [ ] Sheet style: bottom sheet on `surface`, 20px top radius, grabber, dimmed
+  backdrop, slide-up 200ms, tap backdrop or Android back to close, Escape on
+  web, focus trapped while open. No native dialogs anywhere.
+- [ ] Entry points: long-press in Library and album/artist detail; imported and
+  scanned tracks both show it.
+- [ ] Device: sheet open/close, rename, delete confirmation, cancel permission,
+  failed write, successful write, artwork change.
 - [ ] Commit `feat: edit track metadata and artwork`.
 
 ---
