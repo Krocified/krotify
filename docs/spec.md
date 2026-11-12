@@ -14,7 +14,7 @@ Source of truth for what gets built. Intent lives in `docs/intent.md`.
 | Playback | `expo-audio` (all versions) | Ships background playback + lock-screen/notification controls itself |
 | Metadata/art | `react-native-metadata-retriever` (v2) | ID3 tags + embedded cover art |
 | Persistence | AsyncStorage in v1, `expo-sqlite` in v2 | v1: imported tracks, exclusions. v2: playlists, favorites, history |
-| Visuals | `expo-linear-gradient`, `react-native-safe-area-context`, RN `Animated` | Gradients, insets, motion without heavyweight libs |
+| Visuals | `expo-linear-gradient`, `expo-blur`, `react-native-safe-area-context`, RN `Animated` | Gradients, glass pill, insets, motion |
 
 No `react-navigation` yet — v0 navigates between Library and Now Playing with a
 single animated state. Add a navigator only when Albums/Artists/Search land.
@@ -205,7 +205,7 @@ while Settings is open.
 ## Screens & flows
 
 **Tabs** — Library, Catalog, Import. Persistent on Settings, hidden on Now
-Playing and Search. Fine at the bottom above the system inset; active tab uses a
+Playing and Search. A floating blur pill above the system inset; active tab uses a
 filled icon and white label, inactive uses an outline icon and dim label.
 Settings stays in the header.
 
@@ -292,9 +292,11 @@ Explicit tracks get a badge next to the title (v2, when the tag exists).
 **Brand separateness** — krotify's name, logo and accent must not resemble
 Spotify's: no Spotify Green, no circle-and-waves mark, no co-branding.
 
-**Tab bar** — no border, transparent to `#0B0B0F` gradient starting a quarter of
-the row height above the tabs and ending at 75% opacity, filled icon + white text
-for the active tab, outline icon + dim text otherwise.
+**Tab bar** — a floating blur pill: 16px side margins, 12px above the system
+inset, 64px tall, fully rounded, `expo-blur` over a translucent `surface` fill
+with a 1px `#ffffff14` border and a soft shadow. No gradient fade and no top
+border. Content scrolls underneath. Active tab: filled icon and white label;
+inactive: outline icon and dim label. The mini-player floats above the pill.
 
 **Scrollbar** — thin accent-blue thumb on a faint track, right edge, active only
 while scrolling, 37.5% of the proportional length, widens to 6px while held or

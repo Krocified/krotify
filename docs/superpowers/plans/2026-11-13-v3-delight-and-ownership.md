@@ -219,7 +219,28 @@ LRCLIB rules:
 - [ ] Rights gate: only content the user has the rights to download; explain this in the UI.
 - [ ] If no acceptable resolver exists, ship the section disabled with a clear note rather than a broken flow.
 
-### Task 9: Settings growth and polish
+### Task 9: Blur pill navigation
+
+**Files:** `src/components/TabBar.tsx`, `src/AppShell.tsx`, screen bottom paddings, `app.json` if a plugin is needed
+
+- [ ] `npx expo install expo-blur` after confirming the SDK-compatible version.
+- [ ] Replace the tab bar gradient with a floating pill: 16px side margins, bottom
+  margin of `insets.bottom + 12`, 64px tall, radius 32, `BlurView` over a
+  translucent `surface` fill, 1px `#ffffff14` border, soft shadow, no top border
+  or fade.
+- [ ] Keep Library/Catalog/Import rows, filled active icon + white text, outline
+  inactive + dim text, `accessibilityRole="tab"` and selected state.
+- [ ] Android blur fallback: translucent fill must look correct where
+  `expo-blur` does not blur; enable the documented Android blur method where
+  available.
+- [ ] Mini-player sits above the pill with the existing 8px gap; update list and
+  Settings bottom padding for the new 64px pill plus margins.
+- [ ] Web: verify the blur or translucent fallback renders in the preview.
+- [ ] Device: scroll content under the pill, check contrast of labels over art,
+  no layout jump when the mini-player appears.
+- [ ] Commit `feat: add blur pill tab bar`.
+
+### Task 10: Settings growth and polish
 
 **Files:** `src/screens/SettingsScreen.tsx`, `src/screens/NowPlayingScreen.tsx`
 
@@ -230,7 +251,7 @@ LRCLIB rules:
 
 ---
 
-### Task 10: Release packaging and APK size
+### Task 11: Release packaging and APK size
 
 **Files:** `.github/workflows/release.yml`, `docs/spec.md` if the packaging note
 changes.
@@ -245,7 +266,7 @@ changes.
   previous release signature.
 - [ ] Commit `build: ship arm64 release apk`.
 
-### Task 11: Stretch, only after the above
+### Task 12: Stretch, only after the above
 
 - [ ] Batch edit: selection mode in Library, apply shared fields, reuse the native writer per file with progress and partial-failure reporting.
 - [ ] Android Auto / media browser research: evaluate `expo-audio` limits against the AudioPlaylist engine; record findings, build only if the path is native and small.
@@ -262,4 +283,5 @@ changes.
 - Settings shows only shipped options.
 - Albums and Artists live in one Catalog tab; Import is its own tab; the phone UI exposes both.
 - Link import either works through a documented resolver or is visibly disabled; no scraping.
+- The tab bar is a floating blur pill with no gradient fade and remains legible over artwork.
 - The published phone APK is arm64-only and under ~30MB; CI builds it explicitly.
