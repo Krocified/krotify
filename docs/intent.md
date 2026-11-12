@@ -21,11 +21,14 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
   the queue, and repeat/history follow that context.
 - Make adding music a first-class flow: pick local files, and where permitted
   pull audio from a link, without leaving the app.
+- Explore beyond the library without losing it: internet radio and external
+  metadata are opt-in extras, not a replacement for local playback.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
-- Streaming from a server or any online catalog. Lyrics lookup is the only
-  network call, and only when requested.
+- Streaming as the primary library or an online catalogue that replaces local
+  files. Lyrics lookup and optional radio/metadata exploration are separate,
+  opt-in calls, never the default.
 - Social features, accounts, recommendations, licensed lyric catalogues.
 - Cross-platform polish (iOS/tablet) in v0 — Android first.
 - Matching Spotify's catalogue or backend. This is a player, not a service.

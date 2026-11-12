@@ -167,6 +167,30 @@ Release packaging:
 Stretch:
 - Android Auto / media browser.
 
+### v4 — Discovery (exploration)
+
+Not committed features yet; v4 starts with API and legal spikes.
+
+- **Genius** (`https://docs.genius.com`): song/artist metadata and annotations.
+  Its public API does not serve lyrics for playback; do not scrape the web
+  pages. Use only for metadata enrichment if licensing allows; LRCLIB stays the
+  lyrics source.
+- **Radio Browser** (`https://api.radio-browser.info`): free, open internet-radio
+  directory. If adopted, it is an opt-in separate section, not mixed into the
+  local queue. Discover servers via DNS, identify the client with a User-Agent,
+  report station clicks, and handle streams that fail or go offline.
+- **Audiometa.io** (`https://www.audiometa.io`): REST metadata catalogue with
+  artist/track data, ISRC, BPM, key and cross-platform playcounts. Needs an
+  account API key; the catalogue is new and incomplete, so treat gaps as normal
+  and cache aggressively.
+- **Shuffle:** stays in v3 for local queues. v4 only explores a cross-source
+  shuffle if internet radio ships.
+
+Guardrails: every external feature is opt-in, the app still starts and plays
+local files offline, requests identify the client, rate limits are honored,
+responses are cached, and source attribution is visible. No licensed lyric
+catalogues and no scraping.
+
 ## Library management
 
 Two sources, one list.
@@ -201,6 +225,8 @@ while Settings is open.
   `X-User-Agent` on web), are sequential with a short delay, and cache the
   response locally. Only title, artist, album and duration leave the device.
   Publishing, flagging and bulk prefetch are out of scope.
+- **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
+  behind an opt-in surface with its own terms, rate limits and attribution.
 - **Link importer resolver** (planned, not selected): a self-hosted or
   third-party service that accepts a URL and returns audio plus metadata. It
   must not be scraped from the client. Requires a legal check: only content the
