@@ -113,21 +113,31 @@
 
 ---
 
-### Task 4: Lyrics (.lrc)
+### Task 4: Lyrics (.lrc and LRCLIB)
 
-**Files:** `src/lib/lrc.ts`, `src/library/lyrics.ts`, `src/screens/NowPlayingScreen.tsx`, `tests/lrc.test.ts`
+**Files:** `src/lib/lrc.ts`, `src/library/lyrics.ts`, `src/library/lrclib.ts`, `src/screens/NowPlayingScreen.tsx`, `tests/lrc.test.ts`
 
 **Interfaces:**
 - `parseLrc(text): { lines: { atMs: number; text: string }[]; offsetMs: number }`
 - `findLyricsFile(track): Promise<string | null>` (same basename `.lrc`, then a `Lyrics/` sibling folder)
-- `useLyrics(track)` returns parsed lines or null.
+- `fetchLrclibLyrics(track): Promise<{ kind: 'synced' | 'plain' | 'instrumental' | 'none'; text?: string }>`
+- `useLyrics(track)` resolves sidecar, then cache, then LRCLIB on demand.
 
-- [ ] Tests: plain lines, multiple timestamps per line, `[offset:]`, CRLF, malformed lines skipped.
+LRCLIB rules:
+- Base `https://lrclib.net`; use `GET /api/get?track_name=&artist_name=&album_name=&duration=`.
+- Identify the client: `User-Agent: Krotify <version> (https://github.com/Krocified/krotify)`, or `X-User-Agent` on web.
+- Sequential requests only, 200-500ms between, single lookup per user action; never bulk prefetch.
+- Cache successes and 404s locally (SQLite or AsyncStorage) keyed by track id; sidecar wins over network.
+- On 429, honor `Retry-After` plus jitter; on 5xx, show retry, never spam.
+- No publish/flag calls. Only title, artist, album and duration are sent.
+
+- [ ] Tests: LRC timestamps, multiple timestamps per line, `[offset:]`, CRLF, malformed lines skipped.
 - [ ] Implement parser and sidecar discovery via `expo-file-system`.
-- [ ] Now Playing: a lyrics toggle; when on, replace the cover area with a scrollable lyric list, highlight the active line, auto-scroll, tap a line to seek.
-- [ ] No sidecar: do nothing or show "No lyrics" only after the user asks; never fetch.
-- [ ] Device: synced scroll on a real `.lrc`.
-- [ ] Commit `feat: show local synced lyrics`.
+- [ ] Implement the LRCLIB client with identification, duration matching (±2s), cache and error mapping.
+- [ ] Now Playing: lyrics toggle; when on, show the lyric panel, highlight the active line, auto-scroll, tap a line to seek.
+- [ ] Offline with no cache: show "No lyrics" after the request fails, no crash.
+- [ ] Device: synced scroll on a real `.lrc` and a fetched LRCLIB result.
+- [ ] Commit `feat: add local and LRCLIB lyrics`.
 
 ---
 

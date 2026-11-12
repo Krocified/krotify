@@ -125,8 +125,11 @@ Playback and listening:
 - Sleep timer: presets plus end-of-track, with a short fade before stopping.
 - Gapless playback through `AudioPlaylist`. Crossfade is not exposed by
   expo-audio; drop it unless a second engine is explicitly wanted later.
-- Local `.lrc` lyrics: sidecar discovery, timed highlighting and auto-scroll,
-  no licensed lyric sources.
+- Lyrics: local `.lrc` sidecar first; if absent, look up LRCLIB
+  (`GET /api/get`, no key) using title, artist, album and duration, with the
+  required client User-Agent. Fetch only when the user opens lyrics, cache the
+  result locally, honor `429 Retry-After`, and keep the app fully usable
+  offline. Timed highlight and auto-scroll; no licensed lyric sources.
 - Settings grows only when a feature actually exists.
 
 Library ownership:
@@ -175,6 +178,14 @@ Two sources, one list.
 Sectioned into Library (rescan, import, exclude all), Hidden tracks (restore),
 and About (version from `app.json`). Tabs and the mini-player remain visible
 while Settings is open.
+
+## External services
+
+- **LRCLIB** (`https://lrclib.net`): optional lyrics lookup. Requests carry
+  `User-Agent: Krotify <version> (https://github.com/Krocified/krotify)` (or
+  `X-User-Agent` on web), are sequential with a short delay, and cache the
+  response locally. Only title, artist, album and duration leave the device.
+  Publishing, flagging and bulk prefetch are out of scope.
 
 ## Screens & flows
 

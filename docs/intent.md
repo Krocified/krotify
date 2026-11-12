@@ -22,8 +22,9 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
-- Streaming from a server or any online catalog.
-- Social features, accounts, recommendations, lyrics licensing.
+- Streaming from a server or any online catalog. Lyrics lookup is the only
+  network call, and only when requested.
+- Social features, accounts, recommendations, licensed lyric catalogues.
 - Cross-platform polish (iOS/tablet) in v0 — Android first.
 - Matching Spotify's catalogue or backend. This is a player, not a service.
 
@@ -41,7 +42,9 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
   bundle of architectures I do not own.
 
 ## Principles
-- **Local-first**: the MP3s are the truth; the app never needs the network.
+- **Local-first**: the MP3s are the truth; playback never needs the network.
+  Lyrics lookup is the one optional exception, cached locally so it works
+  offline after the first fetch.
 - **Consent first**: nothing changes files without an explicit choice. Imports
   and deletes are deliberate; scanning is being made opt-in.
 - **Truthful metadata**: tags come from the files; filenames are only a fallback
