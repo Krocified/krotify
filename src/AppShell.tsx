@@ -4,7 +4,7 @@ import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar, type TabName } from './components/TabBar';
 import { DEMO_TRACKS } from './library/demo';
-import { excludeTrack, loadExcludedTracks, restoreTrack } from './library/exclusions';
+import { excludeTrack, excludeTracks, loadExcludedTracks, restoreTrack } from './library/exclusions';
 import {
   deleteImportedFile,
   loadImportedTracks,
@@ -189,7 +189,7 @@ export function AppShell() {
     const ok = await playTrack(
       track,
       async (t) => {
-        if (t.source === 'import') return t.uri;
+        if (t.uri) return t.uri;
         const asset = assetsRef.current.get(t.id);
         if (!asset) throw new Error('missing asset');
         return asset.getUri();
@@ -211,6 +211,17 @@ export function AppShell() {
     setExcluded(next);
     setTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
+    setStatusNote(null);
+  }
+
+  async function excludeAllTracks() {
+    const targets = tracks.filter((track) => track.source !== 'demo' && track.source !== 'import');
+    if (targets.length === 0) return;
+    const next = await excludeTracks(targets);
+    setExcluded(next);
+    const ids = new Set(targets.map((track) => track.id));
+    setTracks((prev) => prev.filter((track) => !ids.has(track.id)));
+    removeFromQueue(targets.map((track) => track.id));
     setStatusNote(null);
   }
 
@@ -367,6 +378,8 @@ export function AppShell() {
         onImport={() => void handleImport()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}
+        onExcludeAll={() => void excludeAllTracks()}
+        canExcludeAll={tracks.some((track) => track.source === 'scan')}
         importing={importing}
       />
       {showTabBar ? (

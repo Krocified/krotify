@@ -1,9 +1,12 @@
+import { useRef } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecentlyPlayed } from '../components/RecentlyPlayed';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
+import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
+import { useScrollProgress } from '../components/useScrollProgress';
 import { colors, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
@@ -35,7 +38,10 @@ export function LibraryScreen({
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
+  const listRef = useRef<FlatList<Track>>(null);
   const statusMessage = STATUS_NOTE[status] ?? null;
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 82;
 
   return (
     <View style={styles.root}>
@@ -72,26 +78,38 @@ export function LibraryScreen({
               <Text style={styles.noteText}>{statusNote}</Text>
             </View>
           ) : null}
-          <FlatList
-            data={tracks}
-            keyExtractor={(t) => t.id}
-            renderItem={({ item }) => (
-              <TrackRow
-                track={item}
-                onPress={(track) => onSelect(track, tracks)}
-                onLongPress={() => onManage(item)}
-              />
-            )}
-            ListHeaderComponent={
-              recentTracks.length > 0 ? (
-                <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
-              ) : undefined
-            }
-            initialNumToRender={16}
-            windowSize={9}
-            removeClippedSubviews
-            contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 170 }}
-          />
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={listRef}
+              data={tracks}
+              keyExtractor={(t) => t.id}
+              renderItem={({ item }) => (
+                <TrackRow
+                  track={item}
+                  onPress={(track) => onSelect(track, tracks)}
+                  onLongPress={() => onManage(item)}
+                />
+              )}
+              ListHeaderComponent={
+                recentTracks.length > 0 ? (
+                  <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
+                ) : undefined
+              }
+              initialNumToRender={16}
+              windowSize={9}
+              removeClippedSubviews
+              showsVerticalScrollIndicator={false}
+              {...scrollHandlers}
+              contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 170 }}
+            />
+            <ScrollBar
+              scrollY={scrollY}
+              contentHeight={contentHeight}
+              viewportHeight={viewportHeight}
+              bottomOffset={bottomOffset}
+              onScrollTo={(offset) => listRef.current?.scrollToOffset({ offset, animated: false })}
+            />
+          </View>
         </>
       )}
     </View>

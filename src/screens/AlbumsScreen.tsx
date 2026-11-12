@@ -13,8 +13,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
+import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
+import { useScrollProgress } from '../components/useScrollProgress';
 import { buildAlbums, type Album } from '../lib/groups';
 import { loadArtwork } from '../library/metadata';
 import { colors, radius, space, type } from '../theme';
@@ -43,6 +45,10 @@ export function AlbumsScreen({
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const listScroll = useScrollProgress();
+  const detailScroll = useScrollProgress();
+  const detailRef = useRef<FlatList<Track>>(null);
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 82;
   const albums = useMemo(() => buildAlbums(tracks), [tracks]);
   const sections = useMemo<AlbumSection[]>(() => {
     const byArtist = new Map<string, Album[]>();
@@ -101,39 +107,53 @@ export function AlbumsScreen({
               <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
             }
           />
-          <FlatList
-            key={selected.key}
-            data={selected.tracks}
-            keyExtractor={(track) => track.id}
-            ListHeaderComponent={
-              <View style={styles.hero}>
-                <CoverArt
-                  hue={selected.artworkHue}
-                  title={selected.title}
-                  size={160}
-                  radius={radius.coverLarge}
-                  uri={selected.tracks[0]?.artworkUri}
-                />
-                <Text style={styles.heroTitle} numberOfLines={2}>
-                  {selected.title}
-                </Text>
-                <Text style={styles.heroMeta} numberOfLines={1}>
-                  {selected.artist}
-                </Text>
-                <Text style={styles.heroMeta}>
-                  {selected.tracks.length} {trackLabel}
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
-            )}
-            contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
-            initialNumToRender={20}
-            maxToRenderPerBatch={20}
-            windowSize={21}
-            removeClippedSubviews={false}
-          />
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={detailRef}
+              key={selected.key}
+              data={selected.tracks}
+              keyExtractor={(track) => track.id}
+              ListHeaderComponent={
+                <View style={styles.hero}>
+                  <CoverArt
+                    hue={selected.artworkHue}
+                    title={selected.title}
+                    size={160}
+                    radius={radius.coverLarge}
+                    uri={selected.tracks[0]?.artworkUri}
+                  />
+                  <Text style={styles.heroTitle} numberOfLines={2}>
+                    {selected.title}
+                  </Text>
+                  <Text style={styles.heroMeta} numberOfLines={1}>
+                    {selected.artist}
+                  </Text>
+                  <Text style={styles.heroMeta}>
+                    {selected.tracks.length} {trackLabel}
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => (
+                <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
+              )}
+              showsVerticalScrollIndicator={false}
+              {...detailScroll.scrollHandlers}
+              contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+              initialNumToRender={20}
+              maxToRenderPerBatch={20}
+              windowSize={21}
+              removeClippedSubviews={false}
+            />
+            <ScrollBar
+              scrollY={detailScroll.scrollY}
+              contentHeight={detailScroll.contentHeight}
+              viewportHeight={detailScroll.viewportHeight}
+              bottomOffset={bottomOffset}
+              onScrollTo={(offset) =>
+                detailRef.current?.scrollToOffset({ offset, animated: false })
+              }
+            />
+          </View>
         </>
       ) : (
         <>
@@ -144,34 +164,44 @@ export function AlbumsScreen({
               <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
             }
           />
-          <SectionList
-            key="albums"
-            sections={sections}
-            keyExtractor={(album) => album.key}
-            stickySectionHeadersEnabled={false}
-            renderSectionHeader={({ section }) => (
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-            )}
-            renderItem={({ item }) => (
-              <AlbumRow
-                album={item}
-                uri={item.tracks[0]?.artworkUri}
-                onPress={() => setSelectedKey(item.key)}
-              />
-            )}
-            contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            initialNumToRender={20}
-            maxToRenderPerBatch={20}
-            windowSize={21}
-            removeClippedSubviews={false}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <ActivityIndicator color={colors.accent} />
-              </View>
-            }
-          />
+          <View style={{ flex: 1 }}>
+            <SectionList
+              key="albums"
+              sections={sections}
+              keyExtractor={(album) => album.key}
+              stickySectionHeadersEnabled={false}
+              renderSectionHeader={({ section }) => (
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+              )}
+              renderItem={({ item }) => (
+                <AlbumRow
+                  album={item}
+                  uri={item.tracks[0]?.artworkUri}
+                  onPress={() => setSelectedKey(item.key)}
+                />
+              )}
+              showsVerticalScrollIndicator={false}
+              {...listScroll.scrollHandlers}
+              contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              initialNumToRender={20}
+              maxToRenderPerBatch={20}
+              windowSize={21}
+              removeClippedSubviews={false}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <ActivityIndicator color={colors.accent} />
+                </View>
+              }
+            />
+            <ScrollBar
+              scrollY={listScroll.scrollY}
+              contentHeight={listScroll.contentHeight}
+              viewportHeight={listScroll.viewportHeight}
+              bottomOffset={bottomOffset}
+            />
+          </View>
         </>
       )}
     </View>

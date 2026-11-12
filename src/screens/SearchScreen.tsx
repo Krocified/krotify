@@ -14,7 +14,9 @@ import {
   type TextStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollBar } from '../components/ScrollBar';
 import { TrackRow } from '../components/TrackRow';
+import { useScrollProgress } from '../components/useScrollProgress';
 import { searchTracks } from '../lib/search';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
@@ -33,10 +35,12 @@ const webInput =
 
 export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
   const insets = useSafeAreaInsets();
+  const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { width } = useWindowDimensions();
   const [anim] = useState(() => new Animated.Value(0));
   const [query, setQuery] = useState('');
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const listRef = useRef<FlatList<Track>>(null);
   const results = query.trim() ? searchTracks(tracks, query) : [];
 
   useEffect(() => {
@@ -109,16 +113,28 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
       </View>
 
       {query.trim() ? (
-        <FlatList
-          data={results}
-          keyExtractor={(track) => track.id}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <TrackRow track={item} onPress={(track) => select(track, results)} />
-          )}
-          ListEmptyComponent={<Text style={styles.hint}>No matches</Text>}
-          contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={listRef}
+            data={results}
+            keyExtractor={(track) => track.id}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            {...scrollHandlers}
+            renderItem={({ item }) => (
+              <TrackRow track={item} onPress={(track) => select(track, results)} />
+            )}
+            ListEmptyComponent={<Text style={styles.hint}>No matches</Text>}
+            contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+          />
+          <ScrollBar
+            scrollY={scrollY}
+            contentHeight={contentHeight}
+            viewportHeight={viewportHeight}
+            bottomOffset={insets.bottom}
+            onScrollTo={(offset) => listRef.current?.scrollToOffset({ offset, animated: false })}
+          />
+        </View>
       ) : (
         <Text style={styles.hint}>Search your library</Text>
       )}

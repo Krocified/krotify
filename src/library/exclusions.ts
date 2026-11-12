@@ -32,6 +32,19 @@ export async function excludeTrack(track: Track): Promise<Track[]> {
   return next;
 }
 
+export async function excludeTracks(tracks: Track[]): Promise<Track[]> {
+  const stored = await readTracks();
+  const seen = new Set(stored.map((item) => item.id));
+  const next = [...stored];
+  for (const track of tracks) {
+    if (seen.has(track.id)) continue;
+    seen.add(track.id);
+    next.push(track);
+  }
+  await writeTracks(next);
+  return next;
+}
+
 export async function restoreTrack(id: string): Promise<Track[]> {
   const stored = await readTracks();
   const next = stored.filter((track) => track.id !== id);

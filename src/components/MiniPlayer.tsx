@@ -37,6 +37,7 @@ export function MiniPlayer({ onExpand }: Props) {
   }, [queueLength, skipNext, skipPrevious]);
 
   useEffect(() => {
+    if (animatingRef.current) return;
     const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
     Animated.timing(progress, {
       toValue: ratio,
@@ -48,7 +49,6 @@ export function MiniPlayer({ onExpand }: Props) {
 
   const panResponder = useMemo(
     () =>
-      // ponytail: handlers read refs only at event time, never during render
       // eslint-disable-next-line react-hooks/refs
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) =>
@@ -91,6 +91,8 @@ export function MiniPlayer({ onExpand }: Props) {
               useNativeDriver: true,
             }),
           ]).start(() => {
+            progress.stopAnimation();
+            progress.setValue(0);
             if (forward) skipNextRef.current();
             else skipPreviousRef.current();
             contentX.setValue(-direction * 40);
@@ -124,7 +126,7 @@ export function MiniPlayer({ onExpand }: Props) {
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [contentX, contentOpacity],
+    [contentX, contentOpacity, progress],
   );
 
   if (!track) return null;
