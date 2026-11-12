@@ -128,6 +128,10 @@ export function AlbumsScreen({
               <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
             )}
             contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={21}
+            removeClippedSubviews={false}
           />
         </>
       ) : (
@@ -157,6 +161,10 @@ export function AlbumsScreen({
             contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={21}
+            removeClippedSubviews={false}
           />
         </>
       )}

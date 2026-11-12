@@ -107,6 +107,10 @@ export function ArtistsScreen({
               <TrackRow track={item} onPress={(track) => onSelect(track, selected.tracks)} />
             )}
             contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={21}
+            removeClippedSubviews={false}
           />
         </>
       ) : (
