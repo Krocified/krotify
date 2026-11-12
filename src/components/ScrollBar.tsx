@@ -55,7 +55,7 @@ export function ScrollBar({
     trackHeight > 0
       ? Math.min(
           trackHeight,
-          Math.max(12, (viewportHeight / contentHeight) * trackHeight * 0.25),
+          Math.max(12, (viewportHeight / contentHeight) * trackHeight * 0.375),
         )
       : 0;
   const maxTranslate = Math.max(trackHeight - thumbHeight, 0);

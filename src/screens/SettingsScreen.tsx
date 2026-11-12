@@ -203,7 +203,7 @@ export function SettingsScreen({
           scrollY={scrollY}
           contentHeight={contentHeight}
           viewportHeight={viewportHeight}
-          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + 82}
+          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + 8}
         />
       </View>
     </Animated.View>

@@ -43,7 +43,7 @@ export function ArtistsScreen({
   const detailScroll = useScrollProgress();
   const listRef = useRef<FlatList<Artist>>(null);
   const detailRef = useRef<FlatList<Track>>(null);
-  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 82;
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 8;
   const artists = useMemo(() => buildArtists(tracks), [tracks]);
   const requested = useRef(new Set<string>());
   const mounted = useRef(true);

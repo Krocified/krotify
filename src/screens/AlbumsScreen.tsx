@@ -48,7 +48,7 @@ export function AlbumsScreen({
   const listScroll = useScrollProgress();
   const detailScroll = useScrollProgress();
   const detailRef = useRef<FlatList<Track>>(null);
-  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 82;
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 8;
   const albums = useMemo(() => buildAlbums(tracks), [tracks]);
   const sections = useMemo<AlbumSection[]>(() => {
     const byArtist = new Map<string, Album[]>();

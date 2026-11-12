@@ -41,7 +41,7 @@ export function LibraryScreen({
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const listRef = useRef<FlatList<Track>>(null);
   const statusMessage = STATUS_NOTE[status] ?? null;
-  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 82;
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 8;
 
   return (
     <View style={styles.root}>
