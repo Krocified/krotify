@@ -15,7 +15,7 @@ import { CoverArt } from '../components/CoverArt';
 import { RecentlyPlayed } from '../components/RecentlyPlayed';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
-import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
 import type { Playlist } from '../db/repo';
@@ -64,7 +64,7 @@ export function LibraryScreen({
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const listRef = useRef<FlatList<Track>>(null);
   const statusMessage = STATUS_NOTE[status] ?? null;
-  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + 8;
+  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8;
 
   return (
     <View style={styles.root}>
@@ -206,7 +206,9 @@ export function LibraryScreen({
               removeClippedSubviews
               showsVerticalScrollIndicator={false}
               {...scrollHandlers}
-              contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 170 }}
+              contentContainerStyle={{
+                paddingBottom: insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 170,
+              }}
             />
             <ScrollBar
               scrollY={scrollY}
