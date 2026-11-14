@@ -1,5 +1,5 @@
 import type { CachedMetadata } from '../db/repo';
-import type { TagFields } from '../lib/tagPatch';
+import type { ArtworkInput, TagFields } from '../lib/tagPatch';
 import { validateTagPatch } from '../lib/tagPatch.ts';
 import type { Track } from '../types';
 
@@ -24,7 +24,7 @@ const NATIVE_CODES = new Set<TagWriteErrorCode>([
 ]);
 
 export type TagEditDeps = {
-  writeTags: (uri: string, fields: TagFields) => Promise<TagFields>;
+  writeTags: (uri: string, fields: TagFields, artworkUri?: string) => Promise<TagFields>;
   snapshotFile: (uri: string) => Promise<string>;
   restoreFile: (uri: string, snapshotPath: string) => Promise<void>;
   discardSnapshot: (snapshotPath: string) => Promise<void>;
@@ -71,8 +71,8 @@ async function loadRepo() {
 }
 
 const defaultDeps: TagEditDeps = {
-  async writeTags(uri, fields) {
-    return (await loadNative()).writeTags(uri, fields);
+  async writeTags(uri, fields, artworkUri) {
+    return (await loadNative()).writeTags(uri, fields, artworkUri);
   },
   async snapshotFile(uri) {
     return (await loadNative()).snapshotFile(uri);
@@ -91,9 +91,18 @@ const defaultDeps: TagEditDeps = {
   },
 };
 
+export type TagEditArtwork = {
+  artworkUri: string;
+  artwork: ArtworkInput;
+};
+
 export function createTagWriter(deps: TagEditDeps) {
-  return async function applyTagEdit(track: Track, patch: Partial<TagFields>): Promise<Track> {
-    const validation = validateTagPatch(patch);
+  return async function applyTagEdit(
+    track: Track,
+    patch: Partial<TagFields>,
+    artwork?: TagEditArtwork,
+  ): Promise<Track> {
+    const validation = validateTagPatch(patch, artwork?.artwork);
     if (!validation.ok) {
       throw new TagWriteError('INVALID_PATCH', validation.errors.join(' '));
     }
@@ -111,15 +120,21 @@ export function createTagWriter(deps: TagEditDeps) {
 
     let written: TagFields;
     try {
-      written = await deps.writeTags(track.uri, fields);
+      written = await deps.writeTags(track.uri, fields, artwork?.artworkUri);
     } catch (error) {
       await deps.discardSnapshot(snapshotPath).catch(() => {});
       throw toTagWriteError(error);
     }
 
+    const artworkCache = artwork ? { artworkUri: artwork.artworkUri } : undefined;
     try {
       const cache = await deps.getCachedMetadata(track.id);
-      await deps.putCachedMetadata(track.id, { ...cache, ...written, ...fields });
+      await deps.putCachedMetadata(track.id, {
+        ...cache,
+        ...written,
+        ...fields,
+        ...artworkCache,
+      });
     } catch (cacheError) {
       try {
         await deps.restoreFile(track.uri, snapshotPath);
@@ -140,7 +155,7 @@ export function createTagWriter(deps: TagEditDeps) {
     }
 
     await deps.discardSnapshot(snapshotPath).catch(() => {});
-    return { ...track, ...written, ...fields };
+    return { ...track, ...written, ...fields, ...artworkCache };
   };
 }
 

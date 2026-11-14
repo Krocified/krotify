@@ -204,3 +204,45 @@ test('a failed rollback is surfaced, not swallowed, and keeps the snapshot', asy
   assert.deepEqual(calls.restore, [{ uri: track.uri, snapshotPath: '/cache/snapshot.mp3' }]);
   assert.deepEqual(calls.discard, []);
 });
+
+test('artwork is validated, passed to the writer and cached', async () => {
+  const writes: { uri: string; fields: unknown; artworkUri?: string }[] = [];
+  const { deps, calls } = makeDeps({
+    async writeTags(uri, fields, artworkUri) {
+      writes.push({ uri, fields, artworkUri });
+      return fields;
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  const result = await applyTagEdit(
+    track,
+    {},
+    { artworkUri: 'file:///artwork/cover.jpg', artwork: { mimeType: 'image/jpeg', sizeBytes: 2048 } },
+  );
+
+  assert.equal(result.artworkUri, 'file:///artwork/cover.jpg');
+  assert.deepEqual(writes, [
+    { uri: track.uri, fields: {}, artworkUri: 'file:///artwork/cover.jpg' },
+  ]);
+  assert.deepEqual(calls.put, [
+    { id: track.id, meta: { artworkUri: 'file:///artwork/cover.jpg' } },
+  ]);
+});
+
+test('invalid artwork is rejected before any file or cache work', async () => {
+  const { deps, calls } = makeDeps();
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(
+    applyTagEdit(
+      track,
+      {},
+      { artworkUri: 'file:///artwork/cover.txt', artwork: { mimeType: 'text/plain', sizeBytes: 12 } },
+    ),
+    isTagWriteError('INVALID_PATCH'),
+  );
+  assert.deepEqual(calls.snapshot, []);
+  assert.deepEqual(calls.write, []);
+  assert.deepEqual(calls.put, []);
+});
