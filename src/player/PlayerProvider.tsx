@@ -3,10 +3,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
+import { restoreOrder, shuffleOrder } from '../lib/shuffle';
+import { tickSleep } from '../lib/sleepTimer';
 import type { Track } from '../types';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
 
 export type RepeatMode = 'off' | 'all' | 'one';
+
+export type SleepMode = 'off' | 'timer' | 'end';
+
+export type SleepState = { mode: SleepMode; remainingMs: number };
 
 export type PlayerContextValue = {
   track: Track | null;
@@ -19,6 +25,10 @@ export type PlayerContextValue = {
   queueLength: number;
   repeat: RepeatMode;
   cycleRepeat: () => void;
+  shuffle: boolean;
+  toggleShuffle: () => void;
+  sleep: SleepState;
+  setSleep: (mode: SleepMode, minutes?: number) => void;
   playTrack: (
     track: Track,
     resolveUri: (track: Track) => Promise<string>,
@@ -54,6 +64,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [mockPosition, setMockPosition] = useState(0);
   const [mockRunId, setMockRunId] = useState(0);
   const [repeat, setRepeat] = useState<RepeatMode>('off');
+  const [shuffle, setShuffle] = useState(false);
+  const [sleep, setSleepState] = useState<SleepState>({ mode: 'off', remainingMs: 0 });
   const requestRef = useRef(0);
   const loadGenerationRef = useRef(0);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -62,6 +74,12 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const queueRef = useRef<Track[]>([]);
   const modeRef = useRef<'audio' | 'mock' | null>(null);
   const repeatRef = useRef<RepeatMode>('off');
+  const shuffleRef = useRef(false);
+  const originalQueueRef = useRef<Track[]>([]);
+  const sleepRef = useRef<SleepState>({ mode: 'off', remainingMs: 0 });
+  const sleepRemainingRef = useRef(0);
+  const sleepEndTrackRef = useRef<string | null>(null);
+  const trackRef = useRef<Track | null>(null);
   const windowRef = useRef<WindowState>({ globalIndexes: [] });
   const loadedQueueRef = useRef<Track[] | null>(null);
   const appendingRef = useRef(false);
@@ -86,6 +104,18 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [repeat]);
 
   useEffect(() => {
+    shuffleRef.current = shuffle;
+  }, [shuffle]);
+
+  useEffect(() => {
+    sleepRef.current = sleep;
+  }, [sleep]);
+
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+
+  useEffect(() => {
     engine.setLoop(repeat === 'off' ? 'none' : repeat === 'one' ? 'single' : 'all');
   }, [repeat]);
 
@@ -107,12 +137,69 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     return clearMockTimer;
   }, [mode, mockPlaying, track, mockRunId, clearMockTimer]);
 
+  const finishSleep = useCallback(() => {
+    sleepRemainingRef.current = 0;
+    sleepRef.current = { mode: 'off', remainingMs: 0 };
+    setSleepState({ mode: 'off', remainingMs: 0 });
+    engine.setVolume(1);
+    if (modeRef.current === 'mock') setMockPlaying(false);
+    else engine.playlist.pause();
+  }, []);
+
+  const setSleep = useCallback((nextMode: SleepMode, minutes = 0) => {
+    if (nextMode === 'timer') {
+      const ms = Math.max(0, Math.round(minutes * 60_000));
+      if (ms <= 0) {
+        sleepRemainingRef.current = 0;
+        sleepRef.current = { mode: 'off', remainingMs: 0 };
+        setSleepState({ mode: 'off', remainingMs: 0 });
+        engine.setVolume(1);
+        return;
+      }
+      sleepRemainingRef.current = ms;
+      sleepRef.current = { mode: 'timer', remainingMs: ms };
+      setSleepState({ mode: 'timer', remainingMs: ms });
+      engine.setVolume(1);
+      return;
+    }
+    sleepRemainingRef.current = 0;
+    sleepEndTrackRef.current = nextMode === 'end' ? (trackRef.current?.id ?? null) : null;
+    sleepRef.current = { mode: nextMode, remainingMs: 0 };
+    setSleepState({ mode: nextMode, remainingMs: 0 });
+    engine.setVolume(1);
+  }, []);
+
+  useEffect(() => {
+    if (sleep.mode !== 'timer') return;
+    let last = Date.now();
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - last;
+      last = now;
+      const tick = tickSleep(sleepRemainingRef.current, elapsed);
+      sleepRemainingRef.current = tick.remainingMs;
+      if (tick.done) {
+        finishSleep();
+        return;
+      }
+      setSleepState((current) =>
+        current.mode === 'timer' ? { ...current, remainingMs: tick.remainingMs } : current,
+      );
+      engine.setVolume(tick.fadeFrom ?? 1);
+    }, 250);
+    return () => {
+      clearInterval(timer);
+      engine.setVolume(1);
+    };
+  }, [sleep.mode, finishSleep]);
+
   const loadWindow = useCallback(
     async (
       targetIndex: number,
       nextQueue: Track[],
       resolveUri: (track: Track) => Promise<string>,
       positionMs = 0,
+      play = true,
     ): Promise<boolean> => {
       if (nextQueue.length === 0) return false;
       const generation = ++loadGenerationRef.current;
@@ -140,6 +227,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         return false;
       }
 
+      engine.setVolume(1);
       engine.load(
         loaded.map(({ uri, track: item }) => ({ uri, track: item })),
         local,
@@ -159,7 +247,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         } catch {
         }
       }
-      engine.playlist.play();
+      if (play) engine.playlist.play();
+      else engine.playlist.pause();
       return true;
     },
     [],
@@ -259,12 +348,23 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const global = windowState.globalIndexes[event.currentIndex];
       const currentTrack = global === undefined ? undefined : nextQueue[global];
       if (!currentTrack) return;
+      const previousGlobal = windowState.globalIndexes[event.previousIndex];
+      const previousTrack = previousGlobal === undefined ? undefined : nextQueue[previousGlobal];
       setIndex(global);
       setTrack(currentTrack);
       engine.updateLockScreenMetadata(currentTrack);
+      engine.setVolume(1);
+      if (
+        sleepRef.current.mode === 'end' &&
+        loadedQueueRef.current === nextQueue &&
+        previousTrack?.id === sleepEndTrackRef.current
+      ) {
+        finishSleep();
+        return;
+      }
       appendAhead(event.currentIndex);
     },
-    [appendAhead, loadWindow],
+    [appendAhead, finishSleep, loadWindow],
   );
 
   useEffect(() => {
@@ -286,6 +386,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
       if (nextTrack.source === 'demo') {
         engine.playlist.pause();
+        engine.setVolume(1);
         setMode('mock');
         setMockPosition(0);
         setMockPlaying(true);
@@ -331,6 +432,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       ? (track?.durationMs ?? 0)
       : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
 
+  useEffect(() => {
+    if (sleep.mode !== 'end' || mode !== 'audio' || !track || !isPlaying || durationMs <= 0) return;
+    if (positionMs < durationMs - 600) return;
+    const timer = setTimeout(finishSleep, 0);
+    return () => clearTimeout(timer);
+  }, [sleep.mode, mode, track, isPlaying, positionMs, durationMs, finishSleep]);
+
   const toggle = useCallback(() => {
     const atEnd = isAtEnd(positionMs, durationMs);
     if (mode === 'mock') {
@@ -359,6 +467,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     loadGenerationRef.current += 1;
     engine.stop();
     clearMockTimer();
+    setSleep('off');
+    shuffleRef.current = false;
+    originalQueueRef.current = [];
+    setShuffle(false);
     windowRef.current = { globalIndexes: [] };
     loadedQueueRef.current = null;
     appendingRef.current = false;
@@ -369,7 +481,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     setMockPlaying(false);
     setMockPosition(0);
     setLastError(null);
-  }, [clearMockTimer]);
+  }, [clearMockTimer, setSleep]);
 
   useEffect(() => {
     if (mode !== 'audio' || !track) return;
@@ -380,7 +492,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     const current = queue.findIndex((item) => item.id === track.id);
     const target = current >= 0 ? current : Math.min(Math.max(index, 0), queue.length - 1);
     const positionMs = Math.round(engine.playlist.currentTime * 1000);
-    void loadWindow(target, queue, resolveUri, positionMs);
+    const wasPlaying = engine.playlist.playing;
+    void loadWindow(target, queue, resolveUri, positionMs, wasPlaying);
   }, [queue, mode, track, index, loadWindow]);
 
   const removeFromQueue = useCallback(
@@ -398,6 +511,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         stop();
         return;
       }
+      if (shuffleRef.current && originalQueueRef.current.length > 0) {
+        const nextOriginal = originalQueueRef.current.filter((item) => !removed.has(item.id));
+        originalQueueRef.current = nextOriginal;
+        if (nextOriginal.length === 0) {
+          shuffleRef.current = false;
+          setShuffle(false);
+        }
+      }
       setQueueState(filtered);
       setIndex(current ? filtered.findIndex((item) => item.id === current.id) : -1);
     },
@@ -406,11 +527,43 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
   const setQueue = useCallback(
     (nextQueue: Track[]): void => {
+      if (shuffleRef.current && track) {
+        originalQueueRef.current = nextQueue;
+        const current = nextQueue.findIndex((item) => item.id === track.id);
+        const result = shuffleOrder(nextQueue, current, Math.random);
+        setQueueState(result.order);
+        setIndex(result.index);
+        return;
+      }
       setQueueState(nextQueue);
       setIndex(track ? nextQueue.findIndex((item) => item.id === track.id) : -1);
     },
     [track],
   );
+
+  const toggleShuffle = useCallback((): void => {
+    if (shuffleRef.current) {
+      const original = originalQueueRef.current;
+      const currentId = track?.id;
+      shuffleRef.current = false;
+      setShuffle(false);
+      originalQueueRef.current = [];
+      if (!currentId || original.length === 0) return;
+      const restored = restoreOrder(original, currentId);
+      setQueueState(restored.order);
+      setIndex(restored.index);
+      return;
+    }
+
+    if (!track || queue.length < 2) return;
+    const current = index >= 0 ? index : queue.findIndex((item) => item.id === track.id);
+    const result = shuffleOrder(queue, current, Math.random);
+    originalQueueRef.current = queue;
+    shuffleRef.current = true;
+    setShuffle(true);
+    setQueueState(result.order);
+    setIndex(result.index);
+  }, [queue, index, track]);
 
   const canWrap = repeat === 'all' && queue.length > 1;
   const nextTarget = nextIndex(index, queue.length);
@@ -491,6 +644,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     if (!track) return;
     if (endHandledForRef.current === track.id) return;
     endHandledForRef.current = track.id;
+    if (sleepRef.current.mode === 'end') {
+      finishSleep();
+      return;
+    }
     if (repeat === 'one') {
       setMockPosition(0);
       setMockRunId((id) => id + 1);
@@ -505,7 +662,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       return;
     }
     setMockPlaying(false);
-  }, [track, repeat, index, queue, playTrack]);
+  }, [track, repeat, index, queue, playTrack, finishSleep]);
 
   useEffect(() => {
     if (mode !== 'mock' || !track || track.durationMs <= 0) return;
@@ -526,6 +683,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       queueLength,
       repeat,
       cycleRepeat,
+      shuffle,
+      toggleShuffle,
+      sleep,
+      setSleep,
       playTrack,
       toggle,
       seek,
@@ -548,6 +709,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       queueLength,
       repeat,
       cycleRepeat,
+      shuffle,
+      toggleShuffle,
+      sleep,
+      setSleep,
       playTrack,
       toggle,
       seek,

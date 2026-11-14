@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -15,8 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appJson from '../../app.json';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
+import { SleepTimerControls } from '../components/SleepTimerControls';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
+import { lyricsCacheCount } from '../library/lyrics';
+import { loadLyricsNetworkEnabled, saveLyricsNetworkEnabled } from '../library/lyricsPrefs';
+import type { SleepPreset } from '../lib/sleepTimer';
+import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
@@ -57,7 +63,10 @@ export function SettingsScreen({
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { width } = useWindowDimensions();
+  const { sleep, setSleep } = usePlayer();
   const [anim] = useState(() => new Animated.Value(0));
+  const [lyricsNetwork, setLyricsNetwork] = useState(true);
+  const [lyricsCount, setLyricsCount] = useState<number | null>(null);
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
   const bottomPad = TAB_BAR_HEIGHT + 66 + insets.bottom + space.xl;
@@ -70,6 +79,33 @@ export function SettingsScreen({
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [anim, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void loadLyricsNetworkEnabled().then((enabled) => {
+      if (!cancelled) setLyricsNetwork(enabled);
+    });
+    void lyricsCacheCount().then((count) => {
+      if (!cancelled) setLyricsCount(count);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const toggleLyricsNetwork = useCallback((enabled: boolean) => {
+    setLyricsNetwork(enabled);
+    void saveLyricsNetworkEnabled(enabled);
+  }, []);
+
+  const selectSleepPreset = useCallback(
+    (preset: SleepPreset) => {
+      if (preset === 'end') setSleep('end');
+      else setSleep('timer', preset);
+    },
+    [setSleep],
+  );
 
   return (
     <Animated.View
@@ -166,6 +202,43 @@ export function SettingsScreen({
             </View>
           </View>
 
+          <Text style={styles.sectionTitle}>Playback</Text>
+          <View style={styles.card}>
+            <View style={styles.stackRow}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Sleep timer</Text>
+                <Text style={styles.rowMeta}>Fade out and stop playback after the timer</Text>
+              </View>
+              <SleepTimerControls
+                mode={sleep.mode}
+                remainingMs={sleep.remainingMs}
+                onSelect={selectSleepPreset}
+                onCancel={() => setSleep('off')}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Lyrics</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Network lyrics lookup</Text>
+                <Text style={styles.rowMeta}>Fetch missing lyrics from LRCLIB</Text>
+              </View>
+              <Switch
+                value={lyricsNetwork}
+                onValueChange={toggleLyricsNetwork}
+                accessibilityLabel="Network lyrics lookup"
+                trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            <View style={styles.row} accessible accessibilityLabel={`Cached lyrics: ${lyricsCount ?? 0}`}>
+              <Text style={styles.rowTitle}>Cached lyrics</Text>
+              <Text style={styles.rowValue}>{lyricsCount === null ? '...' : lyricsCount}</Text>
+            </View>
+          </View>
+
           {excluded.length > 0 ? (
             <>
               <Text style={styles.sectionTitle}>Hidden tracks</Text>
@@ -210,7 +283,7 @@ export function SettingsScreen({
             <View style={styles.row}>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Krotify {appJson.expo.version}</Text>
-                <Text style={styles.rowMeta}>Local files only. No network.</Text>
+                <Text style={styles.rowMeta}>Local playback. Network lyrics are optional.</Text>
               </View>
             </View>
           </View>
@@ -268,6 +341,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: space.md,
+    padding: space.md,
+  },
+  stackRow: {
     gap: space.md,
     padding: space.md,
   },
