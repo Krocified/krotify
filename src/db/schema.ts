@@ -1,4 +1,4 @@
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS playlists (
@@ -38,5 +38,12 @@ CREATE TABLE IF NOT EXISTS track_metadata (
   trackNumber INTEGER,
   genre TEXT,
   artworkUri TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lyrics_cache (
+  trackId TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  text TEXT,
+  fetchedAt INTEGER NOT NULL
 );
 `;
