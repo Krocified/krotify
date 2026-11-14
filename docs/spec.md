@@ -169,12 +169,14 @@ Library ownership:
 - Batch edit is a stretch, not baseline.
 
 Release packaging:
-- The current universal APK is about 76MB because it carries arm64-v8a,
-  armeabi-v7a, x86 and x86_64 native libraries. Ship an arm64-only build
-  (roughly 24-28MB) for phones, or per-ABI APKs; keep one universal build only
-  for emulator/testing use.
-- CI builds the release architecture explicitly and the release notes name the
-  ABI. Measure size before and after and record the result.
+- The universal APK is about 76MB because it carries arm64-v8a, armeabi-v7a,
+  x86 and x86_64 native libraries. The published phone build is arm64-only,
+  about 24-25MB, and CI passes `-PreactNativeArchitectures=arm64-v8a`.
+- The release notes name the ABI and record the APK size measured from the
+  built artifact on the CI runner. No on-device install was performed for this
+  task, so signature-over-previous-install remains unverified here.
+- Universal builds stay for emulator/testing only:
+  `cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86,x86_64 --no-daemon`.
 
 Stretch:
 - Android Auto / media browser.
