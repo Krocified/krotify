@@ -8,6 +8,10 @@ export async function pickAndImportTracks(): Promise<Track[]> {
   return [];
 }
 
+export async function importTrackCopy(_track: Track): Promise<Track | null> {
+  return null;
+}
+
 export async function removeImportedTrack(_id: string): Promise<void> {}
 
 export async function deleteImportedFile(_uri: string): Promise<void> {}
