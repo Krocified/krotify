@@ -151,6 +151,9 @@ jobs:
           LATEST="${{ needs.version.outputs.latest }}"
           if [ -n "$LATEST" ]; then RANGE="$LATEST..HEAD"; else RANGE="HEAD"; fi
           git log "$RANGE" --pretty=format:'- %s' > /tmp/notes.md
+          BYTES=$(stat -c%s dist/app-release.apk)
+          SIZE=$(awk -v bytes="$BYTES" 'BEGIN { printf "%.1f MB", bytes / 1048576 }')
+          printf '\n\n**Artifact:** arm64-v8a APK, %s (%s bytes)\n' "$SIZE" "$BYTES" >> /tmp/notes.md
           gh release create "${{ needs.version.outputs.tag }}" \
             dist/app-release.apk dist/app-release.apk.sha256 \
             --title "Krotify ${{ needs.version.outputs.version }}" \
