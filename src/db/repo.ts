@@ -162,16 +162,25 @@ export async function movePlaylistTrack(
   await moveOnce(db, playlistId, trackId, direction);
 }
 
+const memoryFavorites = new Set<string>();
+
 export async function listFavoriteIds(): Promise<Set<string>> {
   const db = await getDb();
-  if (!db) return new Set();
+  if (!db) return new Set(memoryFavorites);
   const rows = await db.getAllAsync<{ trackId: string }>('SELECT trackId FROM favorites');
   return new Set(rows.map((row) => row.trackId));
 }
 
 export async function toggleFavorite(trackId: string): Promise<boolean> {
   const db = await getDb();
-  if (!db) return false;
+  if (!db) {
+    if (memoryFavorites.has(trackId)) {
+      memoryFavorites.delete(trackId);
+      return false;
+    }
+    memoryFavorites.add(trackId);
+    return true;
+  }
   const existing = await db.getFirstAsync<{ trackId: string }>(
     'SELECT trackId FROM favorites WHERE trackId = ?',
     trackId,

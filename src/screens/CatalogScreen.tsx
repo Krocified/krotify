@@ -44,7 +44,7 @@ type Detail = {
   round: boolean;
 };
 
-const BOTTOM_PAD = TAB_BAR_HEIGHT + 170;
+const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 170;
 
 const compareName = (a: string, b: string) =>
   a.localeCompare(b, undefined, { sensitivity: 'base' });
@@ -96,7 +96,8 @@ export function CatalogScreen({
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
       for (const { item } of viewableItems) {
-        const first = (item as Album | Artist).tracks[0];
+        const entry = item as Album | Artist | null | undefined;
+        const first = entry?.tracks?.[0];
         if (!first || first.artworkUri || requested.current.has(first.id)) continue;
         requested.current.add(first.id);
         loadArtwork(first)

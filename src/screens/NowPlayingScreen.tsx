@@ -57,9 +57,19 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
   const [slide] = useState(() => new Animated.Value(height));
   const [resetToken, setResetToken] = useState(0);
   const [lyricsMode, setLyricsMode] = useState(false);
+  const [lyricsNote, setLyricsNote] = useState<string | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, lyricsMode);
+
+  useEffect(() => {
+    if (!lyricsMode || (lyrics.state !== 'none' && lyrics.state !== 'error')) return;
+    const timer = setTimeout(() => {
+      setLyricsNote(lyrics.state === 'error' ? "Couldn't load lyrics" : 'Lyrics not found');
+      setLyricsMode(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [lyricsMode, lyrics.state]);
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -148,7 +158,10 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
               ) : null}
             </Pressable>
             <Pressable
-              onPress={() => setLyricsMode((active) => !active)}
+              onPress={() => {
+                setLyricsNote(null);
+                setLyricsMode((active) => !active);
+              }}
               accessibilityRole="button"
               accessibilityLabel="Lyrics"
               accessibilityState={{ selected: lyricsMode }}
@@ -327,6 +340,7 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
             </View>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
+          {lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
         </View>
       </View>
     </Animated.View>
