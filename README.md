@@ -5,24 +5,33 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-v0 and v1 are built, plus the v2 catalog data layer: ID3 metadata, albums,
-artists, search, play history, background playback, import/exclude/delete,
-repeat, Recently played, a draggable mini-player, Settings and a browser demo.
+v0 through v3 are built. The app is a local-first player with a real catalog
+and session controls:
 
-The phone UI currently shows Library only: Albums and Artists are hidden until
-the v3 integration, while the web preview keeps them. The Settings Hidden tracks
-list is also removed until v3; individual exclude/delete still work.
+- One `AudioPlaylist` engine: background playback, gapless tracks, notification
+  and lock-screen next/previous, and live play/pause state.
+- Library, Catalog (Albums/Artists), and Import tabs with a floating blur pill.
+- Playlists (create, rename, delete, reorder, add/remove, play as queue) and
+  Liked Songs.
+- Shuffle, repeat, a sleep timer with fade-out, and resume of the last track and
+  position after restart.
+- Lyrics from local `.lrc` sidecars or the opt-in LRCLIB lookup, with timed
+  highlight and tap-to-seek.
+- In-app track sheets, details, rename, exclude/delete confirmation, and tag or
+  artwork editing through a local jaudiotagger module.
+- Scan opt-in, hidden-track restore, and the system audio filters (ringtones,
+  notifications, alarms, UI sounds, files under 3s).
 
-Scanning keeps the system filters: ringtones, notifications, alarms, UI sounds
-and files under 3s are skipped.
-
-Not built yet: playlist UI, favorites UI, notification next/previous, shuffle,
-lyrics, and tag editing.
+Not built: v4 discovery is research-only. Genius, Radio Browser, and
+Audiometa.io are deferred pending credentials, terms, and a real-device radio
+playback gate. Link import ships visibly disabled until a resolver is chosen.
 
 ## Stack
 
-Expo SDK 58, React Native 0.88, TypeScript, `expo-audio`, `expo-media-library`,
-`expo-sqlite`, `@missingcore/react-native-metadata-retriever`, Ionicons.
+Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
+`expo-media-library`, `expo-sqlite`, `expo-file-system`, `expo-blur`,
+`@missingcore/react-native-metadata-retriever`, Ionicons, and a local Kotlin
+Expo module backed by jaudiotagger.
 
 ## Run it
 
@@ -75,22 +84,26 @@ debug keystore, which is installable but not upgrade-stable across runners.
 ## Docs
 
 - `docs/intent.md`: why this exists
-- `docs/spec.md`: behaviour, design tokens, milestones
-- `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3 plan and release
+- `docs/spec.md`: behaviour, design tokens, milestones, v4 verdicts
+- `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans and release
   workflow plan
+- `docs/research/`: v4 API memos, link-import decision, batch edit and Android
+  Auto research
 
 ## Layout
 
 ```
 src/
-  AppShell.tsx        screen state, library load, scan/import wiring
-  player/             single expo-audio player plus a mock engine for demos
-  library/            scan, metadata, imports, exclusions, demo tracks
-  db/                 SQLite schema and repository
-  screens/            Library, Albums, Artists, Search, Now Playing, Settings
-  components/         headers, tabs, cover art, rows, mini-player, scrollbar
-  lib/                hashing, formatting, queue, groups, search, clock (tested)
+  AppShell.tsx        screen/overlay state, library load, sheets and wiring
+  player/             AudioPlaylist engine and player provider
+  library/            scan, metadata, imports, exclusions, lyrics, tag writer
+  db/                 SQLite schema, migrations and repository
+  screens/            Library, Catalog, Import, Search, Now Playing, Settings,
+                      Playlists, Liked, Edit Track
+  components/         headers, tabs, cover art, rows, sheets, mini-player
+  lib/                queue, shuffle, sleep, lyrics parser, groups, search (tested)
+modules/audio-tags/   local Expo module: jaudiotagger read/write
 scripts/              release version helper
-plugins/              Media3 exclusion and release signing config plugins
+plugins/              Media3/R8 exclusions, notification icon, release signing
 .github/workflows/    release pipeline
 ```

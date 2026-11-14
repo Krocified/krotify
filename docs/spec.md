@@ -433,8 +433,8 @@ claims.
 - Scrollbar: custom accent-blue thumb, active only while scrolling, draggable,
   ends level with the bottom player.
 - Grain: still deferred; covers are gradient plus initial when no real art.
-- Version: 0.2.0 (`versionCode` 2). Release `v0.1.0` exists; CI release automation
-  is planned in `docs/superpowers/plans/2026-11-12-gh-actions-release.md`.
+- Version: 0.3.1 (`versionCode` 301). Releases `v0.1.0` through `v0.3.1` exist;
+  `.github/workflows/release.yml` bumps and publishes on every push to `main`.
 
 ## Remaining after v2
 
