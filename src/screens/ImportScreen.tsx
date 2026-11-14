@@ -27,6 +27,8 @@ type Props = {
   onOpenSettings: () => void;
 };
 
+export const LINK_IMPORT_ENABLED = false;
+
 export function ImportScreen({
   imports,
   importing,
@@ -109,6 +111,22 @@ export function ImportScreen({
                 </View>
               ) : null}
 
+              {!LINK_IMPORT_ENABLED ? (
+                <>
+                  <Text style={styles.sectionTitle}>From a link</Text>
+                  <View style={[styles.card, styles.linkCard]}>
+                    <Ionicons name="link-outline" size={24} color={colors.textDim} />
+                    <View style={styles.cardText}>
+                      <Text style={styles.cardTitle}>Link import is disabled</Text>
+                      <Text style={styles.cardMeta}>
+                        Only import audio you own or have the rights to download. Link import
+                        needs a licensed resolver, and none is approved for Krotify.
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+
               <Text style={styles.sectionTitle}>Recent imports</Text>
             </View>
           }
@@ -158,6 +176,9 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     backgroundColor: colors.surfaceHi,
+  },
+  linkCard: {
+    alignItems: 'flex-start',
   },
   cardText: {
     flex: 1,

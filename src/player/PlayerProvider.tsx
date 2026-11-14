@@ -34,6 +34,11 @@ export type PlayerContextValue = {
     resolveUri: (track: Track) => Promise<string>,
     queue?: Track[],
   ) => Promise<boolean>;
+  restore: (
+    track: Track,
+    resolveUri: (track: Track) => Promise<string>,
+    positionMs: number,
+  ) => Promise<boolean>;
   toggle: () => void;
   seek: (positionMs: number) => Promise<void>;
   stop: () => void;
@@ -232,6 +237,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         loaded.map(({ uri, track: item }) => ({ uri, track: item })),
         local,
         loaded.map((entry) => entry.global),
+        play,
       );
       windowRef.current = { globalIndexes: loaded.map((entry) => entry.global) };
       loadedQueueRef.current = nextQueue;
@@ -247,8 +253,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         } catch {
         }
       }
-      if (play) engine.playlist.play();
-      else engine.playlist.pause();
       return true;
     },
     [],
@@ -406,6 +410,44 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       } catch {
         if (requestId !== requestRef.current) return false;
         setLastError('Could not play this file');
+        return false;
+      }
+    },
+    [loadWindow],
+  );
+
+  const restore = useCallback(
+    async (
+      nextTrack: Track,
+      resolveUri: (track: Track) => Promise<string>,
+      positionMs: number,
+    ): Promise<boolean> => {
+      const requestId = ++requestRef.current;
+      loadGenerationRef.current += 1;
+      endHandledForRef.current = null;
+      resolveUriRef.current = resolveUri;
+
+      if (nextTrack.source === 'demo') {
+        engine.playlist.pause();
+        engine.setVolume(1);
+        setMode('mock');
+        setMockPosition(Math.min(Math.max(0, positionMs), nextTrack.durationMs));
+        setMockPlaying(false);
+        setTrack(nextTrack);
+        setQueueState([nextTrack]);
+        setIndex(0);
+        setLastError(null);
+        return true;
+      }
+
+      try {
+        const loaded = await loadWindow(0, [nextTrack], resolveUri, positionMs, false);
+        if (requestId !== requestRef.current) return false;
+        if (!loaded) setLastError(null);
+        return loaded;
+      } catch {
+        if (requestId !== requestRef.current) return false;
+        setLastError(null);
         return false;
       }
     },
@@ -688,6 +730,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       sleep,
       setSleep,
       playTrack,
+      restore,
       toggle,
       seek,
       next,
@@ -714,6 +757,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       sleep,
       setSleep,
       playTrack,
+      restore,
       toggle,
       seek,
       next,

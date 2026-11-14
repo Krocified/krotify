@@ -5,6 +5,7 @@ import {
   SCAN_PREF_KEY,
   loadScanPref,
   parseScanPref,
+  readScanPref,
   saveScanPref,
   serializeScanPref,
 } from '../src/library/scanPrefs.ts';
@@ -84,6 +85,22 @@ test('scan preference parses only explicit booleans', () => {
   assert.equal(parseScanPref('yes'), false);
   assert.equal(serializeScanPref(true), 'true');
   assert.equal(serializeScanPref(false), 'false');
+});
+
+test('read scan preference distinguishes unset, on and off', async () => {
+  assert.equal(await readScanPref(memoryStorage()), null);
+  assert.equal(await readScanPref(memoryStorage({ [SCAN_PREF_KEY]: 'true' })), true);
+  assert.equal(await readScanPref(memoryStorage({ [SCAN_PREF_KEY]: 'false' })), false);
+});
+
+test('read scan preference returns the unset sentinel on storage failure', async () => {
+  const failing = {
+    async getItem(): Promise<string | null> {
+      throw new Error('storage unavailable');
+    },
+    async setItem(): Promise<void> {},
+  };
+  assert.equal(await readScanPref(failing), null);
 });
 
 test('scan preference defaults to off when the key is absent', async () => {

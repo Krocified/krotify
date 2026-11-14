@@ -31,19 +31,21 @@ type Props = {
   status: LibraryStatus;
   onRescan: () => void;
   onBack: () => void;
-  onImport: () => void;
   onExcludeAll: () => void;
   excluded: Track[];
   onRestore: (id: string) => void;
   onRestoreAll: () => void;
   canExcludeAll: boolean;
-  importing?: boolean;
+  scanEnabled: boolean;
+  onToggleScan: (enabled: boolean) => void;
 };
 
 const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
   ready: 'Granted',
   denied: 'Not granted',
 };
+
+const RELEASE_ABI = 'arm64-v8a';
 
 const SLIDE_MS = 280;
 
@@ -52,13 +54,13 @@ export function SettingsScreen({
   status,
   onRescan,
   onBack,
-  onImport,
   onExcludeAll,
   excluded,
   onRestore,
   onRestoreAll,
   canExcludeAll,
-  importing = false,
+  scanEnabled,
+  onToggleScan,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -157,24 +159,24 @@ export function SettingsScreen({
             </Pressable>
 
             {Platform.OS !== 'web' ? (
-              <Pressable
-                onPress={onImport}
-                disabled={importing}
-                accessibilityRole="button"
-                accessibilityLabel="Import audio files"
-                accessibilityState={{ disabled: importing, busy: importing }}
-                style={({ pressed }) => [styles.row, pressed && !importing && styles.rowPressed]}
-              >
+              <View style={styles.row}>
                 <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>Import audio files</Text>
-                  <Text style={styles.rowMeta}>Copy audio files into the app</Text>
+                  <Text style={styles.rowTitle}>Scan this device</Text>
+                  <Text style={styles.rowMeta}>
+                    {scanEnabled
+                      ? 'Scanning for audio files on this device'
+                      : 'Off. Imported files stay in your library.'}
+                  </Text>
                 </View>
-                {importing ? (
-                  <ActivityIndicator color={colors.accent} />
-                ) : (
-                  <Ionicons name="add" size={22} color={colors.textDim} />
-                )}
-              </Pressable>
+                <Switch
+                  value={scanEnabled}
+                  onValueChange={onToggleScan}
+                  disabled={scanning}
+                  accessibilityLabel="Scan this device for audio"
+                  trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             ) : null}
 
             <Pressable
@@ -239,6 +241,27 @@ export function SettingsScreen({
             </View>
           </View>
 
+          <Text style={styles.sectionTitle}>Editing</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Imported copies</Text>
+                <Text style={styles.rowMeta}>
+                  Files copied into Krotify can be edited in place, including artwork.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Scanned tracks</Text>
+                <Text style={styles.rowMeta}>
+                  Editing needs write access. If it is denied, import a copy and edit that
+                  instead.
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {excluded.length > 0 ? (
             <>
               <Text style={styles.sectionTitle}>Hidden tracks</Text>
@@ -285,6 +308,10 @@ export function SettingsScreen({
                 <Text style={styles.rowTitle}>Krotify {appJson.expo.version}</Text>
                 <Text style={styles.rowMeta}>Local playback. Network lyrics are optional.</Text>
               </View>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>Release ABI</Text>
+              <Text style={styles.rowValue}>{RELEASE_ABI}</Text>
             </View>
           </View>
         </Animated.ScrollView>

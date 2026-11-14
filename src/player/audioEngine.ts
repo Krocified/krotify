@@ -15,7 +15,7 @@ export type EngineLoopMode = 'none' | 'single' | 'all';
 
 export type PlaybackEngine = {
   playlist: AudioPlaylist;
-  load(tracks: WindowTrack[], localIndex: number, globalIndexes?: number[]): void;
+  load(tracks: WindowTrack[], localIndex: number, globalIndexes?: number[], autoplay?: boolean): void;
   append(tracks: WindowTrack[], globalIndexes: number[]): void;
   skipTo(local: number): void;
   setVolume(value: number): void;
@@ -64,7 +64,7 @@ export function createEngine(): PlaybackEngine {
   return {
     playlist,
 
-    load(tracks, localIndex, indexes) {
+    load(tracks, localIndex, indexes, autoplay = true) {
       playlist.clear();
       globalIndexes.length = 0;
       for (const item of tracks) playlist.add({ uri: item.uri });
@@ -78,7 +78,8 @@ export function createEngine(): PlaybackEngine {
         lockScreenMetadata(current.track),
         LOCK_SCREEN_OPTIONS,
       );
-      playlist.play();
+      if (autoplay) playlist.play();
+      else playlist.pause();
     },
 
     append(tracks, indexes) {

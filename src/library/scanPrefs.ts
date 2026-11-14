@@ -23,6 +23,17 @@ export async function loadScanPref(storage: ScanPrefStorage = AsyncStorage): Pro
   }
 }
 
+export async function readScanPref(
+  storage: ScanPrefStorage = AsyncStorage,
+): Promise<boolean | null> {
+  try {
+    const raw = await storage.getItem(SCAN_PREF_KEY);
+    return raw === null ? null : parseScanPref(raw);
+  } catch {
+    return null;
+  }
+}
+
 export async function saveScanPref(
   enabled: boolean,
   storage: ScanPrefStorage = AsyncStorage,
