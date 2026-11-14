@@ -1,12 +1,10 @@
-import { Directory, File } from 'expo-file-system';
 import type { Track } from '../types';
-import { parseLrc, type LrcLine } from '../lib/lrc';
-import { countCachedLyrics } from '../db/repo';
+import { parseLrc, type LrcLine } from '../lib/lrc.ts';
 import {
   fetchLrclibLyrics,
   type LrclibLyrics,
   type LrclibOptions,
-} from './lrclib';
+} from './lrclib.ts';
 
 export type LyricsSource = 'sidecar' | 'lrclib';
 
@@ -21,6 +19,8 @@ export type LoadedLyrics = {
 export type LoadLyricsOptions = {
   allowNetwork?: boolean;
   lrclib?: LrclibOptions;
+  findFile?: FindLyricsFile;
+  readFile?: (uri: string) => Promise<string | null>;
 };
 
 export type FindLyricsFile = (track: Track) => Promise<string | null>;
@@ -33,6 +33,7 @@ function baseName(name: string): string {
 export async function findLyricsFile(track: Track): Promise<string | null> {
   if (!track.uri) return null;
   try {
+    const { Directory, File } = await import('expo-file-system');
     const audio = new File(track.uri);
     const name = baseName(audio.name);
     if (!name) return null;
@@ -49,6 +50,7 @@ export async function findLyricsFile(track: Track): Promise<string | null> {
 
 export async function readLyricsFile(uri: string): Promise<string | null> {
   try {
+    const { File } = await import('expo-file-system');
     const file = new File(uri);
     if (!file.exists) return null;
     return await file.text();
@@ -86,13 +88,13 @@ export async function loadLyrics(
   track: Track,
   options: LoadLyricsOptions = {},
 ): Promise<LoadedLyrics> {
-  const sidecar = await findLyricsFile(track);
+  const findFile = options.findFile ?? findLyricsFile;
+  const sidecar = await findFile(track);
   if (sidecar) {
-    const text = await readLyricsFile(sidecar);
+    const readFile = options.readFile ?? readLyricsFile;
+    const text = await readFile(sidecar);
     if (text !== null) return fromText(text, 'sidecar');
   }
-
-  if (options.allowNetwork === false) return { kind: 'none', lines: [], offsetMs: 0 };
 
   const result = await fetchLrclibLyrics(
     {
@@ -102,7 +104,10 @@ export async function loadLyrics(
       album: track.album,
       durationMs: track.durationMs,
     },
-    options.lrclib,
+    {
+      ...options.lrclib,
+      allowNetwork: options.allowNetwork ?? options.lrclib?.allowNetwork,
+    },
   );
 
   return fromLrclib(result);
@@ -110,6 +115,7 @@ export async function loadLyrics(
 
 export async function lyricsCacheCount(): Promise<number> {
   try {
+    const { countCachedLyrics } = await import('../db/repo');
     return await countCachedLyrics();
   } catch {
     return 0;

@@ -28,7 +28,7 @@ export type LrclibResponse = {
 
 export type LrclibFetch = (
   url: string,
-  init: { headers: Record<string, string> },
+  init: { headers: Record<string, string>; signal?: AbortSignal },
 ) => Promise<LrclibResponse>;
 
 export type LrclibOptions = {
@@ -40,9 +40,16 @@ export type LrclibOptions = {
   isWeb?: boolean;
   spacingMs?: () => number;
   baseUrl?: string;
+  allowNetwork?: boolean;
+  timeoutMs?: number;
 };
 
-export type LrclibErrorCode = 'network' | 'http' | 'rate-limit' | 'invalid-response';
+export type LrclibErrorCode =
+  | 'network'
+  | 'timeout'
+  | 'http'
+  | 'rate-limit'
+  | 'invalid-response';
 
 export class LrclibError extends Error {
   readonly code: LrclibErrorCode;
@@ -73,6 +80,7 @@ export class LrclibRateLimitError extends LrclibError {
 }
 
 const DEFAULT_RETRY_AFTER_MS = 1_000;
+const DEFAULT_TIMEOUT_MS = 10_000;
 const MIN_SPACING_MS = 200;
 const SPACING_RANGE_MS = 300;
 
@@ -172,6 +180,26 @@ function mapResponse(data: unknown, input: LrclibInput): LrclibLyrics {
   return { kind: 'none' };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (timeoutMs <= 0) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new LrclibError('timeout', 'LRCLIB request timed out')),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function schedule<T>(
   task: () => Promise<T>,
   now: () => number,
@@ -179,8 +207,15 @@ function schedule<T>(
   spacingMs: () => number,
 ): Promise<T> {
   const run = requestChain.then(async () => {
+    const blockedFor = rateLimitedUntil - now();
+    if (blockedFor > 0) throw new LrclibRateLimitError(blockedFor);
+
     const wait = Math.max(0, lastRequestAt + spacingMs() - now());
     if (wait > 0) await sleep(wait);
+
+    const blockedAfterWait = rateLimitedUntil - now();
+    if (blockedAfterWait > 0) throw new LrclibRateLimitError(blockedAfterWait);
+
     lastRequestAt = now();
     return task();
   });
@@ -200,9 +235,14 @@ export async function fetchLrclibLyrics(
     options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const spacingMs = options.spacingMs ?? defaultSpacing;
   const baseUrl = options.baseUrl ?? LRCLIB_BASE;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const doFetch: LrclibFetch =
     options.fetch ??
-    ((url, init) => fetch(url, { headers: init.headers }) as unknown as Promise<LrclibResponse>);
+    ((url, init) =>
+      fetch(url, {
+        headers: init.headers,
+        signal: init.signal,
+      }) as unknown as Promise<LrclibResponse>);
 
   const cache = input.trackId ? await resolveCache(options) : null;
   if (cache && input.trackId) {
@@ -210,18 +250,31 @@ export async function fetchLrclibLyrics(
     if (cached && isLyricsKind(cached.kind)) return cached;
   }
 
-  const blockedFor = rateLimitedUntil - now();
-  if (blockedFor > 0) throw new LrclibRateLimitError(blockedFor);
+  if (options.allowNetwork === false) return { kind: 'none' };
 
   const result = await schedule(
     async () => {
+      const controller = new AbortController();
+      const timeoutId =
+        timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
       let response: LrclibResponse;
       try {
-        response = await doFetch(buildUrl(baseUrl, input), {
-          headers: buildHeaders(options.version ?? defaultVersion(), options.isWeb ?? defaultIsWeb()),
-        });
-      } catch {
+        response = await withTimeout(
+          doFetch(buildUrl(baseUrl, input), {
+            headers: buildHeaders(options.version ?? defaultVersion(), options.isWeb ?? defaultIsWeb()),
+            signal: controller.signal,
+          }),
+          timeoutMs,
+        );
+      } catch (error) {
+        if (error instanceof LrclibError) throw error;
+        if (controller.signal.aborted) {
+          throw new LrclibError('timeout', 'LRCLIB request timed out');
+        }
         throw new LrclibError('network', 'Unable to reach LRCLIB');
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
 
       if (response.status === 404) return { kind: 'none' } as LrclibLyrics;

@@ -285,6 +285,8 @@ export async function deleteCachedLyrics(trackId: string): Promise<void> {
 export async function countCachedLyrics(): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
-  const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM lyrics_cache');
+  const row = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM lyrics_cache WHERE kind IN ('synced', 'plain')",
+  );
   return row?.count ?? 0;
 }
