@@ -36,8 +36,10 @@ CREATE TABLE IF NOT EXISTS track_metadata (
   albumArtist TEXT,
   year INTEGER,
   trackNumber INTEGER,
+  discNumber INTEGER,
   genre TEXT,
-  artworkUri TEXT
+  artworkUri TEXT,
+  explicit INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS lyrics_cache (
@@ -47,3 +49,15 @@ CREATE TABLE IF NOT EXISTS lyrics_cache (
   fetchedAt INTEGER NOT NULL
 );
 `;
+
+export const MIGRATION_V2_COLUMNS = [
+  { name: 'discNumber', sql: 'ALTER TABLE track_metadata ADD COLUMN discNumber INTEGER' },
+  { name: 'explicit', sql: 'ALTER TABLE track_metadata ADD COLUMN explicit INTEGER' },
+] as const;
+
+export function pendingColumnMigrations(existing: Iterable<string>): string[] {
+  const names = new Set(existing);
+  return MIGRATION_V2_COLUMNS.filter((column) => !names.has(column.name)).map(
+    (column) => column.sql,
+  );
+}
