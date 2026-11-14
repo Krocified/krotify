@@ -19,4 +19,4 @@ HLS example from search: station KBS Classic FM resolves to a signed .m3u8
   (query redacted). HLS support must be tested on device per platform.
 
 Not verified here: expo-audio AudioPlaylist actual playback, buffering,
-reconnect, background playback, lock-screen behavior. See memo adoption gate.
+reconnect, background playback, lock-screen behavior. See memo device gate.

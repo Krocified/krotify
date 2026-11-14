@@ -1,6 +1,6 @@
 # Radio Browser Decision Memo
 
-**Verdict:** adopt
+**Verdict:** defer (pending real-device AudioPlaylist playback)
 **Date:** 2026-11-14
 **Evidence:**
 - API docs: https://api.radio-browser.info/ and
@@ -12,9 +12,11 @@
 - `docs/research/samples/radio-click.json` — live `GET /json/url/<uuid>`
 - `docs/research/samples/radio-codec-probe.txt` — stream HTTP probes
 
-**Adoption gate:** before any UI code, a real-device smoke test must play one
-MP3, one AAC and one OGG/Opus station through the existing `expo-audio` path,
-and recover from one stopped stream. If that fails, change this verdict to drop.
+**Device gate:** HTTP evidence is not enough to adopt. Before Task 5 may record
+adoption, a real-device smoke test must play one MP3, one AAC and one OGG/Opus
+station through the existing `expo-audio` path, and recover from one stopped
+stream. If it passes, the controller may re-review and change this verdict to
+adopt. If it fails, drop radio.
 
 ## What it gives
 
@@ -37,8 +39,9 @@ A free, public directory of internet radio stations.
 - CORS is open (`access-control-allow-origin: *`), so web builds can call the
   API directly.
 
-Live capture: a `name=jazz` search returned three stations with MP3, AAC and
-other codecs; click reporting returned
+Live capture: a `name=jazz` search returned three MP3 stations; the AAC and
+OGG rows came from separate `codec=aac` and `codec=ogg` queries, not from the
+jazz search. Click reporting returned
 `{"ok":true,"message":"retrieved station url",...}`.
 HTTP probes reached real streams:
 
@@ -121,6 +124,11 @@ third-party content with their own rights. Krotify should:
 - The station UUID on click reporting.
 - A User-Agent that identifies the client and version, not the user:
   `User-Agent: Krotify <version> (https://github.com/Krocified/krotify)`.
+- Browsers cannot set `User-Agent` (it is a forbidden header). The web path
+  needs a documented proxy that sets it, or an `X-User-Agent` header only if the
+  service's CORS allow-list accepts that header. The observed OPTIONS response
+  allowed `origin, x-requested-with, content-type, User-Agent` and did **not**
+  include `x-user-agent`, so assume a proxy is required on web.
 - No account, device ID, listening history, local file names or location
   permission data. Geo fields in responses are station metadata, not the user's
   location.
@@ -198,16 +206,18 @@ must be settled in the device smoke test before UI code.
 
 ## Why this verdict
 
-Adopt because it is the only source in this round with real, unauthenticated
-evidence: live host discovery, live search, live click reporting, open CORS, and
-real MP3, AAC and OGG streams reachable over HTTP. It adds a genuinely new
-listening mode without touching the local library, and the smallest slice is one
-screen and one player.
+Defer because the API evidence is strong but the plan's ship condition is not
+met. Live host discovery, live search, live click reporting, open CORS and real
+MP3/AAC/OGG streams reachable over HTTP prove the directory is usable. They do
+not prove that `expo-audio` plays these streams reliably on a device, and SDK 58
+does not expose the plan's `isLiveStream` source flag.
 
-The remaining risk is not the API; it is on-device playback through
-`expo-audio`, especially live-stream duration, buffering, reconnect and
-background behavior. That is why adoption is gated on the device smoke test. If
-the gate fails, drop radio rather than ship a fragile surface.
+On-device playback through `expo-audio` is the remaining risk: live-stream
+duration, buffering, reconnect, codec support and background behavior are all
+unverified. Adopting on HTTP-only evidence would let Task 5 record adoption for
+a surface that has never played a stream. If the device gate passes, the
+controller may re-review and adopt; if it fails, drop radio rather than ship a
+fragile surface.
 
 ## Follow-ups before code
 

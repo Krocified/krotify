@@ -28,7 +28,7 @@
 - name: RTL
   stationuuid: 042d3140-227c-4fac-9387-4903b692d5f2
   codec: AAC  bitrate: 64  hls: 1  lastcheckok: 1
-  url_resolved: https://live.m6radio.quortex.io/webM89Hc99XApzgfhXNX8ASN5/grouprtl/national/short/audio-64000/index.m3u8
+  url_resolved: https://live.m6radio.quortex.io/<redacted-token>/grouprtl/national/short/audio-64000/index.m3u8
   countrycode: FR  tags: généraliste
 - name: France Info
   stationuuid: 31074f8a-e6f4-11e9-a96c-52543be04c81
