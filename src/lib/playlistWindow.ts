@@ -33,3 +33,42 @@ export function nextWindowSize(
   const remaining = Math.max(0, queueLength - (windowStart + trackCount));
   return Math.min(missing, remaining, radius);
 }
+
+export type AppendRange = {
+  from: number;
+  to: number;
+  count: number;
+};
+
+export function nextAppendRange(
+  globalIndexes: number[],
+  trackCount: number,
+  queueLength: number,
+  currentLocal: number,
+  radius = DEFAULT_WINDOW_RADIUS,
+): AppendRange {
+  const lastLoaded = globalIndexes[globalIndexes.length - 1];
+  if (lastLoaded === undefined || trackCount <= 0) return { from: 0, to: -1, count: 0 };
+  const from = lastLoaded + 1;
+  const count = nextWindowSize(
+    currentLocal,
+    trackCount,
+    queueLength,
+    from - trackCount,
+    radius,
+  );
+  const to = Math.min(queueLength - 1, from + count - 1);
+  return { from, to, count: to >= from ? to - from + 1 : 0 };
+}
+
+export function wrapTarget(
+  previousGlobal: number,
+  queueLength: number,
+  direction: 'forward' | 'backward',
+): number {
+  if (queueLength <= 0 || previousGlobal < 0) return -1;
+  if (direction === 'forward') {
+    return previousGlobal + 1 < queueLength ? previousGlobal + 1 : 0;
+  }
+  return previousGlobal > 0 ? previousGlobal - 1 : queueLength - 1;
+}

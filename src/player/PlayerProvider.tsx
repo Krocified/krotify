@@ -1,7 +1,7 @@
 import { useAudioPlaylistStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { mockTick } from '../lib/mockClock';
-import { DEFAULT_WINDOW_RADIUS, nextWindowSize, playlistWindow } from '../lib/playlistWindow';
+import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import type { Track } from '../types';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
@@ -37,7 +37,6 @@ export type PlayerContextValue = {
 
 type WindowState = {
   globalIndexes: number[];
-  nextGlobal: number;
 };
 
 type ResolvedWindowTrack = WindowTrack & { global: number };
@@ -63,9 +62,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const queueRef = useRef<Track[]>([]);
   const modeRef = useRef<'audio' | 'mock' | null>(null);
   const repeatRef = useRef<RepeatMode>('off');
-  const windowRef = useRef<WindowState>({ globalIndexes: [], nextGlobal: 0 });
+  const windowRef = useRef<WindowState>({ globalIndexes: [] });
   const loadedQueueRef = useRef<Track[] | null>(null);
-  const lastGlobalRef = useRef(-1);
   const appendingRef = useRef(false);
 
   const clearMockTimer = useCallback(() => {
@@ -147,12 +145,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         local,
         loaded.map((entry) => entry.global),
       );
-      windowRef.current = {
-        globalIndexes: loaded.map((entry) => entry.global),
-        nextGlobal: end + 1,
-      };
+      windowRef.current = { globalIndexes: loaded.map((entry) => entry.global) };
       loadedQueueRef.current = nextQueue;
-      lastGlobalRef.current = targetIndex;
       setMode('audio');
       setQueueState(nextQueue);
       setTrack(currentTrack);
@@ -179,22 +173,17 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     if (!resolveUri || nextQueue.length === 0) return;
     const generation = loadGenerationRef.current;
 
-    const trackCount = engine.playlist.trackCount;
-    const syntheticStart = windowState.nextGlobal - trackCount;
-    const count = nextWindowSize(
-      currentLocal,
-      trackCount,
+    const range = nextAppendRange(
+      windowState.globalIndexes,
+      engine.playlist.trackCount,
       nextQueue.length,
-      syntheticStart,
+      currentLocal,
       DEFAULT_WINDOW_RADIUS,
     );
-    if (count <= 0) return;
+    if (range.count <= 0) return;
 
-    const from = windowState.nextGlobal;
-    const to = Math.min(nextQueue.length - 1, from + count - 1);
-    if (to < from) return;
     const indexes: number[] = [];
-    for (let global = from; global <= to; global += 1) indexes.push(global);
+    for (let global = range.from; global <= range.to; global += 1) indexes.push(global);
 
     appendingRef.current = true;
     void Promise.all(
@@ -221,7 +210,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
           );
           windowState.globalIndexes.push(...loaded.map((entry) => entry.global));
         }
-        if (fresh) windowState.nextGlobal = to + 1;
       })
       .finally(() => {
         appendingRef.current = false;
@@ -238,28 +226,39 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
       const wrappedForward =
         repeatRef.current === 'all' &&
-        lastGlobalRef.current === nextQueue.length - 1 &&
+        trackCount > 1 &&
         event.previousIndex === trackCount - 1 &&
         event.currentIndex === 0;
       if (wrappedForward && resolveUri) {
-        void loadWindow(0, nextQueue, resolveUri);
-        return;
+        const previousGlobal = windowState.globalIndexes[event.previousIndex];
+        const target = wrapTarget(previousGlobal, nextQueue.length, 'forward');
+        if (target >= 0) {
+          const local = windowState.globalIndexes.indexOf(target);
+          if (local >= 0) engine.skipTo(local);
+          else void loadWindow(target, nextQueue, resolveUri);
+          return;
+        }
       }
 
       const wrappedBackward =
         repeatRef.current === 'all' &&
-        lastGlobalRef.current === 0 &&
+        trackCount > 1 &&
         event.previousIndex === 0 &&
         event.currentIndex === trackCount - 1;
       if (wrappedBackward && resolveUri) {
-        void loadWindow(nextQueue.length - 1, nextQueue, resolveUri);
-        return;
+        const previousGlobal = windowState.globalIndexes[event.previousIndex];
+        const target = wrapTarget(previousGlobal, nextQueue.length, 'backward');
+        if (target >= 0) {
+          const local = windowState.globalIndexes.indexOf(target);
+          if (local >= 0) engine.skipTo(local);
+          else void loadWindow(target, nextQueue, resolveUri);
+          return;
+        }
       }
 
       const global = windowState.globalIndexes[event.currentIndex];
       const currentTrack = global === undefined ? undefined : nextQueue[global];
       if (!currentTrack) return;
-      lastGlobalRef.current = global;
       setIndex(global);
       setTrack(currentTrack);
       engine.updateLockScreenMetadata(currentTrack);
@@ -280,6 +279,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       nextQueue: Track[] = [nextTrack],
     ): Promise<boolean> => {
       const requestId = ++requestRef.current;
+      loadGenerationRef.current += 1;
       endHandledForRef.current = null;
       resolveUriRef.current = resolveUri;
       const targetIndex = nextQueue.findIndex((item) => item.id === nextTrack.id);
@@ -359,9 +359,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     loadGenerationRef.current += 1;
     engine.stop();
     clearMockTimer();
-    windowRef.current = { globalIndexes: [], nextGlobal: 0 };
+    windowRef.current = { globalIndexes: [] };
     loadedQueueRef.current = null;
-    lastGlobalRef.current = -1;
     appendingRef.current = false;
     setMode(null);
     setTrack(null);
@@ -394,13 +393,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         stop();
         return;
       }
-      setQueueState(filtered);
       const current = queue[index];
-      if (!current || removed.has(current.id)) {
-        setIndex(-1);
+      if (current && removed.has(current.id)) {
+        stop();
         return;
       }
-      setIndex(filtered.findIndex((item) => item.id === current.id));
+      setQueueState(filtered);
+      setIndex(current ? filtered.findIndex((item) => item.id === current.id) : -1);
     },
     [queue, index, stop],
   );

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextWindowSize, playlistWindow } from '../src/lib/playlistWindow.ts';
+import { nextAppendRange, nextWindowSize, playlistWindow, wrapTarget } from '../src/lib/playlistWindow.ts';
 
 test('playlistWindow keeps the first track at the start', () => {
   assert.deepEqual(playlistWindow(0, 20, 4), { start: 0, end: 4, localIndex: 0 });
@@ -52,4 +52,25 @@ test('nextWindowSize caps the append at the queue end', () => {
   assert.equal(nextWindowSize(4, 0, 10, 6), 0);
   assert.equal(nextWindowSize(2, 6, 8, 0), 0);
   assert.equal(nextWindowSize(5, 8, 10, 0), 1);
+});
+
+test('nextAppendRange derives the next global from the last loaded entry', () => {
+  assert.deepEqual(nextAppendRange([3, 4, 7, 8], 4, 12, 3), { from: 9, to: 11, count: 3 });
+  assert.deepEqual(nextAppendRange([5, 6, 7], 3, 9, 2), { from: 8, to: 8, count: 1 });
+});
+
+test('nextAppendRange appends nothing when the loaded window contains the queue end', () => {
+  assert.deepEqual(nextAppendRange([7, 8, 9], 3, 10, 2), { from: 10, to: 9, count: 0 });
+  assert.deepEqual(nextAppendRange([], 0, 10, 0), { from: 0, to: -1, count: 0 });
+});
+
+test('wrapTarget advances mid-queue instead of replaying the window start', () => {
+  assert.equal(wrapTarget(50, 100, 'forward'), 51);
+  assert.equal(wrapTarget(99, 100, 'forward'), 0);
+});
+
+test('wrapTarget steps back mid-queue and wraps only at the queue start', () => {
+  assert.equal(wrapTarget(50, 100, 'backward'), 49);
+  assert.equal(wrapTarget(0, 100, 'backward'), 99);
+  assert.equal(wrapTarget(0, 0, 'backward'), -1);
 });
