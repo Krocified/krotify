@@ -9,8 +9,17 @@ export function formatDuration(ms: number): string {
   return `${minutes}:${ss}`;
 }
 
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function titleFromFilename(filename: string): string {
-  const withoutExtension = filename.replace(/\.[a-z0-9]{1,5}$/i, '');
+  const decoded = safeDecode(filename);
+  const withoutExtension = decoded.replace(/\.[a-z0-9]{1,5}$/i, '');
   const withoutTrackNumber = withoutExtension.replace(/^\s*\d{1,3}\s*[-._)\]]+\s*/, '');
   const cleaned = withoutTrackNumber.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
   return cleaned || 'Untitled';

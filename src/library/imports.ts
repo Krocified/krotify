@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import type { Track } from '../types';
 import { titleFromFilename } from '../lib/format';
 import { hashString, hueFromSeed } from '../lib/hash';
+import { importedFileName } from '../lib/importName';
 
 const KEY = 'krotify.imports.v1';
 const PROBE_TIMEOUT_MS = 2000;
@@ -78,10 +79,13 @@ export async function pickAndImportTracks(): Promise<Track[]> {
   const stamp = Date.now();
 
   for (const [index, file] of picked.result.entries()) {
-    const id = `import:${hashString(file.name + ':' + (file.size ?? 0))}`;
+    const name = importedFileName(file.name, `track-${index + 1}.mp3`);
+    const id = `import:${hashString(name + ':' + (file.size ?? 0))}`;
     if (knownIds.has(id)) continue;
-    const destination = new File(dir, `${stamp}-${index}-${file.name}`);
+    const folder = new Directory(dir, `${stamp}-${index}`);
+    const destination = new File(folder, name);
     try {
+      folder.create({ idempotent: true, intermediates: true });
       await file.copy(destination);
       copied.push(destination);
       const uri = destination.uri;
@@ -89,15 +93,19 @@ export async function pickAndImportTracks(): Promise<Track[]> {
         id,
         uri,
         source: 'import',
-        title: titleFromFilename(file.name),
+        title: titleFromFilename(name),
         artist: '',
         album: '',
         durationMs: await probeDurationMs(uri),
-        artworkHue: hueFromSeed(file.name),
+        artworkHue: hueFromSeed(name),
       });
       knownIds.add(id);
     } catch {
       await discardFile(destination);
+      try {
+        if (folder.exists) folder.delete();
+      } catch {
+      }
     }
   }
 
@@ -119,5 +127,11 @@ export async function removeImportedTrack(id: string): Promise<void> {
 
 export async function deleteImportedFile(uri: string): Promise<void> {
   const file = new File(uri);
-  if (file.exists) file.delete();
+  if (!file.exists) return;
+  const parent = file.parentDirectory;
+  file.delete();
+  try {
+    if (parent.uri.includes('/imports/') && parent.exists) parent.delete();
+  } catch {
+  }
 }

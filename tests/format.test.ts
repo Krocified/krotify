@@ -18,4 +18,5 @@ test('titleFromFilename strips extension and track numbers', () => {
   assert.equal(titleFromFilename('07. Song.ogg'), 'Song');
   assert.equal(titleFromFilename('track01.mp3'), 'track01');
   assert.equal(titleFromFilename('  spaced  name .mp3'), 'spaced name');
+  assert.equal(titleFromFilename('My%20Song%20%28Live%29.mp3'), 'My Song (Live)');
 });

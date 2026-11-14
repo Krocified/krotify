@@ -51,3 +51,8 @@ export async function restoreTrack(id: string): Promise<Track[]> {
   await writeTracks(next);
   return next;
 }
+
+export async function clearExcludedTracks(): Promise<Track[]> {
+  await writeTracks([]);
+  return [];
+}

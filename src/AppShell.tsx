@@ -4,7 +4,7 @@ import type { Asset } from 'expo-media-library';
 import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar, type TabName } from './components/TabBar';
 import { DEMO_TRACKS } from './library/demo';
-import { excludeTrack, excludeTracks, loadExcludedTracks, restoreTrack } from './library/exclusions';
+import { excludeTrack, excludeTracks, loadExcludedTracks, restoreTrack, clearExcludedTracks } from './library/exclusions';
 import {
   deleteImportedFile,
   loadImportedTracks,
@@ -12,7 +12,7 @@ import {
   removeImportedTrack,
 } from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
-import { mergeLibrary } from './lib/library';
+import { mergeLibrary, sortTracks } from './lib/library';
 import { enrichTracks } from './library/metadata';
 import { listFavoriteIds, listRecentTrackIds, recordPlay } from './db/repo';
 import { usePlayer } from './player/PlayerProvider';
@@ -29,7 +29,7 @@ export function AppShell() {
   const { track: currentTrack, playTrack, stop, removeFromQueue, setQueue } = usePlayer();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
   const [, setFavoriteIds] = useState<Set<string>>(() => new Set());
   const [recentTrackIds, setRecentTrackIds] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<Track[]>([]);
@@ -45,6 +45,20 @@ export function AppShell() {
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
+
+  const excludedIds = useMemo(() => new Set(excluded.map((track) => track.id)), [excluded]);
+  const tracks = useMemo(
+    () => sortTracks(libraryTracks.filter((track) => !excludedIds.has(track.id))),
+    [libraryTracks, excludedIds],
+  );
+  const hiddenScannedCount = useMemo(
+    () => excluded.filter((track) => track.source === 'scan').length,
+    [excluded],
+  );
+  const hiddenNote =
+    hiddenScannedCount > 0
+      ? `${hiddenScannedCount} scanned track${hiddenScannedCount === 1 ? '' : 's'} hidden. Restore them in Settings.`
+      : null;
 
   const refreshRecent = useCallback(() => {
     void listRecentTrackIds(20)
@@ -81,7 +95,7 @@ export function AppShell() {
               : (assetsRef.current.get(track.id)?.getUri() ?? null),
           (batch) => {
             const byId = new Map(batch.map((track) => [track.id, track]));
-            setTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
+            setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
           },
         ).catch(() => {});
       }
@@ -92,7 +106,7 @@ export function AppShell() {
           loadExcludedTracks(),
         ]);
         setExcluded(excludedTracks);
-        setTracks(DEMO_TRACKS);
+        setLibraryTracks(DEMO_TRACKS);
         setStatus('ready');
         setStatusNote('Web preview: demo library');
         return;
@@ -108,11 +122,10 @@ export function AppShell() {
         importedTracks = loadedImported;
         excludedTracks = loadedExcluded;
         setExcluded(excludedTracks);
-        const excludedIds = new Set(excludedTracks.map((track) => track.id));
-        const importOnly = mergeLibrary([], importedTracks, excludedIds);
+        const importOnly = mergeLibrary([], importedTracks, new Set());
 
         if (!granted) {
-          setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
+          setLibraryTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
           enrich(importOnly);
           setStatus('denied');
           if (importOnly.length > 0) {
@@ -122,19 +135,13 @@ export function AppShell() {
         }
         const result = await scanLibrary();
         assetsRef.current = result.assets;
-        const merged = mergeLibrary(result.tracks, importedTracks, excludedIds);
-        if (merged.length === 0) {
-          setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
-          enrich(importOnly);
-          setStatus('empty');
-        } else {
-          setTracks(merged);
-          enrich(merged);
-          setStatus('ready');
-        }
+        const merged = mergeLibrary(result.tracks, importedTracks, new Set());
+        setLibraryTracks(merged.length > 0 ? merged : DEMO_TRACKS);
+        enrich(merged);
+        setStatus(merged.length > 0 ? 'ready' : 'empty');
       } catch {
-        const importOnly = mergeLibrary([], importedTracks, new Set(excludedTracks.map((track) => track.id)));
-        setTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
+        const importOnly = mergeLibrary([], importedTracks, new Set());
+        setLibraryTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
         enrich(importOnly);
         setStatus('error');
       }
@@ -168,7 +175,7 @@ export function AppShell() {
   }, [screen, refreshRecent]);
 
   const handleArtworkLoaded = useCallback((trackId: string, uri: string) => {
-    setTracks((prev) =>
+    setLibraryTracks((prev) =>
       prev.map((track) =>
         track.id === trackId && !track.artworkUri ? { ...track, artworkUri: uri } : track,
       ),
@@ -209,20 +216,31 @@ export function AppShell() {
   async function hideTrack(track: Track) {
     const next = await excludeTrack(track);
     setExcluded(next);
-    setTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
     setStatusNote(null);
   }
 
+  async function handleRestore(id: string) {
+    const next = await restoreTrack(id);
+    setExcluded(next);
+    setStatusNote(null);
+  }
+
+  async function handleRestoreAll() {
+    const next = await clearExcludedTracks();
+    setExcluded(next);
+    setStatusNote(null);
+  }
+
   async function excludeAllTracks() {
-    const targets = tracks.filter((track) => track.source !== 'demo' && track.source !== 'import');
+    const targets = libraryTracks.filter(
+      (track) => track.source === 'scan' && !excludedIds.has(track.id),
+    );
     if (targets.length === 0) return;
     const next = await excludeTracks(targets);
     setExcluded(next);
-    const ids = new Set(targets.map((track) => track.id));
-    setTracks((prev) => prev.filter((track) => !ids.has(track.id)));
     removeFromQueue(targets.map((track) => track.id));
-    setStatusNote(null);
+    setStatusNote(`${targets.length} scanned tracks hidden. Restore them in Settings.`);
   }
 
   async function deleteTrack(track: Track) {
@@ -239,7 +257,7 @@ export function AppShell() {
     }
     const nextExcluded = await restoreTrack(track.id);
     setExcluded(nextExcluded);
-    setTracks((prev) => prev.filter((item) => item.id !== track.id));
+    setLibraryTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
     setStatusNote(null);
     if (currentTrack?.id === track.id) stop();
@@ -276,13 +294,21 @@ export function AppShell() {
     try {
       const added = await pickAndImportTracks();
       if (added.length === 0) return;
-      setTracks((prev) =>
+      setLibraryTracks((prev) =>
         mergeLibrary(
           prev.filter((item) => item.source !== 'demo'),
           added,
-          new Set(excluded.map((item) => item.id)),
+          new Set(),
         ),
       );
+      void enrichTracks(
+        added,
+        async (track) => track.uri || null,
+        (batch) => {
+          const byId = new Map(batch.map((track) => [track.id, track]));
+          setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
+        },
+      ).catch(() => {});
       setStatus('ready');
       setStatusNote(null);
     } finally {
@@ -321,7 +347,7 @@ export function AppShell() {
             tracks={tracks}
             recentTracks={recentTracks}
             status={status}
-            statusNote={statusNote}
+            statusNote={statusNote ?? hiddenNote}
             onSelect={handleSelect}
             onManage={handleManage}
             onOpenSearch={openSearch}
@@ -364,7 +390,12 @@ export function AppShell() {
         onBack={() => setScreen(settingsReturnRef.current)}
         onImport={() => void handleImport()}
         onExcludeAll={() => void excludeAllTracks()}
-        canExcludeAll={tracks.some((track) => track.source === 'scan')}
+        excluded={excluded}
+        onRestore={(id) => void handleRestore(id)}
+        onRestoreAll={() => void handleRestoreAll()}
+        canExcludeAll={libraryTracks.some(
+          (track) => track.source === 'scan' && !excludedIds.has(track.id),
+        )}
         importing={importing}
       />
       {showTabBar ? (

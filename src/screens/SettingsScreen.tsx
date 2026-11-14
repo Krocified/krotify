@@ -18,7 +18,7 @@ import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { colors, radius, space, type } from '../theme';
-import type { LibraryStatus } from '../types';
+import type { LibraryStatus, Track } from '../types';
 
 type Props = {
   visible: boolean;
@@ -27,6 +27,9 @@ type Props = {
   onBack: () => void;
   onImport: () => void;
   onExcludeAll: () => void;
+  excluded: Track[];
+  onRestore: (id: string) => void;
+  onRestoreAll: () => void;
   canExcludeAll: boolean;
   importing?: boolean;
 };
@@ -45,6 +48,9 @@ export function SettingsScreen({
   onBack,
   onImport,
   onExcludeAll,
+  excluded,
+  onRestore,
+  onRestoreAll,
   canExcludeAll,
   importing = false,
 }: Props) {
@@ -160,6 +166,45 @@ export function SettingsScreen({
             </View>
           </View>
 
+          {excluded.length > 0 ? (
+            <>
+              <Text style={styles.sectionTitle}>Hidden tracks</Text>
+              <View style={styles.card}>
+                <Pressable
+                  onPress={onRestoreAll}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore all hidden tracks"
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowTitle}>Restore all hidden tracks</Text>
+                    <Text style={styles.rowMeta}>
+                      {excluded.length} hidden {excluded.length === 1 ? 'track' : 'tracks'}
+                    </Text>
+                  </View>
+                  <Ionicons name="refresh" size={22} color={colors.accent2} />
+                </Pressable>
+                {excluded.map((track) => (
+                  <View key={track.id} style={styles.row}>
+                    <View style={styles.rowText}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>
+                        {track.title}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => onRestore(track.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Restore ${track.title}`}
+                      style={({ pressed }) => [styles.restore, pressed && styles.restorePressed]}
+                    >
+                      <Text style={styles.restoreText}>Restore</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
             <View style={styles.row}>
@@ -247,5 +292,18 @@ const styles = StyleSheet.create({
   rowValue: {
     ...type.meta,
     color: colors.textDim,
+  },
+  restore: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  restorePressed: {
+    opacity: 0.7,
+  },
+  restoreText: {
+    ...type.meta,
+    color: colors.accent2,
   },
 });
