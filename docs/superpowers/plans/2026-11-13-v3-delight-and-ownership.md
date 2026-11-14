@@ -101,8 +101,8 @@ Files: `src/library/scan.ts`, `src/library/imports.ts`, `src/library/exclusions.
 
 **Interfaces:**
 - `playlistWindow(index: number, length: number, radius?: number): { start: number; end: number; localIndex: number }`
-- `nextWindowSize(currentLocal: number, trackCount: number, queueLength: number, windowEnd: number): number` returns how many tracks to append ahead.
-- `createEngine(): { playlist: AudioPlaylist; load(tracks: WindowTrack[], localIndex: number): void; append(tracks: WindowTrack[]): void; skipTo(local: number): void; setVolume(value: number): void; setLoop(mode: 'none' | 'single' | 'all'): void; stop(): void }`
+- `nextWindowSize(currentLocal: number, trackCount: number, queueLength: number, windowStart: number, radius?: number): number` returns how many upcoming queue tracks to append so at least 3 tracks remain ahead, capped at the queue end.
+- `createEngine(): { playlist: AudioPlaylist; load(tracks: WindowTrack[], localIndex: number): void; append(tracks: WindowTrack[], globalIndexes: number[]): void; skipTo(local: number): void; setVolume(value: number): void; setLoop(mode: 'none' | 'single' | 'all'): void; stop(): void }`
 - `WindowTrack = { uri: string; track: Track }`
 
 - [ ] Write failing tests for `playlistWindow`: index 0, middle, last, length smaller than `2 * radius + 1`, empty queue.
@@ -140,7 +140,7 @@ Files: `src/library/scan.ts`, `src/library/imports.ts`, `src/library/exclusions.
 - [ ] On enable: shuffle the remainder after the current track, keep the current track at the front, rebuild the playlist window.
 - [ ] On disable: restore the original queue at the current track, rebuild the window.
 - [ ] Repeat one replays the current track. Next/previous follow the shuffled order.
-- [ ] Add a shuffle button next to repeat (`Ionicons shuff`) with `accessibilityState={{ selected: shuffle }}`, accent when on.
+- [ ] Add a shuffle button next to repeat (`Ionicons shuffle`) with `accessibilityState={{ selected: shuffle }}`, accent when on.
 - [ ] Commit `feat: add shuffled playback`.
 
 ---
@@ -213,9 +213,12 @@ LRCLIB rules: base `https://lrclib.net`; `GET /api/get?track_name=&artist_name=&
 - Create: `src/lib/tagPatch.ts`
 - Create: `src/library/tagWriter.ts`
 - Create: `tests/tagPatch.test.ts`
+- Modify: `src/types.ts` (add `discNumber?: number`, `explicit?: boolean`)
+- Modify: `src/db/repo.ts`, `src/db/schema.ts` (DB version 2: `discNumber`, `explicit`)
 - Modify: `app.json`
 
 **Interfaces:**
+- `TagFields = { title?: string; artist?: string; album?: string; albumArtist?: string; trackNumber?: number; discNumber?: number; year?: number; genre?: string; explicit?: boolean }`
 - Native: `readTags(uri: string): Promise<TagFields>`
 - Native: `writeTags(uri: string, fields: TagFields, artworkUri?: string): Promise<TagFields>`
 - Native: `requestWriteAccess(uris: string[]): Promise<string[]>`
@@ -244,8 +247,8 @@ LRCLIB rules: base `https://lrclib.net`; `GET /api/get?track_name=&artist_name=&
 - Create: `src/screens/EditTrackScreen.tsx`
 - Modify: `src/AppShell.tsx`
 - Modify: `src/screens/LibraryScreen.tsx`
-- Modify: `src/screens/CatalogScreen.tsx`
 - Modify: `src/library/imports.ts` (import-a-copy path)
+- Defer: catalog detail entry until Task 10 creates `CatalogScreen`
 
 **Interfaces:**
 - `Sheet({ visible, title?, onClose, children })`: bottom sheet on `surface`, 20px top radius, grabber, dimmed backdrop, 200ms slide-up, tap backdrop / Android back / Escape to close, focus trapped.
@@ -260,7 +263,7 @@ LRCLIB rules: base `https://lrclib.net`; `GET /api/get?track_name=&artist_name=&
 - [ ] Delete opens `ConfirmSheet` naming the track. Settings bulk actions use `ConfirmSheet` too. No native dialogs on Android or web.
 - [ ] Details shows read-only title, artist, album, album artist, track/year, genre, duration, format, file size and path when available.
 - [ ] Rename edits the title only, then flows through the same validator/writer.
-- [ ] Entry points: long-press in Library and catalog detail; imported and scanned tracks both show the sheet.
+- [ ] Entry points: long-press in Library now; add the same handler to catalog detail after Task 10.
 - [ ] Device: sheet open/close, rename, delete confirmation, denied permission, failed write, successful write, artwork change.
 - [ ] Commit `feat: edit track metadata and artwork`.
 
@@ -281,6 +284,7 @@ LRCLIB rules: base `https://lrclib.net`; `GET /api/get?track_name=&artist_name=&
 - Uses existing `listPlaylists`, `createPlaylist`, `renamePlaylist`, `deletePlaylist`, `listPlaylistTracks`, `addPlaylistTrack`, `removePlaylistTrack`, `movePlaylistTrack`.
 
 - [ ] Index: create, rename, delete, empty state. Entry from the Library playlists rail.
+- [ ] Use an AppShell overlay state for the playlist screens; do not extend `ScreenName` before Task 10 reworks navigation.
 - [ ] Detail: track rows, remove, up/down reorder, play playlist as its own queue.
 - [ ] Action sheet "Add to playlist" opens a picker; duplicates are skipped and the user is told.
 - [ ] Persist through SQLite only; no AsyncStorage fallback for playlists on native.
@@ -304,6 +308,7 @@ LRCLIB rules: base `https://lrclib.net`; `GET /api/get?track_name=&artist_name=&
 - `LikedScreen({ onClose, onPlay(queue: Track[]) })`
 
 - [ ] Load favorite ids from `listFavoriteIds()` once and keep them in context.
+- [ ] Use an AppShell overlay state for Liked Songs; do not extend `ScreenName` before Task 10.
 - [ ] Show a heart toggle in Now Playing and the action sheet with in-app feedback "Added to Liked Songs" / "Removed from Liked Songs".
 - [ ] A Liked Songs row on Library opens the list; the list plays with its own queue.
 - [ ] Device: toggle, restart persistence, removed track disappears from the list.
