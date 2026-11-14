@@ -1,0 +1,29 @@
+Radio Browser request evidence
+Captured: 2026-11-14T03:43:24Z
+User-Agent: Krotify 4.0.0 (https://github.com/Krocified/krotify)
+URL: https://all.api.radio-browser.info/json/stations/search?name=jazz&limit=3&hidebroken=true&order=clickcount&reverse=true
+
+Response headers:
+HTTP/2 200
+access-control-allow-origin: *
+access-control-allow-headers: origin, x-requested-with, content-type, User-Agent
+access-control-allow-methods: GET,POST
+content-type: application/json
+server: tiny-http (Rust)
+
+Server discovery:
+GET https://all.api.radio-browser.info/json/servers
+-> 200, two records for de1.api.radio-browser.info (IPv4 91.98.4.78, IPv6 2a01:4f8:1c1d:699::1).
+DNS SRV alternative documented: _api._tcp.radio-browser.info
+
+CORS preflight check, captured 2026-11-14:
+OPTIONS https://all.api.radio-browser.info/json/stations/search?name=jazz&limit=1
+Origin: https://example.com
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: x-user-agent
+-> 204
+access-control-allow-headers: origin, x-requested-with, content-type, User-Agent
+
+`x-user-agent` is not in the allow-list. Browsers cannot set `User-Agent` at
+all, so the web path needs a proxy that sets it, or a server-side allow-list
+change; do not assume the native User-Agent header works on web.

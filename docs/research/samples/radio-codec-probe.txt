@@ -1,0 +1,22 @@
+Radio Browser stream probes (HTTP layer only; not on-device AudioPlaylist)
+Captured: 2026-11-14
+UA: Krotify 4.0.0 (https://github.com/Krocified/krotify)
+Method: curl -L -r 0-2047/4095, 12-15s timeout. Live Icecast ignores Range and keeps streaming; timeout after N bytes is expected.
+
+MP3  https://icecast.walmradio.com:8443/classic
+  final_status=200 ctype=audio/mpeg redirects=0
+  server: Icecast-compatible nginx; streamed past the range request.
+
+AAC  http://icecast.radiofrance.fr/franceinfo-hifi.aac
+  final_status=200 ctype=audio/aac redirects=0
+  headers: icy-br: 192, icy-name: franceinfo-hifi.aac, icy-pub: 0
+
+OGG/Opus  https://icecast.walmradio.com:8443/classic_opus
+  final_status=200 ctype=audio/ogg redirects=0
+  headers: icy-version: 2, icy-pub: 0, icy-country-code: US
+
+HLS example from search: station KBS Classic FM resolves to a signed .m3u8
+  (query redacted). HLS support must be tested on device per platform.
+
+Not verified here: expo-audio AudioPlaylist actual playback, buffering,
+reconnect, background playback, lock-screen behavior. See memo device gate.

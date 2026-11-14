@@ -1,0 +1,54 @@
+# Radio Browser codec probes, captured 2026-11-14
+# Query: /json/stations/search?codec=<codec>&limit=3&hidebroken=true&order=clickcount&reverse=true
+# UA: Krotify 4.0.0 (https://github.com/Krocified/krotify)
+
+## MP3
+- name: Radio Armisa
+  stationuuid: b1201e74-2979-44d8-866e-02f74347a8d0
+  codec: MP3  bitrate: 0  hls: 0  lastcheckok: 1
+  url_resolved: https://onair.armisa.it/listen/armisa/radio.mp3
+  countrycode: IT  tags: anni 80,anni 90,balera,dance,folk,italiana,liscio,oldies,pop,popolare,tradizione
+- name: Classic Vinyl HD
+  stationuuid: d1a54d2e-623e-4970-ab11-35f7b56c5ec3
+  codec: MP3  bitrate: 320  hls: 0  lastcheckok: 1
+  url_resolved: https://icecast.walmradio.com:8443/classic
+  countrycode: US  tags: 1930,1940,1950,1960,beautiful music,big band,classic hits,crooners,easy,easy listening,hd,jazz,light orchestral,lounge,o
+- name: MANGORADIO
+  stationuuid: 78012206-1aa1-11e9-a80b-52543be04c81
+  codec: MP3  bitrate: 128  hls: 0  lastcheckok: 1
+  url_resolved: https://mangoradio.stream.laut.fm/mangoradio
+  countrycode: DE  tags: music,variety
+
+## AAC
+- name: Christmas FM Non-stop!
+  stationuuid: 595687e1-9fa0-49d7-8cb7-d6ed63f6d8b3
+  codec: AAC  bitrate: 128  hls: 0  lastcheckok: 1
+  url_resolved: https://xmas-node1.zip.wf/live.aac
+  countrycode: FI  tags: advent,canti natalizi,canzoni di natale,carols,chansons de noël,christmas,christmas carols,christmas choir,christmas cla
+- name: RTL
+  stationuuid: 042d3140-227c-4fac-9387-4903b692d5f2
+  codec: AAC  bitrate: 64  hls: 1  lastcheckok: 1
+  url_resolved: https://live.m6radio.quortex.io/<redacted-token>/grouprtl/national/short/audio-64000/index.m3u8
+  countrycode: FR  tags: généraliste
+- name: France Info
+  stationuuid: 31074f8a-e6f4-11e9-a96c-52543be04c81
+  codec: AAC  bitrate: 192  hls: 0  lastcheckok: 1
+  url_resolved: http://icecast.radiofrance.fr/franceinfo-hifi.aac
+  countrycode: FR  tags: aac,information,public radio,radio france
+
+## OGG
+- name: Classic Vinyl HD Opus
+  stationuuid: 6ce8da92-859f-4f96-a5e4-503c1ddfbfbf
+  codec: OGG  bitrate: 192  hls: 0  lastcheckok: 1
+  url_resolved: https://icecast.walmradio.com:8443/classic_opus
+  countrycode: US  tags: 1930,1940,1950,1960,beautiful music,big band,classic hits,crooners,easy,easy listening,hd,jazz,light orchestral,lounge,o
+- name: Deutschlandfunk | DLF | OPUS 24k
+  stationuuid: 5a6946a2-f02f-4fd1-a16b-558c90150041
+  codec: OGG  bitrate: 24  hls: 0  lastcheckok: 1
+  url_resolved: https://st01.sslstream.dlf.de/dlf/01/low/opus/stream.opus?aggregator=web
+  countrycode: DE  tags: culture,news,public service,information
+- name: WALM - Old Time Radio Opus
+  stationuuid: 64b357e7-d9e9-4cb6-99b5-4cb6cef785cc
+  codec: OGG  bitrate: 32  hls: 0  lastcheckok: 1
+  url_resolved: https://icecast.walmradio.com:8443/otr_opus
+  countrycode: US  tags: 78,78-rpm,78rpm,classic,comedy,drama,easy listening,musical,mystery,old time radio,opus,otr,sci-fi,v-disc,vintage,walm

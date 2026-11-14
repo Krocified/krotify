@@ -1,0 +1,13 @@
+{
+  "error": {
+    "status": 401,
+    "message": "No API key provided. Use Authorization: Bearer <key>."
+  },
+  "_capture": {
+    "url": "https://api.audiometa.io/v1/search?q=drake&type=artist",
+    "user_agent": "Krotify 4.0.0 (https://github.com/Krocified/krotify)",
+    "http_status": 401,
+    "date": "2026-11-14",
+    "note": "No Audiometa API key was available. Key not fabricated."
+  }
+}
