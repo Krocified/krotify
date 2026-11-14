@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appJson from '../../app.json';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
-import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
@@ -60,7 +60,7 @@ export function SettingsScreen({
   const [anim] = useState(() => new Animated.Value(0));
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
-  const bottomPad = TAB_BAR_HEIGHT + 66 + insets.bottom + space.xl;
+  const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -219,7 +219,7 @@ export function SettingsScreen({
           scrollY={scrollY}
           contentHeight={contentHeight}
           viewportHeight={viewportHeight}
-          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + 8}
+          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8}
         />
       </View>
     </Animated.View>

@@ -18,8 +18,8 @@ export type Track = {
 
 export type ScreenName =
   | 'library'
-  | 'albums'
-  | 'artists'
+  | 'catalog'
+  | 'import'
   | 'search'
   | 'nowPlaying'
   | 'settings';

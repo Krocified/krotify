@@ -1,3 +1,5 @@
+import { BlurTargetView } from 'expo-blur';
+import type { ComponentRef } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import type { Asset } from 'expo-media-library';
@@ -16,8 +18,8 @@ import { mergeLibrary, sortTracks } from './lib/library';
 import { enrichTracks } from './library/metadata';
 import { listFavoriteIds, listRecentTrackIds, recordPlay } from './db/repo';
 import { usePlayer } from './player/PlayerProvider';
-import { AlbumsScreen } from './screens/AlbumsScreen';
-import { ArtistsScreen } from './screens/ArtistsScreen';
+import { CatalogScreen } from './screens/CatalogScreen';
+import { ImportScreen } from './screens/ImportScreen';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
 import { SearchScreen } from './screens/SearchScreen';
@@ -38,6 +40,7 @@ export function AppShell() {
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
   const assetsRef = useRef(new Map<string, Asset>());
+  const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const returnScreenRef = useRef<ScreenName>('library');
   const settingsReturnRef = useRef<ScreenName>('library');
@@ -72,6 +75,10 @@ export function AppShell() {
       .map((id) => byId.get(id))
       .filter((track): track is Track => track !== undefined);
   }, [recentTrackIds, tracks]);
+  const importedTracks = useMemo(
+    () => tracks.filter((track) => track.source === 'import'),
+    [tracks],
+  );
 
   useEffect(() => {
     async function loadLibrary() {
@@ -316,9 +323,10 @@ export function AppShell() {
     }
   }
 
-  const showTabs = screen === 'library' || screen === 'albums' || screen === 'artists';
+  const showTabs = screen === 'library' || screen === 'catalog' || screen === 'import';
   const showTabBar = screen !== 'nowPlaying' && screen !== 'search';
-  const activeTab: TabName = showTabs ? screen : tab;
+  const activeTab: TabName =
+    screen === 'library' || screen === 'catalog' || screen === 'import' ? screen : tab;
 
   function openSearch() {
     searchReturnRef.current = activeTab;
@@ -337,7 +345,8 @@ export function AppShell() {
 
   return (
     <View style={styles.root}>
-      <View
+      <BlurTargetView
+        ref={blurTargetRef}
         style={styles.library}
         accessibilityElementsHidden={!showTabs}
         importantForAccessibility={showTabs ? 'auto' : 'no-hide-descendants'}
@@ -353,8 +362,8 @@ export function AppShell() {
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
           />
-        ) : activeTab === 'albums' ? (
-          <AlbumsScreen
+        ) : activeTab === 'catalog' ? (
+          <CatalogScreen
             tracks={tracks}
             onSelect={handleSelect}
             onArtworkLoaded={handleArtworkLoaded}
@@ -362,15 +371,16 @@ export function AppShell() {
             onOpenSettings={openSettings}
           />
         ) : (
-          <ArtistsScreen
-            tracks={tracks}
+          <ImportScreen
+            imports={importedTracks}
+            importing={importing}
+            onImport={handleImport}
             onSelect={handleSelect}
-            onArtworkLoaded={handleArtworkLoaded}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
           />
         )}
-      </View>
+      </BlurTargetView>
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
@@ -388,7 +398,9 @@ export function AppShell() {
         status={status}
         onRescan={() => setScanId((n) => n + 1)}
         onBack={() => setScreen(settingsReturnRef.current)}
-        onImport={() => void handleImport()}
+        onImport={() => {
+          void handleImport().catch(() => setStatusNote('Could not import these files'));
+        }}
         onExcludeAll={() => void excludeAllTracks()}
         excluded={excluded}
         onRestore={(id) => void handleRestore(id)}
@@ -409,7 +421,7 @@ export function AppShell() {
             />
           </View>
           <View style={styles.tabBar}>
-            <TabBar active={activeTab} onSelect={selectTab} />
+            <TabBar active={activeTab} onSelect={selectTab} blurTarget={blurTargetRef} />
           </View>
         </View>
       ) : null}
