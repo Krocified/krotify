@@ -1,5 +1,5 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
-import { DB_VERSION, SCHEMA_SQL } from './schema';
+import { DB_VERSION, pendingColumnMigrations, SCHEMA_SQL } from './schema';
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 
@@ -10,6 +10,10 @@ async function migrate(db: SQLiteDatabase): Promise<void> {
 
   await db.withTransactionAsync(async () => {
     await db.execAsync(SCHEMA_SQL);
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(track_metadata)');
+    for (const sql of pendingColumnMigrations(columns.map((column) => column.name))) {
+      await db.execAsync(sql);
+    }
   });
   await db.execAsync(`PRAGMA user_version = ${DB_VERSION}`);
 }

@@ -9,15 +9,17 @@ export type Track = {
   artworkHue: number;
   artworkUri?: string;
   trackNumber?: number;
+  discNumber?: number;
   year?: number;
   genre?: string;
   albumArtist?: string;
+  explicit?: boolean;
 };
 
 export type ScreenName =
   | 'library'
-  | 'albums'
-  | 'artists'
+  | 'catalog'
+  | 'import'
   | 'search'
   | 'nowPlaying'
   | 'settings';

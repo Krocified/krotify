@@ -120,6 +120,53 @@ export async function pickAndImportTracks(): Promise<Track[]> {
   return added;
 }
 
+export async function importTrackCopy(track: Track): Promise<Track | null> {
+  if (!track.uri.startsWith('file://')) {
+    const [picked] = await pickAndImportTracks();
+    return picked ?? null;
+  }
+
+  const source = new File(track.uri);
+  if (!source.exists) {
+    const [picked] = await pickAndImportTracks();
+    return picked ?? null;
+  }
+
+  const name = importedFileName(source.name, 'track.mp3');
+  const id = `import:${hashString(name + ':' + source.size)}`;
+  const stored = await readTracks();
+  const existing = stored.find((item) => item.id === id);
+  if (existing) return existing;
+
+  const dir = new Directory(Paths.document, 'imports');
+  dir.create({ idempotent: true, intermediates: true });
+  const folder = new Directory(dir, `${Date.now()}-copy`);
+  const destination = new File(folder, name);
+
+  try {
+    folder.create({ idempotent: true, intermediates: true });
+    await source.copy(destination);
+    const uri = destination.uri;
+    const imported: Track = {
+      ...track,
+      id,
+      uri,
+      source: 'import',
+      title: track.title || titleFromFilename(name),
+      durationMs: track.durationMs || (await probeDurationMs(uri)),
+    };
+    await writeTracks([...stored, imported]);
+    return imported;
+  } catch (error) {
+    await discardFile(destination);
+    try {
+      if (folder.exists) folder.delete();
+    } catch {
+    }
+    throw error;
+  }
+}
+
 export async function removeImportedTrack(id: string): Promise<void> {
   const stored = await readTracks();
   await writeTracks(stored.filter((track) => track.id !== id));

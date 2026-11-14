@@ -1,4 +1,4 @@
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS playlists (
@@ -36,7 +36,28 @@ CREATE TABLE IF NOT EXISTS track_metadata (
   albumArtist TEXT,
   year INTEGER,
   trackNumber INTEGER,
+  discNumber INTEGER,
   genre TEXT,
-  artworkUri TEXT
+  artworkUri TEXT,
+  explicit INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS lyrics_cache (
+  trackId TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  text TEXT,
+  fetchedAt INTEGER NOT NULL
 );
 `;
+
+export const MIGRATION_V2_COLUMNS = [
+  { name: 'discNumber', sql: 'ALTER TABLE track_metadata ADD COLUMN discNumber INTEGER' },
+  { name: 'explicit', sql: 'ALTER TABLE track_metadata ADD COLUMN explicit INTEGER' },
+] as const;
+
+export function pendingColumnMigrations(existing: Iterable<string>): string[] {
+  const names = new Set(existing);
+  return MIGRATION_V2_COLUMNS.filter((column) => !names.has(column.name)).map(
+    (column) => column.sql,
+  );
+}

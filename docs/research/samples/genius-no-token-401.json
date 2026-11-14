@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "status": 401,
+    "message": "This call requires an access_token. Please see: https://genius.com/developers"
+  },
+  "_capture": {
+    "url": "https://api.genius.com/search?q=radiohead%20creep",
+    "user_agent": "Krotify 4.0.0 (https://github.com/Krocified/krotify)",
+    "http_status": 401,
+    "date": "2026-11-14",
+    "note": "No Genius credentials were available. Token not fabricated."
+  }
+}

@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -15,8 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appJson from '../../app.json';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
-import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { SleepTimerControls } from '../components/SleepTimerControls';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
+import { lyricsCacheCount } from '../library/lyrics';
+import { loadLyricsNetworkEnabled, saveLyricsNetworkEnabled } from '../library/lyricsPrefs';
+import type { SleepPreset } from '../lib/sleepTimer';
+import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
@@ -25,19 +31,21 @@ type Props = {
   status: LibraryStatus;
   onRescan: () => void;
   onBack: () => void;
-  onImport: () => void;
   onExcludeAll: () => void;
   excluded: Track[];
   onRestore: (id: string) => void;
   onRestoreAll: () => void;
   canExcludeAll: boolean;
-  importing?: boolean;
+  scanEnabled: boolean;
+  onToggleScan: (enabled: boolean) => void;
 };
 
 const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
   ready: 'Granted',
   denied: 'Not granted',
 };
+
+const RELEASE_ABI = 'arm64-v8a';
 
 const SLIDE_MS = 280;
 
@@ -46,21 +54,24 @@ export function SettingsScreen({
   status,
   onRescan,
   onBack,
-  onImport,
   onExcludeAll,
   excluded,
   onRestore,
   onRestoreAll,
   canExcludeAll,
-  importing = false,
+  scanEnabled,
+  onToggleScan,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { width } = useWindowDimensions();
+  const { sleep, setSleep } = usePlayer();
   const [anim] = useState(() => new Animated.Value(0));
+  const [lyricsNetwork, setLyricsNetwork] = useState(true);
+  const [lyricsCount, setLyricsCount] = useState<number | null>(null);
   const scanning = status === 'scanning';
   const permission = PERMISSION_LABEL[status] ?? 'Checking';
-  const bottomPad = TAB_BAR_HEIGHT + 66 + insets.bottom + space.xl;
+  const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -70,6 +81,33 @@ export function SettingsScreen({
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [anim, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void loadLyricsNetworkEnabled().then((enabled) => {
+      if (!cancelled) setLyricsNetwork(enabled);
+    });
+    void lyricsCacheCount().then((count) => {
+      if (!cancelled) setLyricsCount(count);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const toggleLyricsNetwork = useCallback((enabled: boolean) => {
+    setLyricsNetwork(enabled);
+    void saveLyricsNetworkEnabled(enabled);
+  }, []);
+
+  const selectSleepPreset = useCallback(
+    (preset: SleepPreset) => {
+      if (preset === 'end') setSleep('end');
+      else setSleep('timer', preset);
+    },
+    [setSleep],
+  );
 
   return (
     <Animated.View
@@ -121,24 +159,24 @@ export function SettingsScreen({
             </Pressable>
 
             {Platform.OS !== 'web' ? (
-              <Pressable
-                onPress={onImport}
-                disabled={importing}
-                accessibilityRole="button"
-                accessibilityLabel="Import audio files"
-                accessibilityState={{ disabled: importing, busy: importing }}
-                style={({ pressed }) => [styles.row, pressed && !importing && styles.rowPressed]}
-              >
+              <View style={styles.row}>
                 <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>Import audio files</Text>
-                  <Text style={styles.rowMeta}>Copy audio files into the app</Text>
+                  <Text style={styles.rowTitle}>Scan this device</Text>
+                  <Text style={styles.rowMeta}>
+                    {scanEnabled
+                      ? 'Scanning for audio files on this device'
+                      : 'Off. Imported files stay in your library.'}
+                  </Text>
                 </View>
-                {importing ? (
-                  <ActivityIndicator color={colors.accent} />
-                ) : (
-                  <Ionicons name="add" size={22} color={colors.textDim} />
-                )}
-              </Pressable>
+                <Switch
+                  value={scanEnabled}
+                  onValueChange={onToggleScan}
+                  disabled={scanning}
+                  accessibilityLabel="Scan this device for audio"
+                  trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             ) : null}
 
             <Pressable
@@ -163,6 +201,64 @@ export function SettingsScreen({
             <View style={styles.row} accessible accessibilityLabel={`Permission: ${permission}`}>
               <Text style={styles.rowTitle}>Permission</Text>
               <Text style={styles.rowValue}>{permission}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Playback</Text>
+          <View style={styles.card}>
+            <View style={styles.stackRow}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Sleep timer</Text>
+                <Text style={styles.rowMeta}>Fade out and stop playback after the timer</Text>
+              </View>
+              <SleepTimerControls
+                mode={sleep.mode}
+                remainingMs={sleep.remainingMs}
+                onSelect={selectSleepPreset}
+                onCancel={() => setSleep('off')}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Lyrics</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Network lyrics lookup</Text>
+                <Text style={styles.rowMeta}>Fetch missing lyrics from LRCLIB</Text>
+              </View>
+              <Switch
+                value={lyricsNetwork}
+                onValueChange={toggleLyricsNetwork}
+                accessibilityLabel="Network lyrics lookup"
+                trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            <View style={styles.row} accessible accessibilityLabel={`Cached lyrics: ${lyricsCount ?? 0}`}>
+              <Text style={styles.rowTitle}>Cached lyrics</Text>
+              <Text style={styles.rowValue}>{lyricsCount === null ? '...' : lyricsCount}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Editing</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Imported copies</Text>
+                <Text style={styles.rowMeta}>
+                  Files copied into Krotify can be edited in place, including artwork.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Scanned tracks</Text>
+                <Text style={styles.rowMeta}>
+                  Editing needs write access. If it is denied, import a copy and edit that
+                  instead.
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -210,8 +306,12 @@ export function SettingsScreen({
             <View style={styles.row}>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Krotify {appJson.expo.version}</Text>
-                <Text style={styles.rowMeta}>Local files only. No network.</Text>
+                <Text style={styles.rowMeta}>Local playback. Network lyrics are optional.</Text>
               </View>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>Release ABI</Text>
+              <Text style={styles.rowValue}>{RELEASE_ABI}</Text>
             </View>
           </View>
         </Animated.ScrollView>
@@ -219,7 +319,7 @@ export function SettingsScreen({
           scrollY={scrollY}
           contentHeight={contentHeight}
           viewportHeight={viewportHeight}
-          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + 8}
+          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8}
         />
       </View>
     </Animated.View>
@@ -268,6 +368,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: space.md,
+    padding: space.md,
+  },
+  stackRow: {
     gap: space.md,
     padding: space.md,
   },

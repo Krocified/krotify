@@ -10,8 +10,10 @@ export type CachedMetadata = {
   albumArtist?: string;
   year?: number;
   trackNumber?: number;
+  discNumber?: number;
   genre?: string;
   artworkUri?: string;
+  explicit?: boolean;
 };
 
 type MetadataRow = {
@@ -22,8 +24,10 @@ type MetadataRow = {
   albumArtist: string | null;
   year: number | null;
   trackNumber: number | null;
+  discNumber: number | null;
   genre: string | null;
   artworkUri: string | null;
+  explicit: number | null;
 };
 
 const orUndefined = <T>(value: T | null): T | undefined => (value === null ? undefined : value);
@@ -210,8 +214,10 @@ export async function getCachedMetadata(id: string): Promise<CachedMetadata | nu
     albumArtist: orUndefined(row.albumArtist),
     year: orUndefined(row.year),
     trackNumber: orUndefined(row.trackNumber),
+    discNumber: orUndefined(row.discNumber),
     genre: orUndefined(row.genre),
     artworkUri: orUndefined(row.artworkUri),
+    explicit: row.explicit === null ? undefined : row.explicit !== 0,
   };
 }
 
@@ -220,8 +226,8 @@ export async function putCachedMetadata(id: string, meta: CachedMetadata): Promi
   if (!db) return;
   await db.runAsync(
     `INSERT OR REPLACE INTO track_metadata
-       (id, title, artist, album, albumArtist, year, trackNumber, genre, artworkUri)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, title, artist, album, albumArtist, year, trackNumber, discNumber, genre, artworkUri, explicit)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     meta.title ?? null,
     meta.artist ?? null,
@@ -229,8 +235,10 @@ export async function putCachedMetadata(id: string, meta: CachedMetadata): Promi
     meta.albumArtist ?? null,
     meta.year ?? null,
     meta.trackNumber ?? null,
+    meta.discNumber ?? null,
     meta.genre ?? null,
     meta.artworkUri ?? null,
+    meta.explicit === undefined ? null : meta.explicit ? 1 : 0,
   );
 }
 
@@ -239,4 +247,54 @@ export async function listCachedMetadataIds(): Promise<string[]> {
   if (!db) return [];
   const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM track_metadata');
   return rows.map((row) => row.id);
+}
+
+export type LyricsKind = 'synced' | 'plain' | 'instrumental' | 'none';
+
+export type CachedLyrics = { kind: LyricsKind; text?: string };
+
+type LyricsRow = { kind: string; text: string | null };
+
+const LYRICS_KINDS: readonly LyricsKind[] = ['synced', 'plain', 'instrumental', 'none'];
+
+function isLyricsKind(value: string): value is LyricsKind {
+  return (LYRICS_KINDS as readonly string[]).includes(value);
+}
+
+export async function getCachedLyrics(trackId: string): Promise<CachedLyrics | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const row = await db.getFirstAsync<LyricsRow>(
+    'SELECT kind, text FROM lyrics_cache WHERE trackId = ?',
+    trackId,
+  );
+  if (!row || !isLyricsKind(row.kind)) return null;
+  return { kind: row.kind, text: orUndefined(row.text) };
+}
+
+export async function putCachedLyrics(trackId: string, lyrics: CachedLyrics): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.runAsync(
+    'INSERT OR REPLACE INTO lyrics_cache (trackId, kind, text, fetchedAt) VALUES (?, ?, ?, ?)',
+    trackId,
+    lyrics.kind,
+    lyrics.text ?? null,
+    Date.now(),
+  );
+}
+
+export async function deleteCachedLyrics(trackId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.runAsync('DELETE FROM lyrics_cache WHERE trackId = ?', trackId);
+}
+
+export async function countCachedLyrics(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const row = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM lyrics_cache WHERE kind IN ('synced', 'plain')",
+  );
+  return row?.count ?? 0;
 }
