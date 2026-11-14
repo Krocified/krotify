@@ -45,6 +45,7 @@
       ],
       "@react-native-vector-icons/ionicons",
       "expo-sqlite",
+      "./plugins/with-notification-icon.js",
       "./plugins/with-media3-exclude.js",
       "./plugins/with-release-signing.js"
     ],
