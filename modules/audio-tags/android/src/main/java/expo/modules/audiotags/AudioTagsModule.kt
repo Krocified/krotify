@@ -49,6 +49,9 @@ class TagWriteException(uri: String, cause: Throwable?) :
 class FileMissingException(uri: String) :
   CodedException("FILE_NOT_FOUND", "Audio file not found: $uri", null)
 
+class NoWriteAccessException(uri: String) :
+  CodedException("NO_WRITE_ACCESS", "Tag writes require a file:// URI: $uri", null)
+
 class InvalidArtworkException(message: String) :
   CodedException("INVALID_ARTWORK", message, null)
 
@@ -82,6 +85,18 @@ class AudioTagsModule : Module() {
 
     AsyncFunction("requestWriteAccess") { uris: List<String>, promise: Promise ->
       requestWriteAccess(uris, promise)
+    }
+
+    AsyncFunction("snapshotFile") { uri: String ->
+      snapshotFile(uri)
+    }
+
+    AsyncFunction("restoreFile") { uri: String, snapshotPath: String ->
+      restoreFile(uri, snapshotPath)
+    }
+
+    AsyncFunction("discardSnapshot") { snapshotPath: String ->
+      discardSnapshot(snapshotPath)
     }
 
     OnActivityResult { _, payload ->
@@ -138,13 +153,8 @@ class AudioTagsModule : Module() {
     fields: Map<String, Any?>,
     artworkUri: String?,
   ): Map<String, Any?> {
-    val uri = Uri.parse(uriString)
-    if (uri.scheme == null || uri.scheme == "file") {
-      val target = fileFor(uriString)
-      return writeFileAtomically(uriString, target, fields, artworkUri)
-    }
-    if (uri.scheme != ContentResolver.SCHEME_CONTENT) throw UnsupportedFormatException(uriString)
-    return writeContent(uriString, uri, fields, artworkUri)
+    val target = requireFileUri(uriString)
+    return writeFileAtomically(uriString, target, fields, artworkUri)
   }
 
   private fun writeFileAtomically(
@@ -161,55 +171,19 @@ class AudioTagsModule : Module() {
     try {
       target.copyTo(temp, overwrite = true)
       applyFields(uriString, temp, fields, artworkUri)
-      val refreshed = readFromFile(temp)
       Files.move(
         temp.toPath(),
         target.toPath(),
         StandardCopyOption.REPLACE_EXISTING,
         StandardCopyOption.ATOMIC_MOVE,
       )
-      return refreshed
+      return readFromFile(target)
     } catch (error: CodedException) {
       throw error
     } catch (error: Exception) {
       throw TagWriteException(uriString, error)
     } finally {
       temp.delete()
-    }
-  }
-
-  private fun writeContent(
-    uriString: String,
-    uri: Uri,
-    fields: Map<String, Any?>,
-    artworkUri: String?,
-  ): Map<String, Any?> {
-    val ext = resolveExtension(uri) ?: throw UnsupportedFormatException(uriString)
-    val edited = File.createTempFile("audio-tags-edit-", ".$ext", cacheDir())
-    val backup = File.createTempFile("audio-tags-backup-", ".$ext", cacheDir())
-    try {
-      copyContent(uri, edited)
-      edited.copyTo(backup, overwrite = true)
-      applyFields(uriString, edited, fields, artworkUri)
-      val refreshed = readFromFile(edited)
-      val output = contentResolver().openOutputStream(uri, "wt")
-        ?: throw TagWriteException(uriString, null)
-      output.use { stream ->
-        edited.inputStream().use { input -> input.copyTo(stream) }
-      }
-      return refreshed
-    } catch (error: Exception) {
-      try {
-        contentResolver().openOutputStream(uri, "wt")?.use { stream ->
-          backup.inputStream().use { input -> input.copyTo(stream) }
-        }
-      } catch (_: Exception) {
-      }
-      if (error is CodedException) throw error
-      throw TagWriteException(uriString, error)
-    } finally {
-      edited.delete()
-      backup.delete()
     }
   }
 
@@ -336,6 +310,61 @@ class AudioTagsModule : Module() {
     } finally {
       temp.delete()
     }
+  }
+
+  private fun requireFileUri(uriString: String): File {
+    val uri = Uri.parse(uriString)
+    if (uri.scheme == ContentResolver.SCHEME_CONTENT) throw NoWriteAccessException(uriString)
+    if (uri.scheme != null && uri.scheme != "file") throw UnsupportedFormatException(uriString)
+    return fileFor(uriString)
+  }
+
+  private fun snapshotFile(uriString: String): String {
+    val source = requireFileUri(uriString)
+    val ext = extensionFor(source.name)
+    if (ext !in SUPPORTED_EXTENSIONS) throw UnsupportedFormatException(uriString)
+    val snapshot = File(cacheDir(), "krotify-snapshot-${System.nanoTime()}.$ext")
+    try {
+      source.copyTo(snapshot, overwrite = true)
+      return snapshot.absolutePath
+    } catch (error: Exception) {
+      snapshot.delete()
+      throw TagWriteException(uriString, error)
+    }
+  }
+
+  private fun restoreFile(uriString: String, snapshotPath: String) {
+    val target = requireFileUri(uriString)
+    val snapshot = File(snapshotPath)
+    if (!snapshot.exists()) {
+      throw TagWriteException(uriString, IllegalStateException("Snapshot is missing: $snapshotPath"))
+    }
+    val parent = target.parentFile ?: throw TagWriteException(uriString, null)
+    val ext = extensionFor(target.name)
+    val temp = File(parent, ".${target.name.substringBeforeLast('.')}.krotify-restore-${System.nanoTime()}.$ext")
+    try {
+      snapshot.copyTo(temp, overwrite = true)
+      Files.move(
+        temp.toPath(),
+        target.toPath(),
+        StandardCopyOption.REPLACE_EXISTING,
+        StandardCopyOption.ATOMIC_MOVE,
+      )
+      snapshot.delete()
+    } catch (error: Exception) {
+      throw TagWriteException(uriString, error)
+    } finally {
+      temp.delete()
+    }
+  }
+
+  private fun discardSnapshot(snapshotPath: String) {
+    val snapshot = File(snapshotPath).canonicalFile
+    val cache = cacheDir().canonicalFile
+    if (!snapshot.path.startsWith(cache.path + File.separator)) {
+      throw CodedException("INVALID_SNAPSHOT", "Snapshot is outside the cache directory: $snapshotPath", null)
+    }
+    snapshot.delete()
   }
 
   private fun fileFor(uriString: String): File {

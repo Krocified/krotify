@@ -1,7 +1,6 @@
-import { readTags, writeTags } from '../../modules/audio-tags';
+import type { CachedMetadata } from '../db/repo';
 import type { TagFields } from '../lib/tagPatch';
-import { validateTagPatch } from '../lib/tagPatch';
-import { getCachedMetadata, putCachedMetadata } from '../db/repo';
+import { validateTagPatch } from '../lib/tagPatch.ts';
 import type { Track } from '../types';
 
 export type TagWriteErrorCode =
@@ -24,6 +23,15 @@ const NATIVE_CODES = new Set<TagWriteErrorCode>([
   'NO_WRITE_ACCESS',
 ]);
 
+export type TagEditDeps = {
+  writeTags: (uri: string, fields: TagFields) => Promise<TagFields>;
+  snapshotFile: (uri: string) => Promise<string>;
+  restoreFile: (uri: string, snapshotPath: string) => Promise<void>;
+  discardSnapshot: (snapshotPath: string) => Promise<void>;
+  getCachedMetadata: (id: string) => Promise<CachedMetadata | null>;
+  putCachedMetadata: (id: string, meta: CachedMetadata) => Promise<void>;
+};
+
 export class TagWriteError extends Error {
   readonly code: TagWriteErrorCode;
 
@@ -37,51 +45,103 @@ export class TagWriteError extends Error {
   }
 }
 
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  const candidate = error as { message?: unknown } | null;
+  return typeof candidate?.message === 'string' ? candidate.message : String(error);
+}
+
 function toTagWriteError(error: unknown): TagWriteError {
   if (error instanceof TagWriteError) return error;
-  const candidate = error as { code?: unknown; message?: unknown } | null;
+  const candidate = error as { code?: unknown } | null;
   const nativeCode = typeof candidate?.code === 'string' ? candidate.code : '';
   const code = NATIVE_CODES.has(nativeCode as TagWriteErrorCode)
     ? (nativeCode as TagWriteErrorCode)
     : 'WRITE_FAILED';
-  const message = typeof candidate?.message === 'string' ? candidate.message : 'Tag write failed.';
-  return new TagWriteError(code, message, error);
+  return new TagWriteError(code, messageOf(error), error);
 }
 
-export async function applyTagEdit(track: Track, patch: Partial<TagFields>): Promise<Track> {
-  const validation = validateTagPatch(patch);
-  if (!validation.ok) {
-    throw new TagWriteError('INVALID_PATCH', validation.errors.join(' '));
-  }
-  if (!track.uri) {
-    throw new TagWriteError('UNAVAILABLE', 'Track has no file URI.');
-  }
+async function loadNative() {
+  return import('../../modules/audio-tags');
+}
 
-  const fields = validation.value;
-  let original: TagFields;
-  try {
-    original = await readTags(track.uri);
-  } catch (error) {
-    throw toTagWriteError(error);
-  }
+async function loadRepo() {
+  return import('../db/repo');
+}
 
-  let written: TagFields;
-  try {
-    written = await writeTags(track.uri, fields);
-  } catch (error) {
-    throw toTagWriteError(error);
-  }
+const defaultDeps: TagEditDeps = {
+  async writeTags(uri, fields) {
+    return (await loadNative()).writeTags(uri, fields);
+  },
+  async snapshotFile(uri) {
+    return (await loadNative()).snapshotFile(uri);
+  },
+  async restoreFile(uri, snapshotPath) {
+    await (await loadNative()).restoreFile(uri, snapshotPath);
+  },
+  async discardSnapshot(snapshotPath) {
+    await (await loadNative()).discardSnapshot(snapshotPath);
+  },
+  async getCachedMetadata(id) {
+    return (await loadRepo()).getCachedMetadata(id);
+  },
+  async putCachedMetadata(id, meta) {
+    await (await loadRepo()).putCachedMetadata(id, meta);
+  },
+};
 
-  try {
-    const cache = await getCachedMetadata(track.id);
-    await putCachedMetadata(track.id, { ...cache, ...written, ...fields });
-  } catch (error) {
-    try {
-      await writeTags(track.uri, original);
-    } catch {
+export function createTagWriter(deps: TagEditDeps) {
+  return async function applyTagEdit(track: Track, patch: Partial<TagFields>): Promise<Track> {
+    const validation = validateTagPatch(patch);
+    if (!validation.ok) {
+      throw new TagWriteError('INVALID_PATCH', validation.errors.join(' '));
     }
-    throw new TagWriteError('CACHE_FAILED', 'Could not update the metadata cache.', error);
-  }
+    if (!track.uri) {
+      throw new TagWriteError('UNAVAILABLE', 'Track has no file URI.');
+    }
 
-  return { ...track, ...written, ...fields };
+    const fields = validation.value;
+    let snapshotPath: string;
+    try {
+      snapshotPath = await deps.snapshotFile(track.uri);
+    } catch (error) {
+      throw toTagWriteError(error);
+    }
+
+    let written: TagFields;
+    try {
+      written = await deps.writeTags(track.uri, fields);
+    } catch (error) {
+      await deps.discardSnapshot(snapshotPath).catch(() => {});
+      throw toTagWriteError(error);
+    }
+
+    try {
+      const cache = await deps.getCachedMetadata(track.id);
+      await deps.putCachedMetadata(track.id, { ...cache, ...written, ...fields });
+    } catch (cacheError) {
+      try {
+        await deps.restoreFile(track.uri, snapshotPath);
+      } catch (restoreError) {
+        throw new TagWriteError(
+          'CACHE_FAILED',
+          `Could not update the metadata cache and could not restore the original file: ${messageOf(
+            restoreError,
+          )}. Snapshot retained at ${snapshotPath}.`,
+          restoreError,
+        );
+      }
+      throw new TagWriteError(
+        'CACHE_FAILED',
+        'Could not update the metadata cache; restored the original file.',
+        cacheError,
+      );
+    }
+
+    await deps.discardSnapshot(snapshotPath).catch(() => {});
+    return { ...track, ...written, ...fields };
+  };
 }
+
+export const applyTagEdit = createTagWriter(defaultDeps);
