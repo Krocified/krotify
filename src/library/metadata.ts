@@ -14,8 +14,10 @@ export type TrackMetadata = {
   albumArtist?: string;
   year?: number;
   trackNumber?: number;
+  discNumber?: number;
   genre?: string;
   artworkUri?: string;
+  explicit?: boolean;
 };
 
 const CHUNK_SIZE = 50;
@@ -31,7 +33,17 @@ type TagData = {
   genre: string | null;
 };
 
-const TAG_KEYS = ['title', 'artist', 'album', 'albumArtist', 'year', 'trackNumber', 'genre'] as const;
+const TAG_KEYS = [
+  'title',
+  'artist',
+  'album',
+  'albumArtist',
+  'year',
+  'trackNumber',
+  'discNumber',
+  'genre',
+  'explicit',
+] as const;
 
 function hasCachedTags(cache: CachedMetadata | null): boolean {
   return cache !== null && TAG_KEYS.some((key) => cache[key] !== undefined);
@@ -46,8 +58,10 @@ function merge(track: Track, cache: CachedMetadata | null, tags?: TagData): Trac
     albumArtist: tags?.albumArtist ?? cache?.albumArtist ?? track.albumArtist,
     year: tags?.year ?? cache?.year ?? track.year,
     trackNumber: tags?.trackNumber ?? cache?.trackNumber ?? track.trackNumber,
+    discNumber: cache?.discNumber ?? track.discNumber,
     genre: tags?.genre ?? cache?.genre ?? track.genre,
     artworkUri: track.artworkUri ?? cache?.artworkUri,
+    explicit: cache?.explicit ?? track.explicit,
   };
 }
 
@@ -59,8 +73,10 @@ function toCached(track: Track): CachedMetadata {
     albumArtist: track.albumArtist,
     year: track.year,
     trackNumber: track.trackNumber,
+    discNumber: track.discNumber,
     genre: track.genre,
     artworkUri: track.artworkUri,
+    explicit: track.explicit,
   };
 }
 

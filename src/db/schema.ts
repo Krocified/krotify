@@ -1,4 +1,4 @@
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS playlists (
@@ -36,7 +36,14 @@ CREATE TABLE IF NOT EXISTS track_metadata (
   albumArtist TEXT,
   year INTEGER,
   trackNumber INTEGER,
+  discNumber INTEGER,
   genre TEXT,
-  artworkUri TEXT
+  artworkUri TEXT,
+  explicit INTEGER
 );
 `;
+
+export const MIGRATION_V2_COLUMNS = [
+  { name: 'discNumber', sql: 'ALTER TABLE track_metadata ADD COLUMN discNumber INTEGER' },
+  { name: 'explicit', sql: 'ALTER TABLE track_metadata ADD COLUMN explicit INTEGER' },
+] as const;

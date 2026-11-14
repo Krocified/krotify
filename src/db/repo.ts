@@ -10,8 +10,10 @@ export type CachedMetadata = {
   albumArtist?: string;
   year?: number;
   trackNumber?: number;
+  discNumber?: number;
   genre?: string;
   artworkUri?: string;
+  explicit?: boolean;
 };
 
 type MetadataRow = {
@@ -22,8 +24,10 @@ type MetadataRow = {
   albumArtist: string | null;
   year: number | null;
   trackNumber: number | null;
+  discNumber: number | null;
   genre: string | null;
   artworkUri: string | null;
+  explicit: number | null;
 };
 
 const orUndefined = <T>(value: T | null): T | undefined => (value === null ? undefined : value);
@@ -210,8 +214,10 @@ export async function getCachedMetadata(id: string): Promise<CachedMetadata | nu
     albumArtist: orUndefined(row.albumArtist),
     year: orUndefined(row.year),
     trackNumber: orUndefined(row.trackNumber),
+    discNumber: orUndefined(row.discNumber),
     genre: orUndefined(row.genre),
     artworkUri: orUndefined(row.artworkUri),
+    explicit: row.explicit === null ? undefined : row.explicit !== 0,
   };
 }
 
@@ -220,8 +226,8 @@ export async function putCachedMetadata(id: string, meta: CachedMetadata): Promi
   if (!db) return;
   await db.runAsync(
     `INSERT OR REPLACE INTO track_metadata
-       (id, title, artist, album, albumArtist, year, trackNumber, genre, artworkUri)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, title, artist, album, albumArtist, year, trackNumber, discNumber, genre, artworkUri, explicit)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     meta.title ?? null,
     meta.artist ?? null,
@@ -229,8 +235,10 @@ export async function putCachedMetadata(id: string, meta: CachedMetadata): Promi
     meta.albumArtist ?? null,
     meta.year ?? null,
     meta.trackNumber ?? null,
+    meta.discNumber ?? null,
     meta.genre ?? null,
     meta.artworkUri ?? null,
+    meta.explicit === undefined ? null : meta.explicit ? 1 : 0,
   );
 }
 
