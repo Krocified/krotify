@@ -42,3 +42,6 @@ yarn-error.*
 
 # superpowers sdd workspace
 .superpowers/
+
+# git worktrees
+.worktrees/
