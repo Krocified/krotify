@@ -47,6 +47,7 @@
       "expo-sqlite",
       "./plugins/with-notification-icon.js",
       "./plugins/with-media3-exclude.js",
+      "./plugins/with-r8-rules.js",
       "./plugins/with-release-signing.js"
     ],
     "splash": {
