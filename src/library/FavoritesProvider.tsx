@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { listFavoriteIds, toggleFavorite } from '../db/repo';
 
 export type FavoritesContextValue = {
@@ -12,12 +12,13 @@ const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 export function FavoritesProvider({ children }: PropsWithChildren) {
   const [ids, setIds] = useState<Set<string>>(() => new Set());
   const [loaded, setLoaded] = useState(false);
+  const mutated = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     listFavoriteIds()
       .then((favorites) => {
-        if (!cancelled) setIds(favorites);
+        if (!cancelled && !mutated.current) setIds(favorites);
       })
       .catch(() => {})
       .finally(() => {
@@ -31,6 +32,7 @@ export function FavoritesProvider({ children }: PropsWithChildren) {
   const isFavorite = useCallback((id: string) => ids.has(id), [ids]);
 
   const toggle = useCallback(async (id: string) => {
+    mutated.current = true;
     const favorite = await toggleFavorite(id);
     setIds((previous) => {
       const next = new Set(previous);

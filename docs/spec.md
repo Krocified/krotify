@@ -104,8 +104,9 @@ Data layer only:
 - Playlists and favorites tables and repository functions exist; their UI is not
   built yet.
 
-Blocked:
-- Explicit badge: the metadata library exposes no explicit flag.
+Dropped:
+- Explicit badge: neither the metadata retriever nor jaudiotagger exposes a
+  portable advisory flag; no badge ships.
 
 **Acceptance**
 - Albums/Artists reflect tags rather than filenames.
@@ -128,7 +129,7 @@ Library essentials:
   and imports always visible.
 - Hidden tracks return to Settings with Restore.
 - Resume the last track and position after an app restart.
-- Explicit badge stays blocked until a tag source exposes the flag.
+- Explicit badge: dropped. The tag writer exposes no portable advisory flag; the cache can store an explicit bit but no reliable source exists, so no badge ships.
 
 Playback and listening:
 - Notification and lock-screen next/previous must work. This ships with the
@@ -183,8 +184,11 @@ Stretch:
 
 ### v4 — Discovery (exploration)
 
-Not committed features yet; v4 is a research milestone with legal and API spikes,
-and every adopted item still needs a decision memo before code.
+Research verdicts are recorded in `docs/research/v4-*-memo.md`. Current state:
+Genius **defer** (credentials and restrictive terms), Radio Browser **defer**
+(pending real-device AudioPlaylist playback), Audiometa.io **defer** (account,
+terms and match sample missing). Shuffle stays source-scoped. No v4 source ships
+until its memo is reviewed and its gate is cleared.
 
 Sources to evaluate:
 - https://docs.genius.com
@@ -247,10 +251,10 @@ while Settings is open.
   Publishing, flagging and bulk prefetch are out of scope.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
-- **Link importer resolver** (planned, not selected): a self-hosted or
-  third-party service that accepts a URL and returns audio plus metadata. It
-  must not be scraped from the client. Requires a legal check: only content the
-  user has the rights to download, and the service's terms must allow it.
+- **Link importer resolver** (disabled): the resolver is not selected. The Import
+  tab shows a disabled link section with the rights-gate copy. A self-hosted or
+  licensed service is required before this can ship; the client never scrapes
+  YouTube and only content the user has the rights to download is supported.
 
 ## Screens & flows
 
@@ -448,8 +452,9 @@ claims.
    add/remove tracks, and up/down reorder on top of it.
 4. **Favorites UI.** Table and repository exist. Add the `+`/heart toggle with
    "Added to Liked Songs" feedback and a Liked list.
-5. **Explicit badge.** Blocked: the metadata library exposes no explicit flag.
-   Needs another parser or a deliberate drop.
+5. **Explicit badge.** Dropped: neither the metadata retriever nor jaudiotagger
+   exposes a portable advisory flag. The cache column remains for a future
+   source.
 6. **Real-art backdrop.** Now Playing still derives its backdrop from the hash
    hue; extract color from `artworkUri` when available.
 7. **Build note.** `@missingcore/react-native-metadata-retriever` bundles a

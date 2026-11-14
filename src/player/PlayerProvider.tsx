@@ -352,23 +352,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const global = windowState.globalIndexes[event.currentIndex];
       const currentTrack = global === undefined ? undefined : nextQueue[global];
       if (!currentTrack) return;
-      const previousGlobal = windowState.globalIndexes[event.previousIndex];
-      const previousTrack = previousGlobal === undefined ? undefined : nextQueue[previousGlobal];
       setIndex(global);
       setTrack(currentTrack);
       engine.updateLockScreenMetadata(currentTrack);
       engine.setVolume(1);
-      if (
-        sleepRef.current.mode === 'end' &&
-        loadedQueueRef.current === nextQueue &&
-        previousTrack?.id === sleepEndTrackRef.current
-      ) {
-        finishSleep();
-        return;
-      }
       appendAhead(event.currentIndex);
     },
-    [appendAhead, finishSleep, loadWindow],
+    [appendAhead, loadWindow],
   );
 
   useEffect(() => {
@@ -387,6 +377,15 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       endHandledForRef.current = null;
       resolveUriRef.current = resolveUri;
       const targetIndex = nextQueue.findIndex((item) => item.id === nextTrack.id);
+      let playQueue = nextQueue;
+      let target = targetIndex >= 0 ? targetIndex : 0;
+
+      if (shuffleRef.current && nextQueue !== queueRef.current) {
+        originalQueueRef.current = nextQueue;
+        const result = shuffleOrder(nextQueue, target, Math.random);
+        playQueue = result.order;
+        target = result.index;
+      }
 
       if (nextTrack.source === 'demo') {
         engine.playlist.pause();
@@ -395,15 +394,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         setMockPosition(0);
         setMockPlaying(true);
         setTrack(nextTrack);
-        setQueueState(nextQueue);
-        setIndex(targetIndex >= 0 ? targetIndex : 0);
+        setQueueState(playQueue);
+        setIndex(target);
         setLastError(null);
         return true;
       }
 
-      const target = targetIndex >= 0 ? targetIndex : 0;
       try {
-        const loaded = await loadWindow(target, nextQueue, resolveUri);
+        const loaded = await loadWindow(target, playQueue, resolveUri);
         if (requestId !== requestRef.current) return false;
         if (!loaded) setLastError('Could not play this file');
         return loaded;
@@ -475,11 +473,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
 
   useEffect(() => {
-    if (sleep.mode !== 'end' || mode !== 'audio' || !track || !isPlaying || durationMs <= 0) return;
-    if (positionMs < durationMs - 600) return;
+    if (sleep.mode !== 'end' || mode !== 'audio' || !status.didJustFinish) return;
     const timer = setTimeout(finishSleep, 0);
     return () => clearTimeout(timer);
-  }, [sleep.mode, mode, track, isPlaying, positionMs, durationMs, finishSleep]);
+  }, [sleep.mode, mode, status.didJustFinish, finishSleep]);
 
   const toggle = useCallback(() => {
     const atEnd = isAtEnd(positionMs, durationMs);

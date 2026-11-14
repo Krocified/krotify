@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -133,7 +134,14 @@ export function Sheet({ visible, title, onClose, children }: Props) {
               {title}
             </Text>
           ) : null}
-          <View style={styles.content}>{children}</View>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -173,6 +181,9 @@ const styles = StyleSheet.create({
     ...type.body,
     color: colors.text,
     paddingVertical: space.sm,
+  },
+  scroll: {
+    flexGrow: 0,
   },
   content: {
     gap: space.sm,
