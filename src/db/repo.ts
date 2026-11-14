@@ -240,3 +240,53 @@ export async function listCachedMetadataIds(): Promise<string[]> {
   const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM track_metadata');
   return rows.map((row) => row.id);
 }
+
+export type LyricsKind = 'synced' | 'plain' | 'instrumental' | 'none';
+
+export type CachedLyrics = { kind: LyricsKind; text?: string };
+
+type LyricsRow = { kind: string; text: string | null };
+
+const LYRICS_KINDS: readonly LyricsKind[] = ['synced', 'plain', 'instrumental', 'none'];
+
+function isLyricsKind(value: string): value is LyricsKind {
+  return (LYRICS_KINDS as readonly string[]).includes(value);
+}
+
+export async function getCachedLyrics(trackId: string): Promise<CachedLyrics | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const row = await db.getFirstAsync<LyricsRow>(
+    'SELECT kind, text FROM lyrics_cache WHERE trackId = ?',
+    trackId,
+  );
+  if (!row || !isLyricsKind(row.kind)) return null;
+  return { kind: row.kind, text: orUndefined(row.text) };
+}
+
+export async function putCachedLyrics(trackId: string, lyrics: CachedLyrics): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.runAsync(
+    'INSERT OR REPLACE INTO lyrics_cache (trackId, kind, text, fetchedAt) VALUES (?, ?, ?, ?)',
+    trackId,
+    lyrics.kind,
+    lyrics.text ?? null,
+    Date.now(),
+  );
+}
+
+export async function deleteCachedLyrics(trackId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.runAsync('DELETE FROM lyrics_cache WHERE trackId = ?', trackId);
+}
+
+export async function countCachedLyrics(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const row = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM lyrics_cache WHERE kind IN ('synced', 'plain')",
+  );
+  return row?.count ?? 0;
+}
