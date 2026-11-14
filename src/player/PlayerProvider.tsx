@@ -1,9 +1,10 @@
-import { useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlaylistStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { mockTick } from '../lib/mockClock';
+import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import type { Track } from '../types';
-import { audioPlayer, configureAudio, pauseAudio, playAudio, seekAudio, stopAudio } from './audioEngine';
+import { configureAudio, engine, type WindowTrack } from './audioEngine';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -34,10 +35,16 @@ export type PlayerContextValue = {
   setQueue: (queue: Track[]) => void;
 };
 
+type WindowState = {
+  globalIndexes: number[];
+};
+
+type ResolvedWindowTrack = WindowTrack & { global: number };
+
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: PropsWithChildren) {
-  const status = useAudioPlayerStatus(audioPlayer);
+  const status = useAudioPlaylistStatus(engine.playlist);
   const [track, setTrack] = useState<Track | null>(null);
   const [queue, setQueueState] = useState<Track[]>([]);
   const [index, setIndex] = useState(-1);
@@ -48,11 +55,16 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [mockRunId, setMockRunId] = useState(0);
   const [repeat, setRepeat] = useState<RepeatMode>('off');
   const requestRef = useRef(0);
-  const lastHandledErrorRef = useRef<string | null>(null);
+  const loadGenerationRef = useRef(0);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resolveUriRef = useRef<((track: Track) => Promise<string>) | null>(null);
   const endHandledForRef = useRef<string | null>(null);
-  const wasFinishedRef = useRef(false);
+  const queueRef = useRef<Track[]>([]);
+  const modeRef = useRef<'audio' | 'mock' | null>(null);
+  const repeatRef = useRef<RepeatMode>('off');
+  const windowRef = useRef<WindowState>({ globalIndexes: [] });
+  const loadedQueueRef = useRef<Track[] | null>(null);
+  const appendingRef = useRef(false);
 
   const clearMockTimer = useCallback(() => {
     if (mockTimerRef.current) {
@@ -60,6 +72,22 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       mockTimerRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    repeatRef.current = repeat;
+  }, [repeat]);
+
+  useEffect(() => {
+    engine.setLoop(repeat === 'off' ? 'none' : repeat === 'one' ? 'single' : 'all');
+  }, [repeat]);
 
   useEffect(() => {
     configureAudio().catch(() => setLastError('Could not start audio session'));
@@ -79,13 +107,170 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     return clearMockTimer;
   }, [mode, mockPlaying, track, mockRunId, clearMockTimer]);
 
+  const loadWindow = useCallback(
+    async (
+      targetIndex: number,
+      nextQueue: Track[],
+      resolveUri: (track: Track) => Promise<string>,
+      positionMs = 0,
+    ): Promise<boolean> => {
+      if (nextQueue.length === 0) return false;
+      const generation = ++loadGenerationRef.current;
+      const { start, end } = playlistWindow(targetIndex, nextQueue.length, DEFAULT_WINDOW_RADIUS);
+      const indexes: number[] = [];
+      for (let global = start; global <= end; global += 1) indexes.push(global);
+      const entries = await Promise.all(
+        indexes.map(async (global): Promise<ResolvedWindowTrack | null> => {
+          const item = nextQueue[global];
+          if (!item) return null;
+          try {
+            return { uri: await resolveUri(item), track: item, global };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (generation !== loadGenerationRef.current) return false;
+
+      const loaded = entries.filter((entry): entry is ResolvedWindowTrack => entry !== null);
+      const local = loaded.findIndex((entry) => entry.global === targetIndex);
+      const currentTrack = nextQueue[targetIndex];
+      if (local < 0 || !currentTrack) {
+        setLastError('Could not play this file');
+        return false;
+      }
+
+      engine.load(
+        loaded.map(({ uri, track: item }) => ({ uri, track: item })),
+        local,
+        loaded.map((entry) => entry.global),
+      );
+      windowRef.current = { globalIndexes: loaded.map((entry) => entry.global) };
+      loadedQueueRef.current = nextQueue;
+      setMode('audio');
+      setQueueState(nextQueue);
+      setTrack(currentTrack);
+      setIndex(targetIndex);
+      setLastError(null);
+      engine.updateLockScreenMetadata(currentTrack);
+      if (positionMs > 0) {
+        try {
+          await engine.playlist.seekTo(positionMs / 1000);
+        } catch {
+        }
+      }
+      engine.playlist.play();
+      return true;
+    },
+    [],
+  );
+
+  const appendAhead = useCallback((currentLocal: number) => {
+    if (appendingRef.current) return;
+    const resolveUri = resolveUriRef.current;
+    const nextQueue = queueRef.current;
+    const windowState = windowRef.current;
+    if (!resolveUri || nextQueue.length === 0) return;
+    const generation = loadGenerationRef.current;
+
+    const range = nextAppendRange(
+      windowState.globalIndexes,
+      engine.playlist.trackCount,
+      nextQueue.length,
+      currentLocal,
+      DEFAULT_WINDOW_RADIUS,
+    );
+    if (range.count <= 0) return;
+
+    const indexes: number[] = [];
+    for (let global = range.from; global <= range.to; global += 1) indexes.push(global);
+
+    appendingRef.current = true;
+    void Promise.all(
+      indexes.map(async (global): Promise<ResolvedWindowTrack | null> => {
+        const item = nextQueue[global];
+        if (!item) return null;
+        try {
+          return { uri: await resolveUri(item), track: item, global };
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((entries) => {
+        const loaded = entries.filter((entry): entry is ResolvedWindowTrack => entry !== null);
+        const fresh =
+          generation === loadGenerationRef.current &&
+          loadedQueueRef.current === nextQueue &&
+          windowRef.current === windowState;
+        if (fresh && loaded.length > 0) {
+          engine.append(
+            loaded.map(({ uri, track: item }) => ({ uri, track: item })),
+            loaded.map((entry) => entry.global),
+          );
+          windowState.globalIndexes.push(...loaded.map((entry) => entry.global));
+        }
+      })
+      .finally(() => {
+        appendingRef.current = false;
+      });
+  }, []);
+
+  const handleTrackChanged = useCallback(
+    (event: { previousIndex: number; currentIndex: number }) => {
+      if (modeRef.current !== 'audio') return;
+      const nextQueue = queueRef.current;
+      const windowState = windowRef.current;
+      const trackCount = engine.playlist.trackCount;
+      const resolveUri = resolveUriRef.current;
+
+      const wrappedForward =
+        repeatRef.current === 'all' &&
+        trackCount > 1 &&
+        event.previousIndex === trackCount - 1 &&
+        event.currentIndex === 0;
+      if (wrappedForward && resolveUri) {
+        const previousGlobal = windowState.globalIndexes[event.previousIndex];
+        const target = wrapTarget(previousGlobal, nextQueue.length, 'forward');
+        if (target >= 0) {
+          const local = windowState.globalIndexes.indexOf(target);
+          if (local >= 0) engine.skipTo(local);
+          else void loadWindow(target, nextQueue, resolveUri);
+          return;
+        }
+      }
+
+      const wrappedBackward =
+        repeatRef.current === 'all' &&
+        trackCount > 1 &&
+        event.previousIndex === 0 &&
+        event.currentIndex === trackCount - 1;
+      if (wrappedBackward && resolveUri) {
+        const previousGlobal = windowState.globalIndexes[event.previousIndex];
+        const target = wrapTarget(previousGlobal, nextQueue.length, 'backward');
+        if (target >= 0) {
+          const local = windowState.globalIndexes.indexOf(target);
+          if (local >= 0) engine.skipTo(local);
+          else void loadWindow(target, nextQueue, resolveUri);
+          return;
+        }
+      }
+
+      const global = windowState.globalIndexes[event.currentIndex];
+      const currentTrack = global === undefined ? undefined : nextQueue[global];
+      if (!currentTrack) return;
+      setIndex(global);
+      setTrack(currentTrack);
+      engine.updateLockScreenMetadata(currentTrack);
+      appendAhead(event.currentIndex);
+    },
+    [appendAhead, loadWindow],
+  );
+
   useEffect(() => {
-    if (mode !== 'audio' || status.error === null) return;
-    if (lastHandledErrorRef.current === status.error) return;
-    lastHandledErrorRef.current = status.error;
-    setLastError('Could not play this file');
-    pauseAudio();
-  }, [mode, status.error]);
+    const subscription = engine.playlist.addListener('trackChanged', handleTrackChanged);
+    return () => subscription.remove();
+  }, [handleTrackChanged]);
 
   const playTrack = useCallback(
     async (
@@ -94,12 +279,13 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       nextQueue: Track[] = [nextTrack],
     ): Promise<boolean> => {
       const requestId = ++requestRef.current;
+      loadGenerationRef.current += 1;
       endHandledForRef.current = null;
       resolveUriRef.current = resolveUri;
       const targetIndex = nextQueue.findIndex((item) => item.id === nextTrack.id);
 
       if (nextTrack.source === 'demo') {
-        pauseAudio();
+        engine.playlist.pause();
         setMode('mock');
         setMockPosition(0);
         setMockPlaying(true);
@@ -110,23 +296,19 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         return true;
       }
 
+      const target = targetIndex >= 0 ? targetIndex : 0;
       try {
-        const uri = await resolveUri(nextTrack);
+        const loaded = await loadWindow(target, nextQueue, resolveUri);
         if (requestId !== requestRef.current) return false;
-        await playAudio(uri, nextTrack);
-        setMode('audio');
-        setTrack(nextTrack);
-        setQueueState(nextQueue);
-        setIndex(targetIndex >= 0 ? targetIndex : 0);
-        setLastError(null);
-        return true;
+        if (!loaded) setLastError('Could not play this file');
+        return loaded;
       } catch {
         if (requestId !== requestRef.current) return false;
         setLastError('Could not play this file');
         return false;
       }
     },
-    [],
+    [loadWindow],
   );
 
   const seek = useCallback(
@@ -137,7 +319,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         setMockRunId((id) => id + 1);
         return;
       }
-      await seekAudio(positionMs);
+      await engine.playlist.seekTo(positionMs / 1000);
     },
     [mode],
   );
@@ -164,18 +346,22 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     }
     if (atEnd) {
       endHandledForRef.current = null;
-      void audioPlayer.seekTo(0);
-      audioPlayer.play();
+      void engine.playlist.seekTo(0);
+      engine.playlist.play();
       return;
     }
-    if (audioPlayer.playing) pauseAudio();
-    else audioPlayer.play();
+    if (engine.playlist.playing) engine.playlist.pause();
+    else engine.playlist.play();
   }, [mode, positionMs, durationMs]);
 
   const stop = useCallback(() => {
     requestRef.current += 1;
-    stopAudio();
+    loadGenerationRef.current += 1;
+    engine.stop();
     clearMockTimer();
+    windowRef.current = { globalIndexes: [] };
+    loadedQueueRef.current = null;
+    appendingRef.current = false;
     setMode(null);
     setTrack(null);
     setQueueState([]);
@@ -183,8 +369,19 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     setMockPlaying(false);
     setMockPosition(0);
     setLastError(null);
-    lastHandledErrorRef.current = null;
   }, [clearMockTimer]);
+
+  useEffect(() => {
+    if (mode !== 'audio' || !track) return;
+    if (loadedQueueRef.current === queue) return;
+    if (queue.length === 0) return;
+    const resolveUri = resolveUriRef.current;
+    if (!resolveUri) return;
+    const current = queue.findIndex((item) => item.id === track.id);
+    const target = current >= 0 ? current : Math.min(Math.max(index, 0), queue.length - 1);
+    const positionMs = Math.round(engine.playlist.currentTime * 1000);
+    void loadWindow(target, queue, resolveUri, positionMs);
+  }, [queue, mode, track, index, loadWindow]);
 
   const removeFromQueue = useCallback(
     (ids: string[]): void => {
@@ -192,15 +389,19 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const removed = new Set(ids);
       if (!queue.some((item) => removed.has(item.id))) return;
       const filtered = queue.filter((item) => !removed.has(item.id));
-      setQueueState(filtered);
-      const current = queue[index];
-      if (!current || removed.has(current.id)) {
-        setIndex(-1);
+      if (filtered.length === 0) {
+        stop();
         return;
       }
-      setIndex(filtered.findIndex((item) => item.id === current.id));
+      const current = queue[index];
+      if (current && removed.has(current.id)) {
+        stop();
+        return;
+      }
+      setQueueState(filtered);
+      setIndex(current ? filtered.findIndex((item) => item.id === current.id) : -1);
     },
-    [queue, index],
+    [queue, index, stop],
   );
 
   const setQueue = useCallback(
@@ -217,13 +418,45 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const previousResult = previousAction(positionMs, index, queue.length);
   const wrapPrevious = canWrap && index === 0 && previousResult.type === 'none';
 
+  const goToGlobal = useCallback(
+    (target: number) => {
+      const nextQueue = queueRef.current;
+      const targetTrack = target >= 0 ? nextQueue[target] : undefined;
+      const resolveUri = resolveUriRef.current;
+      if (!targetTrack || !resolveUri) return;
+      if (modeRef.current === 'audio') {
+        const local = windowRef.current.globalIndexes.indexOf(target);
+        if (local >= 0) {
+          setIndex(target);
+          setTrack(targetTrack);
+          engine.skipTo(local);
+          return;
+        }
+      }
+      void loadWindow(target, nextQueue, resolveUri);
+    },
+    [loadWindow],
+  );
+
+  const navigate = useCallback(
+    (target: number) => {
+      if (target < 0) return;
+      if (modeRef.current !== 'mock') {
+        goToGlobal(target);
+        return;
+      }
+      const nextQueue = queueRef.current;
+      const targetTrack = nextQueue[target];
+      const resolveUri = resolveUriRef.current;
+      if (!targetTrack || !resolveUri) return;
+      void playTrack(targetTrack, resolveUri, nextQueue);
+    },
+    [goToGlobal, playTrack],
+  );
+
   const next = useCallback(() => {
-    if (wrappedNext === -1) return;
-    const nextTrack = queue[wrappedNext];
-    const resolveUri = resolveUriRef.current;
-    if (!nextTrack || !resolveUri) return;
-    void playTrack(nextTrack, resolveUri, queue);
-  }, [wrappedNext, queue, playTrack]);
+    navigate(wrappedNext);
+  }, [navigate, wrappedNext]);
 
   const previous = useCallback(() => {
     if (previousResult.type === 'restart') {
@@ -231,32 +464,20 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       return;
     }
     const target = previousResult.type === 'previous' ? previousResult.index : wrapPrevious ? queue.length - 1 : -1;
-    if (target === -1) return;
-    const previousTrack = queue[target];
-    const resolveUri = resolveUriRef.current;
-    if (!previousTrack || !resolveUri) return;
-    void playTrack(previousTrack, resolveUri, queue);
-  }, [previousResult, wrapPrevious, queue, playTrack, seek]);
+    navigate(target);
+  }, [navigate, previousResult, wrapPrevious, queue.length, seek]);
 
   const skipNext = useCallback(() => {
     if (queue.length < 2) return;
     const current = index < 0 ? 0 : index;
-    const target = (current + 1) % queue.length;
-    const nextTrack = queue[target];
-    const resolveUri = resolveUriRef.current;
-    if (!nextTrack || !resolveUri) return;
-    void playTrack(nextTrack, resolveUri, queue);
-  }, [index, queue, playTrack]);
+    navigate((current + 1) % queue.length);
+  }, [index, navigate, queue.length]);
 
   const skipPrevious = useCallback(() => {
     if (queue.length < 2) return;
     const current = index < 0 ? 0 : index;
-    const target = (current - 1 + queue.length) % queue.length;
-    const previousTrack = queue[target];
-    const resolveUri = resolveUriRef.current;
-    if (!previousTrack || !resolveUri) return;
-    void playTrack(previousTrack, resolveUri, queue);
-  }, [index, queue, playTrack]);
+    navigate((current - 1 + queue.length) % queue.length);
+  }, [index, navigate, queue.length]);
 
   const hasNext = wrappedNext !== -1;
   const hasPrevious = previousResult.type !== 'none' || wrapPrevious;
@@ -266,46 +487,32 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     setRepeat((mode) => (mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'));
   }, []);
 
-  const handleEnd = useCallback(() => {
-    if (!track || endHandledForRef.current === track.id) return;
+  const handleMockEnd = useCallback(() => {
+    if (!track) return;
+    if (endHandledForRef.current === track.id) return;
     endHandledForRef.current = track.id;
-    const resolveUri = resolveUriRef.current;
     if (repeat === 'one') {
-      if (resolveUri) void playTrack(track, resolveUri, queue);
+      setMockPosition(0);
+      setMockRunId((id) => id + 1);
+      setMockPlaying(true);
       return;
     }
-    if (track.durationMs > 0 && track.durationMs < 3000) {
-      pauseAudio();
-      setMockPlaying(false);
+    const target = repeat === 'all' && index + 1 >= queue.length ? 0 : index + 1;
+    const nextTrack = queue[target];
+    if (nextTrack) {
+      const resolveUri = resolveUriRef.current;
+      if (resolveUri) void playTrack(nextTrack, resolveUri, queue);
       return;
     }
-    if (repeat === 'all') {
-      const target = index + 1 < queue.length ? index + 1 : 0;
-      const nextTrack = queue[target];
-      if (nextTrack && resolveUri) void playTrack(nextTrack, resolveUri, queue);
-      return;
-    }
-    if (!hasNext) {
-      pauseAudio();
-      setMockPlaying(false);
-      return;
-    }
-    const nextTrack = queue[index + 1];
-    if (nextTrack && resolveUri) void playTrack(nextTrack, resolveUri, queue);
-  }, [track, hasNext, queue, index, playTrack, repeat]);
-
-  useEffect(() => {
-    const finished = mode === 'audio' && status.didJustFinish;
-    if (finished && !wasFinishedRef.current) handleEnd();
-    wasFinishedRef.current = finished;
-  }, [mode, status.didJustFinish, handleEnd]);
+    setMockPlaying(false);
+  }, [track, repeat, index, queue, playTrack]);
 
   useEffect(() => {
     if (mode !== 'mock' || !track || track.durationMs <= 0) return;
     if (mockPlaying || !isAtEnd(mockPosition, track.durationMs)) return;
-    const timer = setTimeout(handleEnd, 0);
+    const timer = setTimeout(handleMockEnd, 0);
     return () => clearTimeout(timer);
-  }, [mode, mockPlaying, mockPosition, track, handleEnd]);
+  }, [mode, mockPlaying, mockPosition, track, handleMockEnd]);
 
   const value = useMemo<PlayerContextValue>(
     () => ({
