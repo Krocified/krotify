@@ -22,6 +22,7 @@ import {
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
 import { listPlaylists, listRecentTrackIds, recordPlay, type Playlist } from './db/repo';
+import { hydrateArtwork } from './library/artwork';
 import { DEMO_TRACKS } from './library/demo';
 import {
   clearExcludedTracks,
@@ -45,7 +46,6 @@ import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
 import { enrichTracks } from './library/metadata';
 import { usePlayer } from './player/PlayerProvider';
-import { CatalogScreen } from './screens/CatalogScreen';
 import {
   EditTrackScreen,
   type EditTrackMode,
@@ -102,6 +102,8 @@ export function AppShell() {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [exitHint, setExitHint] = useState(false);
   const assetsRef = useRef(new Map<string, Asset>());
+  const libraryTracksRef = useRef<Track[]>([]);
+  const libraryGenerationRef = useRef(0);
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
@@ -166,6 +168,28 @@ export function AppShell() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    libraryTracksRef.current = libraryTracks;
+  }, [libraryTracks]);
+
+  const startHydration = useCallback((generation: number, targets: Track[]) => {
+    void hydrateArtwork(
+      targets,
+      (updated) => {
+        if (libraryGenerationRef.current !== generation) return;
+        const byId = new Map(updated.map((track) => [track.id, track]));
+        setLibraryTracks((prev) =>
+          prev.map((track) => {
+            const found = byId.get(track.id)?.artworkUri;
+            if (!found || track.artworkUri) return track;
+            return { ...track, artworkUri: found };
+          }),
+        );
+      },
+      { isCancelled: () => libraryGenerationRef.current !== generation },
+    ).catch(() => {});
+  }, []);
+
   const recentTracks = useMemo(() => {
     const byId = new Map(tracks.map((track) => [track.id, track]));
     return recentTrackIds
@@ -205,6 +229,7 @@ export function AppShell() {
     let cancelled = false;
 
     async function loadLibrary() {
+      const generation = ++libraryGenerationRef.current;
       setStatus('scanning');
       setStatusNote(null);
       void listRecentTrackIds()
@@ -227,7 +252,12 @@ export function AppShell() {
             const byId = new Map(batch.map((track) => [track.id, track]));
             setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
           },
-        ).catch(() => {});
+        )
+          .then((enriched) => {
+            if (cancelled || libraryGenerationRef.current !== generation) return;
+            startHydration(generation, enriched);
+          })
+          .catch(() => {});
       }
 
       if (Platform.OS === 'web') {
@@ -296,8 +326,9 @@ export function AppShell() {
     void loadLibrary();
     return () => {
       cancelled = true;
+      libraryGenerationRef.current += 1;
     };
-  }, [scanEnabled, scanId, scanPrefLoaded]);
+  }, [scanEnabled, scanId, scanPrefLoaded, startHydration]);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -451,14 +482,6 @@ export function AppShell() {
       if (!restored) await AsyncStorage.removeItem(RESUME_KEY);
     })().catch(() => {});
   }, [libraryLoaded, restore, tracks]);
-
-  const handleArtworkLoaded = useCallback((trackId: string, uri: string) => {
-    setLibraryTracks((prev) =>
-      prev.map((track) =>
-        track.id === trackId && !track.artworkUri ? { ...track, artworkUri: uri } : track,
-      ),
-    );
-  }, []);
 
   function rememberReturnScreen() {
     returnScreenRef.current = screen === 'search' ? tab : screen;
@@ -626,14 +649,23 @@ export function AppShell() {
           new Set(),
         ),
       );
+      const generation = ++libraryGenerationRef.current;
       void enrichTracks(
         added,
         async (track) => track.uri || null,
         (batch) => {
+          if (libraryGenerationRef.current !== generation) return;
           const byId = new Map(batch.map((track) => [track.id, track]));
           setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
         },
-      ).catch(() => {});
+      )
+        .then((enriched) => {
+          if (libraryGenerationRef.current !== generation) return;
+          const byId = new Map(libraryTracksRef.current.map((track) => [track.id, track]));
+          for (const track of enriched) byId.set(track.id, track);
+          startHydration(generation, [...byId.values()]);
+        })
+        .catch(() => {});
       setStatus('ready');
       setStatusNote(null);
     } finally {
@@ -644,12 +676,11 @@ export function AppShell() {
   const fullScreenOverlay =
     playlistsOpen || likedOpen || editTarget !== null;
   const showTabs =
-    !fullScreenOverlay &&
-    (screen === 'library' || screen === 'catalog' || screen === 'import');
+    !fullScreenOverlay && (screen === 'library' || screen === 'import');
   const showTabBar =
     screen !== 'nowPlaying' && screen !== 'search' && !fullScreenOverlay;
   const activeTab: TabName =
-    screen === 'library' || screen === 'catalog' || screen === 'import' ? screen : tab;
+    screen === 'library' || screen === 'import' ? screen : tab;
 
   function openSearch() {
     searchReturnRef.current = activeTab;
@@ -700,14 +731,6 @@ export function AppShell() {
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
             onOpenPlaylist={(id) => openPlaylists(id)}
-          />
-        ) : activeTab === 'catalog' ? (
-          <CatalogScreen
-            tracks={tracks}
-            onSelect={handleSelect}
-            onArtworkLoaded={handleArtworkLoaded}
-            onOpenSearch={openSearch}
-            onOpenSettings={openSettings}
           />
         ) : (
           <ImportScreen
