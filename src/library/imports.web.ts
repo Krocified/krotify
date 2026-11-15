@@ -1,6 +1,5 @@
 import type { Track } from '../types';
-
-type ImportFailure = { name: string; reason: string };
+import type { ImportFailure } from './imports';
 
 export async function loadImportedTracks(): Promise<Track[]> {
   return [];

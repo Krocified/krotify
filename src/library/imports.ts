@@ -49,8 +49,14 @@ function probeDurationMs(uri: string): Promise<number> {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      subscription?.remove();
-      player.remove();
+      try {
+        subscription?.remove();
+      } catch {
+      }
+      try {
+        player.remove();
+      } catch {
+      }
       resolve(ms);
     };
 
@@ -114,6 +120,7 @@ export async function pickAndImportTracks(): Promise<ImportBatch> {
     const folder = new Directory(dir, `${stamp}-${index}`);
     const destination = new File(folder, name);
     let reason: string | null = null;
+    let durationMs = 0;
 
     try {
       if (asset.mimeType && !isAudioMime(asset.mimeType)) {
@@ -125,6 +132,12 @@ export async function pickAndImportTracks(): Promise<ImportBatch> {
           reason = 'no audio data';
         } else if (reportedSize !== null && destination.size !== reportedSize) {
           reason = 'copy failed';
+        } else {
+          try {
+            durationMs = await probeDurationMs(destination.uri);
+          } catch {
+            reason = 'no audio data';
+          }
         }
       }
     } catch {
@@ -146,15 +159,14 @@ export async function pickAndImportTracks(): Promise<ImportBatch> {
       continue;
     }
 
-    const uri = destination.uri;
     added.push({
       id,
-      uri,
+      uri: destination.uri,
       source: 'import',
       title: titleFromFilename(name),
       artist: '',
       album: '',
-      durationMs: await probeDurationMs(uri),
+      durationMs,
       artworkHue: hueFromSeed(name),
     });
     knownIds.add(id);
@@ -198,10 +210,17 @@ export async function importTrackCopy(track: Track): Promise<ImportCopy> {
   try {
     folder.create({ idempotent: true, intermediates: true });
     await source.copy(destination);
-    if (!destination.exists || destination.size <= 0) {
-      await discardFolder(folder, destination);
-      return { track: null, failures: [{ name, reason: 'no audio data' }] };
-    }
+  } catch {
+    await discardFolder(folder, destination);
+    return { track: null, failures: [{ name, reason: 'copy failed' }] };
+  }
+
+  if (!destination.exists || destination.size <= 0) {
+    await discardFolder(folder, destination);
+    return { track: null, failures: [{ name, reason: 'no audio data' }] };
+  }
+
+  try {
     const uri = destination.uri;
     const imported: Track = {
       ...track,
@@ -213,9 +232,9 @@ export async function importTrackCopy(track: Track): Promise<ImportCopy> {
     };
     await writeTracks([...stored, imported]);
     return { track: imported, failures: [] };
-  } catch {
+  } catch (error) {
     await discardFolder(folder, destination);
-    return { track: null, failures: [{ name, reason: 'copy failed' }] };
+    throw error;
   }
 }
 
