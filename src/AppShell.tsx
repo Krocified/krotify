@@ -241,6 +241,7 @@ export function AppShell() {
       function enrich(initial: Track[]) {
         const targets = initial.filter((track) => track.source !== 'demo');
         if (targets.length === 0) return;
+        let hydrateTargets: Track[] = targets;
         void enrichTracks(
           targets,
           async (track) =>
@@ -254,10 +255,13 @@ export function AppShell() {
           },
         )
           .then((enriched) => {
-            if (cancelled || libraryGenerationRef.current !== generation) return;
-            startHydration(generation, enriched);
+            hydrateTargets = enriched;
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            if (cancelled || libraryGenerationRef.current !== generation) return;
+            startHydration(generation, hydrateTargets);
+          });
       }
 
       if (Platform.OS === 'web') {
@@ -650,6 +654,7 @@ export function AppShell() {
         ),
       );
       const generation = ++libraryGenerationRef.current;
+      let hydrateTargets: Track[] = added;
       void enrichTracks(
         added,
         async (track) => track.uri || null,
@@ -660,12 +665,15 @@ export function AppShell() {
         },
       )
         .then((enriched) => {
-          if (libraryGenerationRef.current !== generation) return;
           const byId = new Map(libraryTracksRef.current.map((track) => [track.id, track]));
           for (const track of enriched) byId.set(track.id, track);
-          startHydration(generation, [...byId.values()]);
+          hydrateTargets = [...byId.values()];
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (libraryGenerationRef.current !== generation) return;
+          startHydration(generation, hydrateTargets);
+        });
       setStatus('ready');
       setStatusNote(null);
     } finally {

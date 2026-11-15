@@ -65,7 +65,7 @@ export function NowPlayingScreen({
   const [resetToken, setResetToken] = useState(0);
   const [lyricsMode, setLyricsMode] = useState(false);
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
-  const [likeNote, setLikeNote] = useState<string | null>(null);
+  const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, lyricsMode);
@@ -144,7 +144,7 @@ export function NowPlayingScreen({
   const toggleLike = () => {
     setLikeNote(null);
     toggleFavorite(track.id).catch(() => {
-      setLikeNote('Could not update Liked Songs');
+      setLikeNote({ trackId: track.id, message: 'Could not update Liked Songs' });
     });
   };
 
@@ -387,7 +387,9 @@ export function NowPlayingScreen({
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
           {lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
-          {likeNote ? <Text style={styles.error}>{likeNote}</Text> : null}
+          {likeNote && likeNote.trackId === track.id ? (
+            <Text style={styles.error}>{likeNote.message}</Text>
+          ) : null}
         </View>
       </View>
     </Animated.View>

@@ -29,6 +29,7 @@ import {
 import { formatDuration } from '../lib/format';
 import { hueFromSeed } from '../lib/hash';
 import { moveId } from '../lib/playlistOrder';
+import { deletePlaylistCoverFile } from '../library/playlistArtwork';
 import { playlistArtwork } from '../lib/playlistView';
 import { shuffleOrder } from '../lib/shuffle';
 import { colors, radius, space, type } from '../theme';
@@ -193,6 +194,7 @@ export function PlaylistsScreen({
     setPendingDelete(null);
     try {
       await deletePlaylist(playlist.id);
+      await deletePlaylistCoverFile(playlist.id);
       setPlaylists((previous) => previous.filter((item) => item.id !== playlist.id));
       if (selectedId === playlist.id) closeDetail();
     } catch {
@@ -220,6 +222,12 @@ export function PlaylistsScreen({
     // Serialize writes so rapid drops cannot open overlapping transactions.
     reorderQueue.current = reorderQueue.current
       .then(() => reorderPlaylistTracks(playlistId, ids))
+      .then(() => {
+        if (seq !== reorderSeq.current || selectedIdRef.current !== playlistId) return;
+        setMessage((current) =>
+          current === 'Could not reorder the playlist.' ? null : current,
+        );
+      })
       .catch(async () => {
         if (seq !== reorderSeq.current || selectedIdRef.current !== playlistId) return;
         setMessage('Could not reorder the playlist.');
@@ -308,7 +316,13 @@ export function PlaylistsScreen({
                     accessibilityLabel={`Open ${playlist.name}`}
                     style={({ pressed }) => [styles.playlistMain, pressed && styles.pressed]}
                   >
-                    <Ionicons name="musical-notes-outline" size={22} color={colors.text} />
+                    <CoverArt
+                      hue={hueFromSeed(playlist.id + playlist.name)}
+                      title={playlist.name}
+                      size={40}
+                      radius={4}
+                      uri={playlist.artworkUri}
+                    />
                     <Text style={styles.playlistName} numberOfLines={1}>
                       {playlist.name}
                     </Text>
@@ -328,7 +342,7 @@ export function PlaylistsScreen({
                     accessibilityLabel={`Delete ${playlist.name}`}
                     style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                    <Ionicons name="trash-outline" size={20} color={colors.danger} />
                   </Pressable>
                 </View>
               ))}
@@ -410,10 +424,12 @@ export function PlaylistsScreen({
               customHandle
               scrollableRef={scrollableRef}
               onDragEnd={({ data }) => applyOrder(data.map((track) => track.id))}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <PlaylistTrackRow
                   track={item}
                   busy={busyTrackId === item.id}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < queue.length - 1}
                   onPlay={() => (onSelect ? onSelect(item, queue) : onPlay(queue))}
                   onRemove={() => void remove(item.id)}
                   onMove={(direction) => moveTrack(item.id, direction)}
@@ -456,22 +472,33 @@ export function PlaylistsScreen({
 type RowProps = {
   track: Track;
   busy: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onPlay: () => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
 };
 
-function PlaylistTrackRow({ track, busy, onPlay, onRemove, onMove }: RowProps) {
+function PlaylistTrackRow({
+  track,
+  busy,
+  canMoveUp,
+  canMoveDown,
+  onPlay,
+  onRemove,
+  onMove,
+}: RowProps) {
+  const accessibilityActions = [
+    ...(canMoveUp ? [{ name: 'increment' as const, label: 'Move up' }] : []),
+    ...(canMoveDown ? [{ name: 'decrement' as const, label: 'Move down' }] : []),
+  ];
   return (
     <View style={styles.trackRow}>
       <Pressable
         onPress={onPlay}
         accessibilityRole="button"
         accessibilityLabel={`Play ${track.title}`}
-        accessibilityActions={[
-          { name: 'increment', label: 'Move up' },
-          { name: 'decrement', label: 'Move down' },
-        ]}
+        accessibilityActions={accessibilityActions.length > 0 ? accessibilityActions : undefined}
         onAccessibilityAction={(event) => {
           if (event.nativeEvent.actionName === 'increment') onMove(-1);
           else if (event.nativeEvent.actionName === 'decrement') onMove(1);

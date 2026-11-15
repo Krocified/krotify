@@ -174,6 +174,7 @@ export function LibraryScreen({
                                 title={playlist.name}
                                 size={96}
                                 radius={radius.coverLarge}
+                                uri={playlist.artworkUri}
                               />
                               <Text style={styles.railLabel} numberOfLines={1}>
                                 {playlist.name}

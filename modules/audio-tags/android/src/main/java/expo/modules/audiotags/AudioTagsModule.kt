@@ -58,7 +58,13 @@ private fun noWriteAccessMessage(uri: String, cause: Throwable?): String {
 private fun isPermissionFailure(error: Throwable): Boolean {
   var current: Throwable? = error
   while (current != null) {
-    if (current is AccessDeniedException || current is ReadOnlyFileSystemException) return true
+    if (
+      current is AccessDeniedException ||
+      current is ReadOnlyFileSystemException ||
+      current is SecurityException
+    ) {
+      return true
+    }
     val message = current.message.orEmpty()
     if (
       message.contains("EACCES") ||
@@ -273,7 +279,11 @@ class AudioTagsModule : Module() {
       }
       return readWrittenContent(contentUri, ext, patched)
     } catch (error: Exception) {
-      val rollbackFailed = opened && !rollbackContent(contentUri, original)
+      if (!opened) {
+        if (error is CodedException) throw error
+        throw NoWriteAccessException(uriString, error)
+      }
+      val rollbackFailed = !rollbackContent(contentUri, original)
       if (rollbackFailed) throw TagWriteException(uriString, error)
       if (error is CodedException) throw error
       throw writeFailure(uriString, error)
@@ -599,7 +609,7 @@ class AudioTagsModule : Module() {
 
   private fun openWriteStream(uri: Uri): OutputStream =
     contentResolver().openOutputStream(uri, "rwt")
-      ?: throw IOException("Could not open $uri for writing")
+      ?: throw NoWriteAccessException(uri.toString(), IOException("Could not open $uri for writing"))
 
   private fun discardSnapshot(snapshotPath: String) {
     val snapshot = File(snapshotPath).canonicalFile
