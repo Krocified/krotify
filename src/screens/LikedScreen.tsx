@@ -1,10 +1,14 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CollectionHeader } from '../components/CollectionHeader';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { TrackRow } from '../components/TrackRow';
 import { useFavorites } from '../library/FavoritesProvider';
+import { formatDuration } from '../lib/format';
+import { hueFromSeed } from '../lib/hash';
+import { shuffleOrder } from '../lib/shuffle';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -22,37 +26,47 @@ export function LikedScreen({ tracks = [], onClose, onPlay, onSelect }: Props) {
     () => tracks.filter((track) => ids.has(track.id)),
     [ids, tracks],
   );
+  const artwork = useMemo(
+    () => ({
+      hue: favoriteTracks[0]?.artworkHue ?? hueFromSeed('liked-songs'),
+      uri: favoriteTracks.find((track) => Boolean(track.artworkUri))?.artworkUri,
+    }),
+    [favoriteTracks],
+  );
+  const totalMs = useMemo(
+    () => favoriteTracks.reduce((sum, track) => sum + (track.durationMs || 0), 0),
+    [favoriteTracks],
+  );
 
   const play = () => {
     if (favoriteTracks.length > 0) onPlay(favoriteTracks);
   };
 
+  const shuffle = () => {
+    if (favoriteTracks.length > 0) {
+      onPlay(shuffleOrder(favoriteTracks, -1, Math.random).order);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <ScreenHeader leading={<BackPill onPress={onClose} />} title="Liked Songs" />
-      <View style={styles.actions}>
-        <Pressable
-          onPress={play}
-          disabled={favoriteTracks.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Play Liked Songs"
-          accessibilityState={{ disabled: favoriteTracks.length === 0 }}
-          style={({ pressed }) => [
-            styles.playButton,
-            favoriteTracks.length === 0 && styles.disabled,
-            pressed && favoriteTracks.length > 0 && styles.pressed,
-          ]}
-        >
-          <Ionicons name="play" size={18} color={colors.text} />
-          <Text style={styles.playText}>Play all</Text>
-        </Pressable>
-        <Text style={styles.count}>
-          {favoriteTracks.length} {favoriteTracks.length === 1 ? 'song' : 'songs'}
-        </Text>
-      </View>
       <FlatList
         data={favoriteTracks}
         keyExtractor={(track) => track.id}
+        ListHeaderComponent={
+          <CollectionHeader
+            title="Liked Songs"
+            meta={`${favoriteTracks.length} ${
+              favoriteTracks.length === 1 ? 'song' : 'songs'
+            } · ${formatDuration(totalMs)}`}
+            artworkUri={artwork.uri}
+            fallbackHue={artwork.hue}
+            onPlay={play}
+            onShuffle={shuffle}
+            disabled={favoriteTracks.length === 0}
+          />
+        }
         renderItem={({ item }) => (
           <TrackRow
             track={item}
@@ -66,8 +80,9 @@ export function LikedScreen({ tracks = [], onClose, onPlay, onSelect }: Props) {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="heart-outline" size={34} color={colors.textDim} />
+            <Text style={styles.emptyTitle}>No liked songs yet</Text>
             <Text style={styles.emptyText}>
-              {`No liked songs yet. Tap the heart in Now Playing or in a track's action sheet.`}
+              {"Tap the heart in Now Playing or in a song's action sheet."}
             </Text>
           </View>
         }
@@ -81,41 +96,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  playButton: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.lg,
-    borderRadius: 21,
-    backgroundColor: colors.accent,
-  },
-  playText: {
-    ...type.body,
-    color: colors.text,
-  },
-  count: {
-    ...type.meta,
-    color: colors.textDim,
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
   empty: {
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingHorizontal: space.xl,
     paddingTop: space.xl * 2,
+  },
+  emptyTitle: {
+    ...type.body,
+    color: colors.text,
   },
   emptyText: {
     ...type.meta,
