@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionHeader } from '../components/CollectionHeader';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
+import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import {
   createPlaylist,
@@ -21,7 +22,6 @@ import {
   listPlaylistTracks,
   listPlaylists,
   removePlaylistTrack,
-  renamePlaylist,
   type Playlist,
 } from '../db/repo';
 import { formatDuration } from '../lib/format';
@@ -38,6 +38,7 @@ type Props = {
   onSelect?: (track: Track, queue: Track[]) => void;
   playlistId?: string | null;
   onOpenPlaylist?: (id: string | null) => void;
+  onPlaylistsChanged?: () => void;
 };
 
 export function PlaylistsScreen({
@@ -47,6 +48,7 @@ export function PlaylistsScreen({
   onSelect,
   playlistId,
   onOpenPlaylist,
+  onPlaylistsChanged,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
@@ -54,8 +56,10 @@ export function PlaylistsScreen({
   const [trackIds, setTrackIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
+  const [editTarget, setEditTarget] = useState<{
+    playlist: Playlist;
+    queue: Track[];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -134,30 +138,35 @@ export function PlaylistsScreen({
     }
   }
 
-  function startRename(playlist: Playlist) {
-    setRenamingId(playlist.id);
-    setRenameValue(playlist.name);
+  function startEdit(playlist: Playlist, queueTracks?: Track[]) {
     setMessage(null);
-  }
-
-  async function commitRename() {
-    if (!renamingId) return;
-    const name = renameValue.trim();
-    if (!name) {
-      setMessage('Playlist name cannot be empty.');
+    if (queueTracks) {
+      setEditTarget({ playlist, queue: queueTracks });
       return;
     }
-    try {
-      await renamePlaylist(renamingId, name);
-      setPlaylists((previous) =>
-        previous.map((playlist) =>
-          playlist.id === renamingId ? { ...playlist, name } : playlist,
-        ),
-      );
-      setRenamingId(null);
-    } catch {
-      setMessage('Could not rename the playlist.');
-    }
+    listPlaylistTracks(playlist.id)
+      .then((ids) => {
+        const items = ids
+          .map((id) => byId.get(id))
+          .filter((track): track is Track => track !== undefined);
+        setEditTarget({ playlist, queue: items });
+      })
+      .catch(() => setMessage('Could not load this playlist.'));
+  }
+
+  function handleSaved(saved: Playlist) {
+    setPlaylists((previous) =>
+      previous.map((playlist) => (playlist.id === saved.id ? saved : playlist)),
+    );
+    setEditTarget((current) =>
+      current && current.playlist.id === saved.id
+        ? { ...current, playlist: saved }
+        : current,
+    );
+    void listPlaylists()
+      .then((items) => setPlaylists(items))
+      .catch(() => {});
+    onPlaylistsChanged?.();
   }
 
   async function confirmDelete() {
@@ -240,66 +249,34 @@ export function PlaylistsScreen({
             <View style={styles.card}>
               {playlists.map((playlist) => (
                 <View key={playlist.id} style={styles.playlistRow}>
-                  {renamingId === playlist.id ? (
-                    <>
-                      <TextInput
-                        value={renameValue}
-                        onChangeText={setRenameValue}
-                        autoFocus
-                        placeholder="Playlist name"
-                        placeholderTextColor={colors.textDim}
-                        style={[styles.input, styles.renameInput]}
-                        onSubmitEditing={() => void commitRename()}
-                      />
-                      <Pressable
-                        onPress={() => void commitRename()}
-                        accessibilityRole="button"
-                        accessibilityLabel="Save playlist name"
-                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="checkmark" size={22} color={colors.accent2} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setRenamingId(null)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Cancel rename"
-                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="close" size={22} color={colors.textDim} />
-                      </Pressable>
-                    </>
-                  ) : (
-                    <>
-                      <Pressable
-                        onPress={() => openPlaylist(playlist.id)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open ${playlist.name}`}
-                        style={({ pressed }) => [styles.playlistMain, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="musical-notes-outline" size={22} color={colors.text} />
-                        <Text style={styles.playlistName} numberOfLines={1}>
-                          {playlist.name}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => startRename(playlist)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Rename ${playlist.name}`}
-                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="pencil" size={19} color={colors.textDim} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setPendingDelete(playlist)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Delete ${playlist.name}`}
-                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-                      </Pressable>
-                    </>
-                  )}
+                  <Pressable
+                    onPress={() => openPlaylist(playlist.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${playlist.name}`}
+                    style={({ pressed }) => [styles.playlistMain, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="musical-notes-outline" size={22} color={colors.text} />
+                    <Text style={styles.playlistName} numberOfLines={1}>
+                      {playlist.name}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => startEdit(playlist)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${playlist.name}`}
+                    style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="pencil" size={19} color={colors.textDim} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setPendingDelete(playlist)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${playlist.name}`}
+                    style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                  </Pressable>
                 </View>
               ))}
             </View>
@@ -345,6 +322,11 @@ export function PlaylistsScreen({
                 fallbackHue={artwork.hue}
                 onPlay={playAll}
                 onShuffle={shuffleAll}
+                onEdit={
+                  selectedPlaylist
+                    ? () => startEdit(selectedPlaylist, queue)
+                    : undefined
+                }
                 disabled={queue.length === 0}
               />
               {message ? (
@@ -396,6 +378,13 @@ export function PlaylistsScreen({
         destructive
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
+      />
+      <PlaylistEditSheet
+        visible={editTarget !== null}
+        playlist={editTarget?.playlist ?? null}
+        tracks={editTarget?.queue}
+        onClose={() => setEditTarget(null)}
+        onSaved={handleSaved}
       />
     </View>
   );
@@ -543,10 +532,6 @@ const styles = StyleSheet.create({
     ...type.body,
     flex: 1,
     color: colors.text,
-  },
-  renameInput: {
-    marginLeft: space.md,
-    marginVertical: space.sm,
   },
   iconButton: {
     width: 44,
