@@ -35,6 +35,7 @@ import {
   loadImportedTracks,
   pickAndImportTracks,
   removeImportedTrack,
+  type ImportFailure,
 } from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
@@ -80,6 +81,7 @@ export function AppShell() {
   const [excluded, setExcluded] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [importing, setImporting] = useState(false);
+  const [importFailures, setImportFailures] = useState<ImportFailure[]>([]);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
@@ -560,8 +562,10 @@ export function AppShell() {
   async function handleImport() {
     if (Platform.OS === 'web') return;
     setImporting(true);
+    setImportFailures([]);
     try {
-      const added = await pickAndImportTracks();
+      const { tracks: added, failures } = await pickAndImportTracks();
+      setImportFailures(failures);
       if (added.length === 0) return;
       setLibraryTracks((prev) =>
         mergeLibrary(
@@ -657,6 +661,7 @@ export function AppShell() {
           <ImportScreen
             imports={importedTracks}
             importing={importing}
+            importFailures={importFailures}
             onImport={handleImport}
             onSelect={handleSelect}
             onOpenSearch={openSearch}

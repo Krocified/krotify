@@ -15,12 +15,14 @@ import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
+import type { ImportFailure } from '../library/imports';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
 type Props = {
   imports: Track[];
   importing: boolean;
+  importFailures: ImportFailure[];
   onImport: () => Promise<void>;
   onSelect: (track: Track, queue: Track[]) => void;
   onOpenSearch: () => void;
@@ -32,6 +34,7 @@ export const LINK_IMPORT_ENABLED = false;
 export function ImportScreen({
   imports,
   importing,
+  importFailures,
   onImport,
   onSelect,
   onOpenSearch,
@@ -111,20 +114,14 @@ export function ImportScreen({
                 </View>
               ) : null}
 
-              {!LINK_IMPORT_ENABLED ? (
-                <>
-                  <Text style={styles.sectionTitle}>From a link</Text>
-                  <View style={[styles.card, styles.linkCard]}>
-                    <Ionicons name="link-outline" size={24} color={colors.textDim} />
-                    <View style={styles.cardText}>
-                      <Text style={styles.cardTitle}>Link import is disabled</Text>
-                      <Text style={styles.cardMeta}>
-                        Only import audio you own or have the rights to download. Link import
-                        needs a licensed resolver, and none is approved for Krotify.
-                      </Text>
-                    </View>
-                  </View>
-                </>
+              {importFailures.length > 0 ? (
+                <View style={styles.failure}>
+                  <Text style={styles.failureText}>
+                    {importFailures.length} file{importFailures.length === 1 ? '' : 's'} could
+                    not be imported
+                  </Text>
+                  <Text style={styles.failureMeta}>{importFailures[0].reason}</Text>
+                </View>
               ) : null}
 
               <Text style={styles.sectionTitle}>Recent imports</Text>
@@ -177,9 +174,6 @@ const styles = StyleSheet.create({
   cardPressed: {
     backgroundColor: colors.surfaceHi,
   },
-  linkCard: {
-    alignItems: 'flex-start',
-  },
   cardText: {
     flex: 1,
     gap: space.xs,
@@ -200,6 +194,20 @@ const styles = StyleSheet.create({
   errorText: {
     ...type.meta,
     color: '#FF8A8A',
+  },
+  failure: {
+    padding: space.md,
+    borderRadius: radius.screen,
+    backgroundColor: '#3A2E15',
+    gap: space.xs,
+  },
+  failureText: {
+    ...type.meta,
+    color: '#FFD08A',
+  },
+  failureMeta: {
+    ...type.meta,
+    color: colors.textDim,
   },
   sectionTitle: {
     ...type.meta,

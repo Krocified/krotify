@@ -240,12 +240,12 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
     setBusy(true);
     setError(null);
     try {
-      const copy = await importTrackCopy(workingTrack);
-      if (!copy) {
-        setError('No file was imported.');
+      const result = await importTrackCopy(workingTrack);
+      if (!result.track) {
+        setError(result.failures[0]?.reason ?? 'No file was imported.');
         return;
       }
-      setWorkingTrack(copy);
+      setWorkingTrack(result.track);
       setNeedsCopy(false);
       setAccess('granted');
     } catch {

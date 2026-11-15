@@ -1,15 +1,22 @@
 import type { Track } from '../types';
 
+type ImportFailure = { name: string; reason: string };
+
 export async function loadImportedTracks(): Promise<Track[]> {
   return [];
 }
 
-export async function pickAndImportTracks(): Promise<Track[]> {
-  return [];
+export async function pickAndImportTracks(): Promise<{
+  tracks: Track[];
+  failures: ImportFailure[];
+}> {
+  return { tracks: [], failures: [] };
 }
 
-export async function importTrackCopy(_track: Track): Promise<Track | null> {
-  return null;
+export async function importTrackCopy(
+  _track: Track,
+): Promise<{ track: Track | null; failures: ImportFailure[] }> {
+  return { track: null, failures: [] };
 }
 
 export async function removeImportedTrack(_id: string): Promise<void> {}
