@@ -8,8 +8,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { updatePlaylistDetails, type Playlist } from '../db/repo';
-import { pickPlaylistCover, removePlaylistCover } from '../library/playlistArtwork';
+import { updatePlaylistDetails, type Playlist, type PlaylistDetailsPatch } from '../db/repo';
+import {
+  commitPlaylistCover,
+  deletePlaylistCoverFile,
+  discardStagedCover,
+  stagePlaylistCover,
+} from '../library/playlistArtwork';
 import { playlistArtwork } from '../lib/playlistView';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
@@ -34,10 +39,23 @@ export function PlaylistEditSheet({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [coverUri, setCoverUri] = useState<string | null>(null);
+  const [coverRemoved, setCoverRemoved] = useState(false);
+  const [stagedUri, setStagedUri] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const seededId = useRef<string | null>(null);
+  const stagedRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      const uri = stagedRef.current;
+      stagedRef.current = null;
+      if (uri) void discardStagedCover(uri);
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -49,6 +67,9 @@ export function PlaylistEditSheet({
     setName(playlist.name);
     setDescription(playlist.description ?? '');
     setCoverUri(playlist.artworkUri ?? null);
+    setCoverRemoved(false);
+    stagedRef.current = null;
+    setStagedUri(null);
     setPicking(false);
     setBusy(false);
     setError(null);
@@ -58,20 +79,39 @@ export function PlaylistEditSheet({
 
   const previewName = name.trim() || playlist.name;
   const artwork = playlistArtwork(
-    { ...playlist, artworkUri: coverUri ?? undefined },
+    {
+      ...playlist,
+      artworkUri: coverRemoved ? undefined : coverUri ?? undefined,
+    },
     tracks,
   );
 
+  function handleClose() {
+    if (busy) return;
+    const uri = stagedRef.current;
+    stagedRef.current = null;
+    setStagedUri(null);
+    if (uri) void discardStagedCover(uri);
+    onClose();
+  }
+
   async function chooseCover() {
-    if (!playlist || picking) return;
+    if (!playlist || picking || busy) return;
     setPicking(true);
     setError(null);
     try {
-      const uri = await pickPlaylistCover(playlist.id);
-      if (uri) {
-        setCoverUri(uri);
-        onSaved({ ...playlist, artworkUri: uri });
+      const uri = await stagePlaylistCover(playlist.id);
+      if (!mountedRef.current) {
+        if (uri) void discardStagedCover(uri);
+        return;
       }
+      if (!uri) return;
+      const previous = stagedRef.current;
+      stagedRef.current = uri;
+      setStagedUri(uri);
+      setCoverUri(uri);
+      setCoverRemoved(false);
+      if (previous) void discardStagedCover(previous);
     } catch {
       setError('Could not open the cover picker.');
     } finally {
@@ -79,19 +119,15 @@ export function PlaylistEditSheet({
     }
   }
 
-  async function removeCover() {
-    if (!playlist || picking) return;
-    setPicking(true);
+  function removeCover() {
+    if (picking || busy) return;
+    const previous = stagedRef.current;
+    stagedRef.current = null;
+    setStagedUri(null);
+    setCoverUri(null);
+    setCoverRemoved(true);
     setError(null);
-    try {
-      await removePlaylistCover(playlist);
-      setCoverUri(null);
-      onSaved({ ...playlist, artworkUri: undefined });
-    } catch {
-      setError('Could not remove the cover.');
-    } finally {
-      setPicking(false);
-    }
+    if (previous) void discardStagedCover(previous);
   }
 
   async function save() {
@@ -102,19 +138,34 @@ export function PlaylistEditSheet({
       return;
     }
     const nextDescription = description.trim();
+    const patch: PlaylistDetailsPatch = {
+      name: nextName,
+      description: nextDescription,
+    };
+    let nextArtworkUri = playlist.artworkUri;
     setBusy(true);
     setError(null);
     try {
-      await updatePlaylistDetails(playlist.id, {
-        name: nextName,
-        description: nextDescription,
-        artworkUri: coverUri,
-      });
+      if (stagedUri) {
+        const committedUri = await commitPlaylistCover(playlist.id, stagedUri);
+        patch.artworkUri = committedUri;
+        nextArtworkUri = committedUri;
+      } else if (coverRemoved) {
+        patch.artworkUri = null;
+        nextArtworkUri = undefined;
+      }
+      await updatePlaylistDetails(playlist.id, patch);
+      if (coverRemoved) await deletePlaylistCoverFile(playlist.id);
+      if (stagedUri) {
+        stagedRef.current = null;
+        setStagedUri(null);
+        void discardStagedCover(stagedUri);
+      }
       onSaved({
         ...playlist,
         name: nextName,
         description: nextDescription || undefined,
-        artworkUri: coverUri ?? undefined,
+        artworkUri: nextArtworkUri,
       });
       onClose();
     } catch {
@@ -125,7 +176,7 @@ export function PlaylistEditSheet({
   }
 
   return (
-    <Sheet visible={visible} title="Edit playlist" onClose={onClose}>
+    <Sheet visible={visible} title="Edit playlist" onClose={handleClose}>
       <View style={styles.coverRow}>
         <CoverArt
           hue={artwork.hue}
@@ -137,13 +188,13 @@ export function PlaylistEditSheet({
         <View style={styles.coverActions}>
           <Pressable
             onPress={() => void chooseCover()}
-            disabled={picking}
+            disabled={picking || busy}
             accessibilityRole="button"
             accessibilityLabel="Choose cover"
-            accessibilityState={{ disabled: picking, busy: picking }}
+            accessibilityState={{ disabled: picking || busy, busy: picking }}
             style={({ pressed }) => [
               styles.secondary,
-              picking && styles.disabled,
+              (picking || busy) && styles.disabled,
               pressed && styles.pressed,
             ]}
           >
@@ -156,11 +207,11 @@ export function PlaylistEditSheet({
           </Pressable>
           {coverUri !== null ? (
             <Pressable
-              onPress={() => void removeCover()}
-              disabled={picking}
+              onPress={removeCover}
+              disabled={picking || busy}
               accessibilityRole="button"
               accessibilityLabel="Remove cover"
-              accessibilityState={{ disabled: picking }}
+              accessibilityState={{ disabled: picking || busy }}
               style={({ pressed }) => [styles.link, pressed && styles.pressed]}
             >
               <Text style={styles.linkText}>Remove</Text>
@@ -200,13 +251,15 @@ export function PlaylistEditSheet({
 
       <View style={styles.actions}>
         <Pressable
-          onPress={onClose}
+          onPress={handleClose}
           disabled={busy}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
+          accessibilityState={{ disabled: busy }}
           style={({ pressed }) => [
             styles.secondary,
             styles.action,
+            busy && styles.disabled,
             pressed && styles.pressed,
           ]}
         >
@@ -311,7 +364,7 @@ const styles = StyleSheet.create({
   },
   error: {
     ...type.meta,
-    color: '#FF6B6B',
+    color: colors.danger,
   },
   disabled: {
     opacity: 0.4,
