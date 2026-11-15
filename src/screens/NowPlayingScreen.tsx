@@ -19,6 +19,7 @@ import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
 import { coverColors } from '../lib/cover';
 import type { SleepPreset } from '../lib/sleepTimer';
+import { useFavorites } from '../library/FavoritesProvider';
 import { useLyrics } from '../library/useLyrics';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -57,12 +58,14 @@ export function NowPlayingScreen({
     next,
     previous,
   } = usePlayer();
+  const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [slide] = useState(() => new Animated.Value(height));
   const [resetToken, setResetToken] = useState(0);
   const [lyricsMode, setLyricsMode] = useState(false);
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
+  const [likeNote, setLikeNote] = useState<string | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, lyricsMode);
@@ -132,10 +135,18 @@ export function NowPlayingScreen({
 
   if (!track) return null;
 
+  const liked = favoriteIds.has(track.id);
   const gradient = coverColors(track.artworkHue);
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
   const sleepLabel = sleep.mode === 'off' ? 'Sleep timer' : `Sleep timer, ${formatSleepRemaining(sleep.mode, sleep.remainingMs)}`;
+
+  const toggleLike = () => {
+    setLikeNote(null);
+    toggleFavorite(track.id).catch(() => {
+      setLikeNote('Could not update Liked Songs');
+    });
+  };
 
   return (
     <Animated.View
@@ -174,6 +185,23 @@ export function NowPlayingScreen({
                   {formatSleepRemaining(sleep.mode, sleep.remainingMs)}
                 </Text>
               ) : null}
+            </Pressable>
+            <Pressable
+              onPress={toggleLike}
+              accessibilityRole="button"
+              accessibilityLabel={
+                liked
+                  ? `Remove ${track.title} from Liked Songs`
+                  : `Add ${track.title} to Liked Songs`
+              }
+              accessibilityState={{ selected: liked }}
+              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
+            >
+              <Ionicons
+                name={liked ? 'heart' : 'heart-outline'}
+                size={22}
+                color={liked ? colors.accent : colors.textDim}
+              />
             </Pressable>
             <Pressable
               onPress={() => {
@@ -359,6 +387,7 @@ export function NowPlayingScreen({
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
           {lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
+          {likeNote ? <Text style={styles.error}>{likeNote}</Text> : null}
         </View>
       </View>
     </Animated.View>

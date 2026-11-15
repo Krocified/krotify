@@ -67,7 +67,7 @@ export function LikedScreen({ tracks = [], onClose, onPlay, onSelect }: Props) {
           <View style={styles.empty}>
             <Ionicons name="heart-outline" size={34} color={colors.textDim} />
             <Text style={styles.emptyText}>
-              No liked songs yet. Tap the heart on a track or in its action sheet.
+              {`No liked songs yet. Tap the heart in Now Playing or in a track's action sheet.`}
             </Text>
           </View>
         }
