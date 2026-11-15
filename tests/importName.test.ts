@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { importedFileName } from '../src/lib/importName.ts';
+import { extensionForMime, importedFileName } from '../src/lib/importName.ts';
 
 test('importedFileName keeps a normal name', () => {
   assert.equal(importedFileName('Song.mp3', 'track'), 'Song.mp3');
@@ -22,4 +22,20 @@ test('importedFileName strips illegal filename characters', () => {
 test('importedFileName falls back when nothing usable remains', () => {
   assert.equal(importedFileName('', 'track'), 'track');
   assert.equal(importedFileName('   ', 'track'), 'track');
+});
+
+test('adds the MIME extension when the provider name has none', () => {
+  assert.equal(importedFileName('audio:1234', 'track-1.mp3', 'audio/mpeg'), 'audio-1234.mp3');
+});
+
+test('maps common audio MIME types', () => {
+  assert.equal(extensionForMime('audio/mpeg'), 'mp3');
+  assert.equal(extensionForMime('audio/mp4'), 'm4a');
+  assert.equal(extensionForMime('audio/x-flac'), 'flac');
+  assert.equal(extensionForMime('audio/ogg'), 'ogg');
+  assert.equal(extensionForMime('application/octet-stream'), null);
+});
+
+test('keeps a real name and does not double the extension', () => {
+  assert.equal(importedFileName('Song.mp3', 'track.mp3', 'audio/mpeg'), 'Song.mp3');
 });
