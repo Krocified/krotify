@@ -36,6 +36,14 @@ test('maps common audio MIME types', () => {
   assert.equal(extensionForMime('application/octet-stream'), null);
 });
 
+test('maps common image MIME types', () => {
+  assert.equal(extensionForMime('image/png'), 'png');
+  assert.equal(extensionForMime('image/jpeg'), 'jpg');
+  assert.equal(extensionForMime('image/webp'), 'webp');
+  assert.equal(extensionForMime('image/heic'), 'heic');
+  assert.equal(extensionForMime('image/heif'), 'heic');
+});
+
 test('keeps a real name and does not double the extension', () => {
   assert.equal(importedFileName('Song.mp3', 'track.mp3', 'audio/mpeg'), 'Song.mp3');
 });
