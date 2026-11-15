@@ -21,6 +21,11 @@ const MIME_EXTENSIONS: Record<string, string> = {
   'audio/wav': 'wav',
   'audio/x-wav': 'wav',
   'audio/webm': 'webm',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heic',
 };
 
 const ILLEGAL = /[/\\?%*:|"<>]/g;

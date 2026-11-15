@@ -44,10 +44,15 @@ export async function pickPlaylistCover(playlistId: string): Promise<string | nu
   if (!mime.startsWith('image/')) return null;
   if (typeof asset.size === 'number' && asset.size > MAX_ARTWORK_BYTES) return null;
 
+  const source = new File(asset.uri);
+  if (!Number.isFinite(source.size) || source.size <= 0 || source.size > MAX_ARTWORK_BYTES) {
+    return null;
+  }
+
   const extension = extensionForMime(mime) ?? extensionOfName(asset.name) ?? 'jpg';
   const directory = coverDirectory();
   const destination = new File(directory, `${playlistId}.${extension}`);
-  await new File(asset.uri).copy(destination, { overwrite: true });
+  await source.copy(destination, { overwrite: true });
   deleteCoverFiles(directory, playlistId, destination.name);
 
   await updatePlaylistDetails(playlistId, { artworkUri: destination.uri });
