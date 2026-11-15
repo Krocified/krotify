@@ -9,8 +9,9 @@ Source of truth for what gets built. Intent lives in `docs/intent.md`.
 | Framework | React Native via Expo (dev build) | Fast UI iteration; ships an APK |
 | Language | TypeScript | Default for Expo templates |
 | Scan | `expo-media-library` | Reads every device audio file + permissions |
-| Import | `expo-file-system` (`File.pickFileAsync`) | System file picker; no extra dependency |
+| Import | `expo-document-picker` | Real provider filename, MIME and size; `File.pickFileAsync` returns document ids |
 | File ops | `expo-file-system` | Delete, copy imported files |
+| Playlist reorder | `react-native-sortables` with Reanimated 4, Worklets and Gesture Handler | Drag rows with auto-scroll and persisted order |
 | Playback | `expo-audio` (all versions) | Ships background playback + lock-screen/notification controls itself |
 | Metadata/art | `react-native-metadata-retriever` (v2) | ID3 tags + embedded cover art |
 | Persistence | AsyncStorage in v1, `expo-sqlite` in v2 | v1: imported tracks, exclusions. v2: playlists, favorites, history |
@@ -182,13 +183,64 @@ Release packaging:
 Stretch:
 - Android Auto / media browser.
 
-### v4 — Discovery (exploration)
+### v4: Core experience (built)
 
-Research verdicts are recorded in `docs/research/v4-*-memo.md`. Current state:
-Genius **defer** (credentials and restrictive terms), Radio Browser **defer**
-(pending real-device AudioPlaylist playback), Audiometa.io **defer** (account,
-terms and match sample missing). Shuffle stays source-scoped. No v4 source ships
-until its memo is reviewed and its gate is cleared.
+Focus: make the everyday player trustworthy before adding discovery. The scope
+is `docs/superpowers/plans/2026-11-15-v4-core-experience.md`. This section
+records the code that is built; device verification is still open.
+
+Built:
+- Imports use `expo-document-picker` instead of `File.pickFileAsync`, because
+  Android providers return document ids rather than filenames. Each imported
+  file keeps a sanitized real name, gains a MIME-derived extension when the
+  provider omits one, is validated as a non-zero copy, and is reported per file
+  when it fails.
+- Tag writes cover imported files and scanned files through a MediaStore content
+  URI in the local Kotlin module. Every write is explicit, snapshot-backed, and
+  followed by a re-read. A denied or read-only scanned file offers the copy
+  fallback, and the original always stays playable.
+- Back is one resolver: close the sleep panel, edit sheet, liked, playlist
+  detail, playlists index, now playing, settings or search, then return a tab to
+  Library. Exit arms only at the Library root and needs a second press within
+  two seconds.
+- Now Playing has a heart beside the sleep timer, persisted to Liked Songs.
+- Playlists store a description and cover in schema v3. Cover fallback is the
+  picked image, then the first track artwork, then the generated cover from the
+  playlist name. The detail uses a shared collection hero with Play and Shuffle.
+  Drag reorder uses `react-native-sortables` with persisted order and
+  screen-reader Move up and Move down actions.
+- Catalog is removed from the tab bar and routing for now. `CatalogScreen` and
+  `groups.ts` stay on disk for a later redesign. Artwork hydration moved to
+  `src/library/artwork.ts` so Library and Now Playing keep real art without
+  Catalog's viewability callback.
+- Link import is hidden. `LINK_IMPORT_ENABLED` stays false.
+
+Removed or hidden, with reasons:
+- **Catalog:** removed for now. The redesign is not settled, and an unused tab
+  would expose a half-finished surface. The screen and grouping logic are kept
+  for that redesign.
+- **Link import:** hidden until a licensed resolver exists. No resolver is
+  selected, and scraping is rejected, so the app shows no link control rather
+  than a dead one. Only content the user has the rights to download is in scope.
+
+Discovery is gated, not shipped. See
+`docs/superpowers/plans/2026-11-15-v4-gated-expansion.md` and the per-source
+memos in `docs/research/`. No source ships before its gate clears.
+
+Device evidence for this milestone lives in
+`docs/research/v4-device-check.md`. A device row is not a pass until it is run
+on a device with recorded evidence.
+
+### v4: Discovery (gated, not shipped)
+
+Discovery is planned but not shipped. The gated plan
+`docs/superpowers/plans/2026-11-15-v4-gated-expansion.md` holds the gate table
+and task bodies. Research verdicts are recorded in `docs/research/v4-*-memo.md`.
+Current state: Genius **defer** (credentials and restrictive terms), Radio
+Browser **defer** (pending real-device AudioPlaylist playback), Audiometa.io
+**defer** (account, terms and match sample missing). Shuffle stays
+source-scoped. No v4 source ships until its memo is reviewed and its gate is
+cleared.
 
 Sources to evaluate:
 - https://docs.genius.com
@@ -251,21 +303,22 @@ while Settings is open.
   Publishing, flagging and bulk prefetch are out of scope.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
-- **Link importer resolver** (disabled): the resolver is not selected. The Import
-  tab shows a disabled link section with the rights-gate copy. A self-hosted or
-  licensed service is required before this can ship; the client never scrapes
-  YouTube and only content the user has the rights to download is supported.
+- **Link importer resolver** (hidden): the resolver is not selected. The Import
+  tab shows no link control until a self-hosted or licensed service is chosen.
+  The client never scrapes YouTube and only content the user has the rights to
+  download is supported.
 
 ## Screens & flows
 
-**Tabs** — Library, Catalog, Import. Persistent on Settings, hidden on Now
-Playing and Search. A floating blur pill above the system inset; active tab uses a
-filled icon and white label, inactive uses an outline icon and dim label.
-Settings stays in the header.
+**Tabs** — Library and Import. Persistent on Settings, hidden on Now Playing and
+Search. A floating blur pill above the system inset; active tab uses a filled
+icon and white label, inactive uses an outline icon and dim label. Settings stays
+in the header.
 
-**Catalog** — Albums and Artists are one tab with a segmented control. Albums is
-sectioned by artist; Artists is a list. Both keep their detail pages, heroes and
-Search/Settings actions. The phone UI re-enables catalog here in v3.
+**Catalog (removed for now)** — The Albums/Artists tab and its routing are gone.
+`CatalogScreen` and `groups.ts` stay on disk for a later redesign. Artwork
+hydration runs from the library after metadata enrichment so Library and Now
+Playing keep real covers.
 
 **Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
 a Liked Songs row, a playlists rail with create/open actions, optional Recently
@@ -274,24 +327,25 @@ duration; long press opens the in-app action sheet (details, edit, rename,
 exclude, delete, favorite, add to playlist). Scrolling shows a thin blue scrollbar
 from below the header to the mini-player.
 
-**Catalog / Albums** — segmented control; artist section headers; rows with
-cover, album title, and "N tracks · M min". Album detail has a back pill, hero
-(160px cover, title, artist, count), then the track list.
+**Catalog / Albums (unwired)** — kept for the later redesign. Segmented control;
+artist section headers; rows with cover, album title, and "N tracks · M min".
+Album detail has a back pill, hero (160px cover, title, artist, count), then the
+track list.
 
-**Catalog / Artists** — circular covers, artist name, "N albums · M tracks".
-Artist detail mirrors the album detail with a circular hero.
+**Catalog / Artists (unwired)** — kept for the later redesign. Circular covers,
+artist name, "N albums · M tracks". Artist detail mirrors the album detail with
+a circular hero.
 
-**Playlists** — index (create/rename/delete), detail with reorder, and play as
-queue. Entry from Library.
+**Playlists** — index (create, edit, delete) and detail with a hero cover, title,
+description, meta, Play and Shuffle. Rows drag to reorder with auto-scroll, and
+the order persists and matches playback. Entry from Library.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
-**Import** — a dedicated tab, not a Settings row. Local file picker with a
-recent-imports list, progress, empty and error states. A second section is
-reserved for link import: paste a URL, resolve it through a server-side
-converter, fetch metadata and artwork, then save into the app library. Direct
-scraping of YouTube inside the app is out of scope; only content the user has
-the rights to download is supported.
+**Import** — a dedicated tab, not a Settings row. System document picker with a
+recent-imports list, per-file failure reasons, progress, empty and error states.
+Link import is hidden until a licensed resolver exists. The app never scrapes
+YouTube, and only content the user has the rights to download is supported.
 
 **Search** — slide-in overlay with a borderless field (accent cursor) and
 incremental results across title, artist and album.
@@ -302,8 +356,8 @@ play/next centered on play and repeat at the right. Two content modes share the
 screen: **art** (large 1:1 cover, title, artist) and **lyrics** (a smaller cover
 stays visible at the top while the timed lyrics fill the remaining space, active
 line highlighted, lyric lines tappable to seek). The mode toggle sits in the top
-bar or beside the transport. Closing is instant and returns to the screen it was
-opened from.
+bar or beside the transport. A heart beside the sleep timer toggles Liked Songs
+and persists. Closing is instant and returns to the screen it was opened from.
 
 **Mini-player** — floating card inset from the edges, radius 4, 2px inset
 progress line, cover, title, artist, close and play/pause. It stacks above the
@@ -395,7 +449,8 @@ type PlayerState = {
 ```
 
 SQLite tables (`krotify.db`, `PRAGMA user_version` migrations):
-- `playlists`, `playlist_tracks` (gap-numbered positions)
+- `playlists` (name, description, artworkUri), `playlist_tracks` (gap-numbered
+  positions)
 - `favorites`
 - `play_history`
 - `track_metadata` (cached ID3 fields and artwork URI)
@@ -424,8 +479,9 @@ claims.
 - Metadata: ID3 tags via `@missingcore/react-native-metadata-retriever`, cached in
   SQLite; filename titles remain the fallback. Embedded art loads lazily and is
   propagated to every screen that shows the track.
-- Navigation: state-based tabs in `AppShell` (Library, Albums, Artists), not
-  expo-router. Settings and Search are overlays with slide transitions.
+- Navigation: state-based tabs in `AppShell` (Library and Import), not
+  expo-router. Catalog is removed for now. Settings and Search are overlays with
+  slide transitions.
 - Search: incremental, accent-folded, across title/artist/album.
 - History: play history deduped by track, most recent first.
 - Tagless tracks: keep the filename-derived title; never hide a playable file.

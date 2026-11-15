@@ -5,32 +5,45 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-v0 through v3 are built. The app is a local-first player with a real catalog
-and session controls:
+v0 through v4 core are built. The app is a local-first player with a real
+library, session controls and a working ownership flow:
 
 - One `AudioPlaylist` engine: background playback, gapless tracks, notification
   and lock-screen next/previous, and live play/pause state.
-- Library, Catalog (Albums/Artists), and Import tabs with a floating blur pill.
-- Playlists (create, rename, delete, reorder, add/remove, play as queue) and
-  Liked Songs.
-- Shuffle, repeat, a sleep timer with fade-out, and resume of the last track and
-  position after restart.
-- Lyrics from local `.lrc` sidecars or the opt-in LRCLIB lookup, with timed
-  highlight and tap-to-seek.
-- In-app track sheets, details, rename, exclude/delete confirmation, and tag or
-  artwork editing through a local jaudiotagger module.
-- Scan opt-in, hidden-track restore, and the system audio filters (ringtones,
-  notifications, alarms, UI sounds, files under 3s).
+- Library and Import tabs with a floating blur pill. Catalog is removed for
+  now; its screen and grouping logic stay on disk for a later redesign.
+- Imports go through the system document picker, keep the provider's real
+  filename and MIME extension, dedupe by name and size when a size is reported,
+  report each failed file separately, and reject zero-byte copies.
+- Tag editing writes to imported files and to scanned files through a
+  MediaStore content URI. Writes are snapshot-backed and followed by a re-read;
+  a read-only scanned file offers an import-a-copy fallback.
+- Playlists have a name, description, and cover (picked image, then first track
+  artwork, then a generated cover), Play and Shuffle actions, and drag reorder
+  that persists. Screen readers get Move up and Move down actions.
+- A heart in Now Playing sits next to the sleep timer and persists to Liked
+  Songs.
+- Back closes overlays and routes first. The app exits only after a double press
+  at the Library root.
+- Shuffle, repeat, sleep timer with fade-out, resume of the last track and
+  position, lyrics from `.lrc` or LRCLIB, scan opt-in, hidden-track restore, and
+  the system audio filters.
+- Playlist schema v3 migrates an existing install in place.
 
-Not built: v4 discovery is research-only. Genius, Radio Browser, and
+Not shipped: v4 discovery is research-only. Genius, Radio Browser, and
 Audiometa.io are deferred pending credentials, terms, and a real-device radio
-playback gate. Link import ships visibly disabled until a resolver is chosen.
+playback gate. Link import is hidden until a licensed resolver exists; the app
+does not scrape YouTube and only supports content the user has the rights to
+download. Device verification for v4 is recorded in
+`docs/research/v4-device-check.md`.
 
 ## Stack
 
 Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
-`expo-media-library`, `expo-sqlite`, `expo-file-system`, `expo-blur`,
-`@missingcore/react-native-metadata-retriever`, Ionicons, and a local Kotlin
+`expo-document-picker`, `expo-media-library`, `expo-sqlite`, `expo-file-system`,
+`expo-blur`, `@missingcore/react-native-metadata-retriever`, Ionicons,
+`react-native-sortables` with `react-native-reanimated`,
+`react-native-worklets`, and `react-native-gesture-handler`, plus a local Kotlin
 Expo module backed by jaudiotagger.
 
 ## Run it
@@ -87,8 +100,8 @@ debug keystore, which is installable but not upgrade-stable across runners.
 - `docs/spec.md`: behaviour, design tokens, milestones, v4 verdicts
 - `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans and release
   workflow plan
-- `docs/research/`: v4 API memos, link-import decision, batch edit and Android
-  Auto research
+- `docs/research/`: v4 API memos, link-import decision, batch edit, Android Auto
+  research, and the v4 device check matrix
 
 ## Layout
 
@@ -98,8 +111,8 @@ src/
   player/             AudioPlaylist engine and player provider
   library/            scan, metadata, imports, exclusions, lyrics, tag writer
   db/                 SQLite schema, migrations and repository
-  screens/            Library, Catalog, Import, Search, Now Playing, Settings,
-                      Playlists, Liked, Edit Track
+  screens/            Library, Import, Search, Now Playing, Settings, Playlists,
+                      Liked, Edit Track (CatalogScreen kept but unwired)
   components/         headers, tabs, cover art, rows, sheets, mini-player
   lib/                queue, shuffle, sleep, lyrics parser, groups, search (tested)
 modules/audio-tags/   local Expo module: jaudiotagger read/write
