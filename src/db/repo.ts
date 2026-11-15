@@ -1,5 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { mergeCachedMetadata } from './cachedMetadata';
 import { getDb } from './index';
+
+export { mergeCachedMetadata };
 
 export type Playlist = {
   id: string;
@@ -323,21 +326,22 @@ export async function getCachedMetadata(id: string): Promise<CachedMetadata | nu
 export async function putCachedMetadata(id: string, meta: CachedMetadata): Promise<void> {
   const db = await getDb();
   if (!db) return;
+  const merged = mergeCachedMetadata(await getCachedMetadata(id), meta);
   await db.runAsync(
     `INSERT OR REPLACE INTO track_metadata
        (id, title, artist, album, albumArtist, year, trackNumber, discNumber, genre, artworkUri, explicit)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
-    meta.title ?? null,
-    meta.artist ?? null,
-    meta.album ?? null,
-    meta.albumArtist ?? null,
-    meta.year ?? null,
-    meta.trackNumber ?? null,
-    meta.discNumber ?? null,
-    meta.genre ?? null,
-    meta.artworkUri ?? null,
-    meta.explicit === undefined ? null : meta.explicit ? 1 : 0,
+    merged.title ?? null,
+    merged.artist ?? null,
+    merged.album ?? null,
+    merged.albumArtist ?? null,
+    merged.year ?? null,
+    merged.trackNumber ?? null,
+    merged.discNumber ?? null,
+    merged.genre ?? null,
+    merged.artworkUri ?? null,
+    merged.explicit === undefined ? null : merged.explicit ? 1 : 0,
   );
 }
 
