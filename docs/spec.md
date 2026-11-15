@@ -310,12 +310,12 @@ while Settings is open.
 
 ## Screens & flows
 
-**Tabs** — Library and Import. Persistent on Settings, hidden on Now Playing and
+**Tabs**: Library and Import. Persistent on Settings, hidden on Now Playing and
 Search. A floating blur pill above the system inset; active tab uses a filled
 icon and white label, inactive uses an outline icon and dim label. Settings stays
 in the header.
 
-**Catalog (removed for now)** — The Albums/Artists tab and its routing are gone.
+**Catalog (removed for now)**: The Albums/Artists tab and its routing are gone.
 `CatalogScreen` and `groups.ts` stay on disk for a later redesign. Artwork
 hydration runs from the library after metadata enrichment so Library and Now
 Playing keep real covers.
@@ -327,22 +327,22 @@ duration; long press opens the in-app action sheet (details, edit, rename,
 exclude, delete, favorite, add to playlist). Scrolling shows a thin blue scrollbar
 from below the header to the mini-player.
 
-**Catalog / Albums (unwired)** — kept for the later redesign. Segmented control;
+**Catalog / Albums (unwired)**: kept for the later redesign. Segmented control;
 artist section headers; rows with cover, album title, and "N tracks · M min".
 Album detail has a back pill, hero (160px cover, title, artist, count), then the
 track list.
 
-**Catalog / Artists (unwired)** — kept for the later redesign. Circular covers,
+**Catalog / Artists (unwired)**: kept for the later redesign. Circular covers,
 artist name, "N albums · M tracks". Artist detail mirrors the album detail with
 a circular hero.
 
-**Playlists** — index (create, edit, delete) and detail with a hero cover, title,
+**Playlists**: index (create, edit, delete) and detail with a hero cover, title,
 description, meta, Play and Shuffle. Rows drag to reorder with auto-scroll, and
 the order persists and matches playback. Entry from Library.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
-**Import** — a dedicated tab, not a Settings row. System document picker with a
+**Import**: a dedicated tab, not a Settings row. System document picker with a
 recent-imports list, per-file failure reasons, progress, empty and error states.
 Link import is hidden until a licensed resolver exists. The app never scrapes
 YouTube, and only content the user has the rights to download is supported.

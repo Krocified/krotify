@@ -18,9 +18,10 @@ library, session controls and a working ownership flow:
 - Tag editing writes to imported files and to scanned files through a
   MediaStore content URI. Writes are snapshot-backed and followed by a re-read;
   a read-only scanned file offers an import-a-copy fallback.
-- Playlists have a name, description, and cover (picked image, then first track
-  artwork, then a generated cover), Play and Shuffle actions, and drag reorder
-  that persists. Screen readers get Move up and Move down actions.
+- Playlists have a name, description, and cover. A picked cover appears on the
+  playlist index, the Library rail, and the detail hero. The detail falls back
+  to the first track artwork, then a generated cover. Play and Shuffle actions
+  and drag reorder persist. Screen readers get Move up and Move down actions.
 - A heart in Now Playing sits next to the sleep timer and persists to Liked
   Songs.
 - Back closes overlays and routes first. The app exits only after a double press
