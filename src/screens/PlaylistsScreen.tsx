@@ -1,8 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Sortable from 'react-native-sortables';
 import { CollectionHeader } from '../components/CollectionHeader';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
@@ -22,10 +23,12 @@ import {
   listPlaylistTracks,
   listPlaylists,
   removePlaylistTrack,
+  reorderPlaylistTracks,
   type Playlist,
 } from '../db/repo';
 import { formatDuration } from '../lib/format';
 import { hueFromSeed } from '../lib/hash';
+import { moveId } from '../lib/playlistOrder';
 import { playlistArtwork } from '../lib/playlistView';
 import { shuffleOrder } from '../lib/shuffle';
 import { colors, radius, space, type } from '../theme';
@@ -40,6 +43,12 @@ type Props = {
   onOpenPlaylist?: (id: string | null) => void;
   onPlaylistsChanged?: () => void;
 };
+
+function applyVisibleOrder(current: string[], visibleOrder: string[]): string[] {
+  const visible = new Set(visibleOrder);
+  let cursor = 0;
+  return current.map((id) => (visible.has(id) ? visibleOrder[cursor++] : id));
+}
 
 export function PlaylistsScreen({
   tracks = [],
@@ -65,8 +74,17 @@ export function PlaylistsScreen({
   const [message, setMessage] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Playlist | null>(null);
 
+  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  const reorderQueue = useRef<Promise<void>>(Promise.resolve());
+  const reorderSeq = useRef(0);
+
   const selectedId = playlistId === undefined ? localSelectedId : playlistId;
   const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedId) ?? null;
+  const selectedIdRef = useRef(selectedId);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const byId = useMemo(() => new Map(tracks.map((track) => [track.id, track])), [tracks]);
   const queue = useMemo(
@@ -195,6 +213,41 @@ export function PlaylistsScreen({
     }
   }
 
+  function persistOrder(ids: string[]) {
+    if (!selectedId) return;
+    const playlistId = selectedId;
+    const seq = (reorderSeq.current += 1);
+    // Serialize writes so rapid drops cannot open overlapping transactions.
+    reorderQueue.current = reorderQueue.current
+      .then(() => reorderPlaylistTracks(playlistId, ids))
+      .catch(async () => {
+        if (seq !== reorderSeq.current || selectedIdRef.current !== playlistId) return;
+        setMessage('Could not reorder the playlist.');
+        try {
+          const stored = await listPlaylistTracks(playlistId);
+          if (selectedIdRef.current === playlistId) setTrackIds(stored);
+        } catch {}
+      });
+  }
+
+  function applyOrder(visibleIds: string[]) {
+    const next = applyVisibleOrder(trackIds, visibleIds);
+    const changed =
+      next.length !== trackIds.length ||
+      next.some((id, index) => id !== trackIds[index]);
+    if (!changed) return;
+    setTrackIds(next);
+    persistOrder(next);
+  }
+
+  function moveTrack(trackId: string, direction: -1 | 1) {
+    const visible = queue.map((track) => track.id);
+    const from = visible.indexOf(trackId);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= visible.length) return;
+    applyOrder(moveId(visible, from, to));
+  }
+
   function renderIndex() {
     return (
       <View style={styles.flex}>
@@ -309,47 +362,37 @@ export function PlaylistsScreen({
           leading={<BackPill onPress={closeDetail} label="Back to playlists" />}
           title={name}
         />
-        <FlatList
-          data={queue}
-          keyExtractor={(track) => track.id}
-          ListHeaderComponent={
-            <View style={styles.detailTop}>
-              <CollectionHeader
-                title={name}
-                description={selectedPlaylist?.description}
-                meta={meta}
-                artworkUri={artwork.uri}
-                fallbackHue={artwork.hue}
-                onPlay={playAll}
-                onShuffle={shuffleAll}
-                onEdit={
-                  selectedPlaylist
-                    ? () => startEdit(selectedPlaylist, queue)
-                    : undefined
-                }
-                disabled={queue.length === 0}
-              />
-              {message ? (
-                <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
-              ) : null}
-              {missing > 0 ? (
-                <Text style={[styles.message, styles.detailMessage]}>
-                  {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
-                </Text>
-              ) : null}
-            </View>
-          }
-          renderItem={({ item }) => (
-            <PlaylistTrackRow
-              track={item}
-              busy={busyTrackId === item.id}
-              onPlay={() => (onSelect ? onSelect(item, queue) : onPlay(queue))}
-              onRemove={() => void remove(item.id)}
-            />
-          )}
+        <Animated.ScrollView
+          ref={scrollableRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
-          ListEmptyComponent={
+        >
+          <View style={styles.detailTop}>
+            <CollectionHeader
+              title={name}
+              description={selectedPlaylist?.description}
+              meta={meta}
+              artworkUri={artwork.uri}
+              fallbackHue={artwork.hue}
+              onPlay={playAll}
+              onShuffle={shuffleAll}
+              onEdit={
+                selectedPlaylist
+                  ? () => startEdit(selectedPlaylist, queue)
+                  : undefined
+              }
+              disabled={queue.length === 0}
+            />
+            {message ? (
+              <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
+            ) : null}
+            {missing > 0 ? (
+              <Text style={[styles.message, styles.detailMessage]}>
+                {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
+              </Text>
+            ) : null}
+          </View>
+          {queue.length === 0 ? (
             <View style={styles.detailEmpty}>
               <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
               <Text style={styles.emptyTitle}>No songs yet</Text>
@@ -357,8 +400,28 @@ export function PlaylistsScreen({
                 {"Add tracks from a song's action sheet to build this playlist."}
               </Text>
             </View>
-          }
-        />
+          ) : (
+            <Sortable.Grid
+              columns={1}
+              rowGap={0}
+              data={queue}
+              keyExtractor={(track) => track.id}
+              dragActivationDelay={300}
+              customHandle
+              scrollableRef={scrollableRef}
+              onDragEnd={({ data }) => applyOrder(data.map((track) => track.id))}
+              renderItem={({ item }) => (
+                <PlaylistTrackRow
+                  track={item}
+                  busy={busyTrackId === item.id}
+                  onPlay={() => (onSelect ? onSelect(item, queue) : onPlay(queue))}
+                  onRemove={() => void remove(item.id)}
+                  onMove={(direction) => moveTrack(item.id, direction)}
+                />
+              )}
+            />
+          )}
+        </Animated.ScrollView>
       </View>
     );
   }
@@ -395,15 +458,24 @@ type RowProps = {
   busy: boolean;
   onPlay: () => void;
   onRemove: () => void;
+  onMove: (direction: -1 | 1) => void;
 };
 
-function PlaylistTrackRow({ track, busy, onPlay, onRemove }: RowProps) {
+function PlaylistTrackRow({ track, busy, onPlay, onRemove, onMove }: RowProps) {
   return (
     <View style={styles.trackRow}>
       <Pressable
         onPress={onPlay}
         accessibilityRole="button"
         accessibilityLabel={`Play ${track.title}`}
+        accessibilityActions={[
+          { name: 'increment', label: 'Move up' },
+          { name: 'decrement', label: 'Move down' },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment') onMove(-1);
+          else if (event.nativeEvent.actionName === 'decrement') onMove(1);
+        }}
         style={({ pressed }) => [styles.trackMain, pressed && styles.trackPressed]}
       >
         <CoverArt
@@ -425,6 +497,15 @@ function PlaylistTrackRow({ track, busy, onPlay, onRemove }: RowProps) {
         </View>
       </Pressable>
       <Text style={styles.duration}>{formatDuration(track.durationMs)}</Text>
+      <Sortable.Handle style={styles.handle}>
+        <View
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+        >
+          <Ionicons name="reorder-three-outline" size={22} color={colors.textDim} />
+        </View>
+      </Sortable.Handle>
       <View style={styles.removeSlot}>
         {busy ? (
           <ActivityIndicator color={colors.accent} />
@@ -587,7 +668,13 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
     fontVariant: ['tabular-nums'],
-    marginHorizontal: space.sm,
+    marginLeft: space.sm,
+  },
+  handle: {
+    width: 44,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   removeSlot: {
     width: 44,
