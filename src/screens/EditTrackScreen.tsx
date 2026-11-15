@@ -137,6 +137,10 @@ function errorMessage(error: unknown): string {
         return error.message;
       case 'CACHE_FAILED':
         return error.message;
+      case 'WRITE_FAILED':
+        return error.message;
+      case 'RESTORE_FAILED':
+        return error.message;
       case 'FILE_NOT_FOUND':
         return 'The audio file is no longer available.';
       default:
