@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CollectionHeader } from '../components/CollectionHeader';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
@@ -19,11 +20,14 @@ import {
   deletePlaylist,
   listPlaylistTracks,
   listPlaylists,
-  movePlaylistTrack,
   removePlaylistTrack,
   renamePlaylist,
   type Playlist,
 } from '../db/repo';
+import { formatDuration } from '../lib/format';
+import { hueFromSeed } from '../lib/hash';
+import { playlistArtwork } from '../lib/playlistView';
+import { shuffleOrder } from '../lib/shuffle';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -68,14 +72,6 @@ export function PlaylistsScreen({
         .filter((track): track is Track => track !== undefined),
     [byId, trackIds],
   );
-
-  const loadTracks = useCallback(async (id: string) => {
-    try {
-      setTrackIds(await listPlaylistTracks(id));
-    } catch {
-      setMessage('Could not load this playlist.');
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,19 +170,6 @@ export function PlaylistsScreen({
       if (selectedId === playlist.id) closeDetail();
     } catch {
       setMessage('Could not delete the playlist.');
-    }
-  }
-
-  async function move(trackId: string, direction: 'up' | 'down') {
-    if (!selectedId || busyTrackId) return;
-    setBusyTrackId(trackId);
-    try {
-      await movePlaylistTrack(selectedId, trackId, direction);
-      await loadTracks(selectedId);
-    } catch {
-      setMessage('Could not reorder the playlist.');
-    } finally {
-      setBusyTrackId(null);
     }
   }
 
@@ -329,6 +312,19 @@ export function PlaylistsScreen({
   function renderDetail() {
     const name = selectedPlaylist?.name ?? 'Playlist';
     const missing = trackIds.length - queue.length;
+    const totalMs = queue.reduce((sum, track) => sum + (track.durationMs || 0), 0);
+    const meta = `${queue.length} ${queue.length === 1 ? 'song' : 'songs'} · ${formatDuration(totalMs)}`;
+    const artwork = selectedPlaylist
+      ? playlistArtwork(selectedPlaylist, queue)
+      : { hue: hueFromSeed(name) };
+
+    function playAll() {
+      if (queue.length > 0) onPlay(queue);
+    }
+
+    function shuffleAll() {
+      if (queue.length > 0) onPlay(shuffleOrder(queue, -1, Math.random).order);
+    }
 
     return (
       <View style={styles.flex}>
@@ -340,49 +336,44 @@ export function PlaylistsScreen({
           data={queue}
           keyExtractor={(track) => track.id}
           ListHeaderComponent={
-            <View style={styles.detailHeader}>
-              {message ? <Text style={styles.message}>{message}</Text> : null}
+            <View style={styles.detailTop}>
+              <CollectionHeader
+                title={name}
+                description={selectedPlaylist?.description}
+                meta={meta}
+                artworkUri={artwork.uri}
+                fallbackHue={artwork.hue}
+                onPlay={playAll}
+                onShuffle={shuffleAll}
+                disabled={queue.length === 0}
+              />
+              {message ? (
+                <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
+              ) : null}
               {missing > 0 ? (
-                <Text style={styles.message}>
+                <Text style={[styles.message, styles.detailMessage]}>
                   {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
                 </Text>
               ) : null}
-              <Pressable
-                onPress={() => onPlay(queue)}
-                disabled={queue.length === 0}
-                accessibilityRole="button"
-                accessibilityLabel={`Play ${name}`}
-                accessibilityState={{ disabled: queue.length === 0 }}
-                style={({ pressed }) => [
-                  styles.playAll,
-                  queue.length === 0 && styles.disabled,
-                  pressed && queue.length > 0 && styles.pressed,
-                ]}
-              >
-                <Ionicons name="play" size={18} color={colors.text} />
-                <Text style={styles.playAllText}>Play playlist</Text>
-              </Pressable>
             </View>
           }
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <PlaylistTrackRow
               track={item}
-              canMoveUp={index > 0}
-              canMoveDown={index < queue.length - 1}
               busy={busyTrackId === item.id}
-              onPlay={() =>
-                onSelect ? onSelect(item, queue) : onPlay(queue)
-              }
-              onMoveUp={() => void move(item.id, 'up')}
-              onMoveDown={() => void move(item.id, 'down')}
+              onPlay={() => (onSelect ? onSelect(item, queue) : onPlay(queue))}
               onRemove={() => void remove(item.id)}
             />
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>This playlist is empty.</Text>
+            <View style={styles.detailEmpty}>
+              <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
+              <Text style={styles.emptyTitle}>No songs yet</Text>
+              <Text style={styles.emptyText}>
+                {"Add tracks from a song's action sheet to build this playlist."}
+              </Text>
             </View>
           }
         />
@@ -412,37 +403,24 @@ export function PlaylistsScreen({
 
 type RowProps = {
   track: Track;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
   busy: boolean;
   onPlay: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onRemove: () => void;
 };
 
-function PlaylistTrackRow({
-  track,
-  canMoveUp,
-  canMoveDown,
-  busy,
-  onPlay,
-  onMoveUp,
-  onMoveDown,
-  onRemove,
-}: RowProps) {
+function PlaylistTrackRow({ track, busy, onPlay, onRemove }: RowProps) {
   return (
     <View style={styles.trackRow}>
       <Pressable
         onPress={onPlay}
         accessibilityRole="button"
         accessibilityLabel={`Play ${track.title}`}
-        style={({ pressed }) => [styles.trackMain, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.trackMain, pressed && styles.trackPressed]}
       >
         <CoverArt
           hue={track.artworkHue}
           title={track.title}
-          size={44}
+          size={48}
           radius={4}
           uri={track.artworkUri}
         />
@@ -457,38 +435,11 @@ function PlaylistTrackRow({
           ) : null}
         </View>
       </Pressable>
-      {busy ? (
-        <ActivityIndicator color={colors.accent} />
-      ) : (
-        <>
-          <Pressable
-            onPress={onMoveUp}
-            disabled={!canMoveUp}
-            accessibilityRole="button"
-            accessibilityLabel={`Move ${track.title} up`}
-            accessibilityState={{ disabled: !canMoveUp }}
-            style={({ pressed }) => [
-              styles.iconButton,
-              !canMoveUp && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name="chevron-up" size={20} color={colors.textDim} />
-          </Pressable>
-          <Pressable
-            onPress={onMoveDown}
-            disabled={!canMoveDown}
-            accessibilityRole="button"
-            accessibilityLabel={`Move ${track.title} down`}
-            accessibilityState={{ disabled: !canMoveDown }}
-            style={({ pressed }) => [
-              styles.iconButton,
-              !canMoveDown && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name="chevron-down" size={20} color={colors.textDim} />
-          </Pressable>
+      <Text style={styles.duration}>{formatDuration(track.durationMs)}</Text>
+      <View style={styles.removeSlot}>
+        {busy ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : (
           <Pressable
             onPress={onRemove}
             accessibilityRole="button"
@@ -497,8 +448,8 @@ function PlaylistTrackRow({
           >
             <Ionicons name="close" size={20} color={colors.textDim} />
           </Pressable>
-        </>
-      )}
+        )}
+      </View>
     </View>
   );
 }
@@ -551,6 +502,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
     paddingTop: space.xl,
   },
+  detailEmpty: {
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.xl,
+    paddingTop: space.xl * 2,
+  },
+  emptyTitle: {
+    ...type.body,
+    color: colors.text,
+  },
   emptyText: {
     ...type.meta,
     color: colors.textDim,
@@ -600,39 +561,30 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
   },
-  detailHeader: {
+  detailTop: {
+    paddingBottom: space.sm,
+    gap: space.sm,
+  },
+  detailMessage: {
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    gap: space.sm,
-  },
-  playAll: {
-    alignSelf: 'flex-start',
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.lg,
-    borderRadius: 21,
-    backgroundColor: colors.accent,
-  },
-  playAllText: {
-    ...type.body,
-    color: colors.text,
   },
   trackRow: {
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: space.xs,
+    paddingLeft: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ffffff10',
   },
   trackMain: {
     flex: 1,
+    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+  },
+  trackPressed: {
+    opacity: 0.75,
   },
   trackText: {
     flex: 1,
@@ -645,5 +597,17 @@ const styles = StyleSheet.create({
   trackMeta: {
     ...type.meta,
     color: colors.textDim,
+  },
+  duration: {
+    ...type.meta,
+    color: colors.textDim,
+    fontVariant: ['tabular-nums'],
+    marginHorizontal: space.sm,
+  },
+  removeSlot: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
