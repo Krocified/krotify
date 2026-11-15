@@ -61,6 +61,12 @@ function nativeError(code: string | undefined, message: string): Error {
   return error;
 }
 
+function nativeErrorWithCause(code: string | undefined, message: string, cause: string): Error {
+  const error = new Error(message, { cause: new Error(cause) }) as Error & { code?: string };
+  if (code) error.code = code;
+  return error;
+}
+
 function isTagWriteError(code: string) {
   return (error: unknown): boolean =>
     error instanceof TagWriteError && error.code === code;
@@ -152,6 +158,50 @@ test('native error codes such as NO_WRITE_ACCESS are preserved', async () => {
     assert.equal(error instanceof TagWriteError, true);
     if (!(error instanceof TagWriteError)) return false;
     assert.equal(error.code, 'NO_WRITE_ACCESS');
+    return true;
+  });
+});
+
+test('the native cause is appended to the surfaced write failure', async () => {
+  const { deps } = makeDeps({
+    async writeTags() {
+      throw nativeErrorWithCause(
+        'WRITE_FAILED',
+        'Could not write tags to file:///x',
+        'bad frame',
+      );
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(applyTagEdit(track, { title: 'New' }), (error) => {
+    assert.equal(error instanceof TagWriteError, true);
+    if (!(error instanceof TagWriteError)) return false;
+    assert.equal(error.code, 'WRITE_FAILED');
+    assert.match(error.message, /Could not write tags/);
+    assert.match(error.message, /bad frame/);
+    return true;
+  });
+});
+
+test('NO_WRITE_ACCESS keeps its code when a native cause is present', async () => {
+  const { deps } = makeDeps({
+    async writeTags() {
+      throw nativeErrorWithCause(
+        'NO_WRITE_ACCESS',
+        'Could not write tags to file:///x',
+        'EACCES',
+      );
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(applyTagEdit(track, { title: 'New' }), (error) => {
+    assert.equal(error instanceof TagWriteError, true);
+    if (!(error instanceof TagWriteError)) return false;
+    assert.equal(error.code, 'NO_WRITE_ACCESS');
+    assert.notEqual(error.code, 'WRITE_FAILED');
+    assert.match(error.message, /EACCES/);
     return true;
   });
 });

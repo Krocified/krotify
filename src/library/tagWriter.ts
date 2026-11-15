@@ -52,6 +52,13 @@ function messageOf(error: unknown): string {
   return typeof candidate?.message === 'string' ? candidate.message : String(error);
 }
 
+function causeMessageOf(error: unknown): string | null {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  if (cause === undefined || cause === null) return null;
+  const message = messageOf(cause).trim();
+  return message.length > 0 ? message : null;
+}
+
 function toTagWriteError(error: unknown): TagWriteError {
   if (error instanceof TagWriteError) return error;
   const candidate = error as { code?: unknown } | null;
@@ -59,7 +66,11 @@ function toTagWriteError(error: unknown): TagWriteError {
   const code = NATIVE_CODES.has(nativeCode as TagWriteErrorCode)
     ? (nativeCode as TagWriteErrorCode)
     : 'WRITE_FAILED';
-  return new TagWriteError(code, messageOf(error), error);
+  const message = messageOf(error);
+  const causeMessage = causeMessageOf(error);
+  const detail =
+    causeMessage && !message.includes(causeMessage) ? `${message}: ${causeMessage}` : message;
+  return new TagWriteError(code, detail, error);
 }
 
 async function loadNative() {
