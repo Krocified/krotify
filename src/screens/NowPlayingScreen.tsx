@@ -26,13 +26,18 @@ import { colors, radius, space, type } from '../theme';
 type Props = {
   onClose: () => void;
   registerClose?: (close: (() => void) | null) => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 const SLIDE_MS = 300;
 const CROSSFADE_MS = 200;
 const LYRICS_COVER_SIZE = 180;
 
-export function NowPlayingScreen({ onClose, registerClose }: Props) {
+export function NowPlayingScreen({
+  onClose,
+  registerClose,
+  registerBackInterceptor,
+}: Props) {
   const {
     track,
     isPlaying,
@@ -97,6 +102,19 @@ export function NowPlayingScreen({ onClose, registerClose }: Props) {
     registerClose?.(close);
     return () => registerClose?.(null);
   }, [close, registerClose]);
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    if (!sleepOpen) {
+      registerBackInterceptor(null);
+      return;
+    }
+    registerBackInterceptor(() => {
+      setSleepOpen(false);
+      return true;
+    });
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, sleepOpen]);
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {

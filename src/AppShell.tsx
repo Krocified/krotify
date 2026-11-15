@@ -16,6 +16,7 @@ import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
 import { Sheet } from './components/Sheet';
 import { TabBar, type TabName } from './components/TabBar';
+import { Toast } from './components/Toast';
 import {
   PlaylistPickerSheet,
   TrackActionsSheet,
@@ -39,6 +40,7 @@ import {
 } from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
+import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
 import { enrichTracks } from './library/metadata';
@@ -59,6 +61,7 @@ import { colors, radius, space, type } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 const RESUME_KEY = 'krotify.resume.v1';
+const EXIT_WINDOW_MS = 2000;
 
 type EditTarget = { track: Track; mode: EditTrackMode };
 
@@ -97,9 +100,18 @@ export function AppShell() {
   const [excludeAllConfirm, setExcludeAllConfirm] = useState(false);
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [exitHint, setExitHint] = useState(false);
   const assetsRef = useRef(new Map<string, Asset>());
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
+  const backInterceptorRef = useRef<(() => boolean) | null>(null);
+  const exitArmedRef = useRef<number | null>(null);
+  const screenRef = useRef<ScreenName>('library');
+  const tabRef = useRef<TabName>('library');
+  const editOpenRef = useRef(false);
+  const likedOpenRef = useRef(false);
+  const playlistsOpenRef = useRef(false);
+  const openPlaylistIdRef = useRef<string | null>(null);
   const returnScreenRef = useRef<ScreenName>('library');
   const settingsReturnRef = useRef<ScreenName>('library');
   const searchReturnRef = useRef<ScreenName>('library');
@@ -110,6 +122,12 @@ export function AppShell() {
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
+  const registerBackInterceptor = useCallback(
+    (handler: (() => boolean) | null) => {
+      backInterceptorRef.current = handler;
+    },
+    [],
+  );
 
   const excludedIds = useMemo(() => new Set(excluded.map((track) => track.id)), [excluded]);
   const tracks = useMemo(
@@ -282,41 +300,75 @@ export function AppShell() {
   }, [scanEnabled, scanId, scanPrefLoaded]);
 
   useEffect(() => {
+    screenRef.current = screen;
+    tabRef.current = tab;
+    editOpenRef.current = editTarget !== null;
+    likedOpenRef.current = likedOpen;
+    playlistsOpenRef.current = playlistsOpen;
+    openPlaylistIdRef.current = openPlaylistId;
+  }, [editTarget, likedOpen, openPlaylistId, playlistsOpen, screen, tab]);
+
+  useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (editTarget) {
-        setEditTarget(null);
+      if (backInterceptorRef.current?.()) {
+        exitArmedRef.current = null;
         return true;
       }
-      if (playlistsOpen) {
-        if (openPlaylistId) setOpenPlaylistId(null);
-        else {
+      const action = resolveBack({
+        sleepOpen: false,
+        editOpen: editOpenRef.current,
+        likedOpen: likedOpenRef.current,
+        playlistsOpen: playlistsOpenRef.current,
+        openPlaylistId: openPlaylistIdRef.current,
+        screen: screenRef.current,
+        tab: tabRef.current,
+      });
+      if (action !== 'arm-exit') exitArmedRef.current = null;
+      switch (action) {
+        case 'close-sleep':
+          return true;
+        case 'close-edit':
+          setEditTarget(null);
+          return true;
+        case 'close-liked':
+          setLikedOpen(false);
+          return true;
+        case 'close-playlist-detail':
+          setOpenPlaylistId(null);
+          return true;
+        case 'close-playlists':
           setPlaylistsOpen(false);
           refreshPlaylists();
+          return true;
+        case 'close-now-playing':
+          if (closeNowPlayingRef.current) closeNowPlayingRef.current();
+          else setScreen(returnScreenRef.current);
+          return true;
+        case 'close-settings':
+          setScreen(settingsReturnRef.current);
+          return true;
+        case 'close-search':
+          setScreen(searchReturnRef.current);
+          return true;
+        case 'tab-to-library':
+          setTab('library');
+          setScreen('library');
+          return true;
+        case 'arm-exit': {
+          const now = Date.now();
+          if (exitArmedRef.current !== null && now - exitArmedRef.current <= EXIT_WINDOW_MS) {
+            BackHandler.exitApp();
+            return true;
+          }
+          exitArmedRef.current = now;
+          setExitHint(true);
+          return true;
         }
-        return true;
       }
-      if (likedOpen) {
-        setLikedOpen(false);
-        return true;
-      }
-      if (screen === 'nowPlaying') {
-        if (closeNowPlayingRef.current) closeNowPlayingRef.current();
-        else setScreen(returnScreenRef.current);
-        return true;
-      }
-      if (screen === 'settings') {
-        setScreen(settingsReturnRef.current);
-        return true;
-      }
-      if (screen === 'search') {
-        setScreen(searchReturnRef.current);
-        return true;
-      }
-      return false;
     });
     return () => sub.remove();
-  }, [editTarget, likedOpen, openPlaylistId, playlistsOpen, refreshPlaylists, screen, tab]);
+  }, [refreshPlaylists]);
 
   useEffect(() => {
     if (screen === 'library') refreshRecent();
@@ -673,6 +725,7 @@ export function AppShell() {
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
           registerClose={registerClose}
+          registerBackInterceptor={registerBackInterceptor}
         />
       ) : null}
       <SearchScreen
@@ -823,6 +876,11 @@ export function AppShell() {
           </Pressable>
         </View>
       </Sheet>
+      <Toast
+        visible={exitHint}
+        message="Press back again to exit"
+        onHidden={() => setExitHint(false)}
+      />
     </View>
   );
 }
