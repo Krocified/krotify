@@ -777,6 +777,7 @@ export function AppShell() {
             playlistId={openPlaylistId}
             onOpenPlaylist={setOpenPlaylistId}
             onClose={closePlaylists}
+            onPlaylistsChanged={refreshPlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
           />

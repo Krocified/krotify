@@ -7,6 +7,7 @@ export const colors = {
   accent: '#215BED',
   accent2: '#6E9BFF',
   accentBright: '#3D74FF',
+  danger: '#FF6B6B',
 } as const;
 
 export const radius = { cover: 4, coverLarge: 8, screen: 16 } as const;
