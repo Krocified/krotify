@@ -12,6 +12,7 @@ export type TagWriteErrorCode =
   | 'WRITE_FAILED'
   | 'INVALID_ARTWORK'
   | 'NO_WRITE_ACCESS'
+  | 'RESTORE_FAILED'
   | 'CACHE_FAILED';
 
 const NATIVE_CODES = new Set<TagWriteErrorCode>([
@@ -133,8 +134,24 @@ export function createTagWriter(deps: TagEditDeps) {
     try {
       written = await deps.writeTags(track.uri, fields, artwork?.artworkUri);
     } catch (error) {
+      const writeError = toTagWriteError(error);
+      if (writeError.code !== 'WRITE_FAILED') {
+        await deps.discardSnapshot(snapshotPath).catch(() => {});
+        throw writeError;
+      }
+      try {
+        await deps.restoreFile(track.uri, snapshotPath);
+      } catch (restoreError) {
+        throw new TagWriteError(
+          'RESTORE_FAILED',
+          `Could not write tags and could not restore the original file: ${messageOf(
+            restoreError,
+          )}. Snapshot retained at ${snapshotPath}.`,
+          restoreError,
+        );
+      }
       await deps.discardSnapshot(snapshotPath).catch(() => {});
-      throw toTagWriteError(error);
+      throw writeError;
     }
 
     const artworkCache = artwork ? { artworkUri: artwork.artworkUri } : undefined;

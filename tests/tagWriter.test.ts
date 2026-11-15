@@ -206,6 +206,57 @@ test('NO_WRITE_ACCESS keeps its code when a native cause is present', async () =
   });
 });
 
+test('a write failure restores the original file before discarding the snapshot', async () => {
+  const { deps, calls } = makeDeps({
+    async writeTags() {
+      throw nativeErrorWithCause('WRITE_FAILED', 'Could not write tags', 'bad frame');
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(applyTagEdit(track, { title: 'New' }), isTagWriteError('WRITE_FAILED'));
+  assert.deepEqual(calls.restore, [{ uri: track.uri, snapshotPath: '/cache/snapshot.mp3' }]);
+  assert.deepEqual(calls.discard, ['/cache/snapshot.mp3']);
+});
+
+test('a failed restore after a write failure keeps the snapshot and reports it', async () => {
+  const { deps, calls } = makeDeps({
+    async writeTags() {
+      throw nativeError('WRITE_FAILED', 'Could not write tags');
+    },
+    async restoreFile(uri, snapshotPath) {
+      calls.restore.push({ uri, snapshotPath });
+      throw nativeError('NO_WRITE_ACCESS', 'EACCES');
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(applyTagEdit(track, { title: 'New' }), (error) => {
+    assert.equal(error instanceof TagWriteError, true);
+    if (!(error instanceof TagWriteError)) return false;
+    assert.equal(error.code, 'RESTORE_FAILED');
+    assert.match(error.message, /could not restore the original file/i);
+    assert.match(error.message, /snapshot retained at \/cache\/snapshot\.mp3/i);
+    assert.equal((error.cause as Error).message, 'EACCES');
+    return true;
+  });
+  assert.deepEqual(calls.restore, [{ uri: track.uri, snapshotPath: '/cache/snapshot.mp3' }]);
+  assert.deepEqual(calls.discard, []);
+});
+
+test('a pre-write access denial does not attempt a restore', async () => {
+  const { deps, calls } = makeDeps({
+    async writeTags() {
+      throw nativeError('NO_WRITE_ACCESS', 'No write access to file:///music/song.mp3');
+    },
+  });
+  const applyTagEdit = createTagWriter(deps);
+
+  await assert.rejects(applyTagEdit(track, { title: 'New' }), isTagWriteError('NO_WRITE_ACCESS'));
+  assert.deepEqual(calls.restore, []);
+  assert.deepEqual(calls.discard, ['/cache/snapshot.mp3']);
+});
+
 test('a cache failure restores the original bytes and reports CACHE_FAILED', async () => {
   const { deps, calls } = makeDeps({
     async getCachedMetadata() {

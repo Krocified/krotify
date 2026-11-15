@@ -102,6 +102,7 @@ class PendingWriteAccessException :
 class AudioTagsModule : Module() {
   private var writeAccessPromise: Promise? = null
   private var pendingUris: List<String> = emptyList()
+  private var pendingUngatedUris: List<String> = emptyList()
 
   override fun definition() = ModuleDefinition {
     Name("AudioTags")
@@ -138,8 +139,9 @@ class AudioTagsModule : Module() {
       if (payload.requestCode != REQUEST_WRITE_ACCESS) return@OnActivityResult
       val promise = writeAccessPromise ?: return@OnActivityResult
       writeAccessPromise = null
-      val granted = if (payload.resultCode == Activity.RESULT_OK) pendingUris else emptyList()
+      val granted = if (payload.resultCode == Activity.RESULT_OK) pendingUris else pendingUngatedUris
       pendingUris = emptyList()
+      pendingUngatedUris = emptyList()
       promise.resolve(granted)
     }
   }
@@ -150,6 +152,7 @@ class AudioTagsModule : Module() {
       return
     }
     val originals = mutableListOf<String>()
+    val ungated = mutableListOf<String>()
     val contentUris = mutableListOf<Uri>()
     for (uriString in uris) {
       val uri = Uri.parse(uriString)
@@ -162,6 +165,7 @@ class AudioTagsModule : Module() {
           }
           if (isAppOwned(file)) {
             originals.add(uriString)
+            ungated.add(uriString)
             continue
           }
           val contentUri = resolveContentUri(uriString) ?: continue
@@ -183,6 +187,7 @@ class AudioTagsModule : Module() {
     val pendingIntent = MediaStore.createWriteRequest(contentResolver(), contentUris)
     writeAccessPromise = promise
     pendingUris = originals
+    pendingUngatedUris = ungated
     ActivityCompat.startIntentSenderForResult(
       activity,
       pendingIntent.intentSender,
@@ -255,28 +260,54 @@ class AudioTagsModule : Module() {
     artworkUri: String?,
   ): Map<String, Any?> {
     val ext = resolveExtension(contentUri) ?: throw UnsupportedFormatException(uriString)
-    val temp = File.createTempFile("audio-tags-write-", ".$ext", cacheDir())
+    val original = File.createTempFile("audio-tags-original-", ".$ext", cacheDir())
+    val patched = File.createTempFile("audio-tags-write-", ".$ext", cacheDir())
+    var opened = false
     try {
-      copyContent(contentUri, temp)
-      applyFields(uriString, temp, fields, artworkUri)
+      copyContent(contentUri, original)
+      original.copyTo(patched, overwrite = true)
+      applyFields(uriString, patched, fields, artworkUri)
       openWriteStream(contentUri).use { output ->
-        temp.inputStream().use { input -> input.copyTo(output) }
+        opened = true
+        patched.inputStream().use { input -> input.copyTo(output) }
       }
-      return readWrittenContent(contentUri, ext)
-    } catch (error: CodedException) {
-      throw error
+      return readWrittenContent(contentUri, ext, patched)
     } catch (error: Exception) {
+      val rollbackFailed = opened && !rollbackContent(contentUri, original)
+      if (rollbackFailed) throw TagWriteException(uriString, error)
+      if (error is CodedException) throw error
       throw writeFailure(uriString, error)
     } finally {
-      temp.delete()
+      original.delete()
+      patched.delete()
     }
   }
 
-  private fun readWrittenContent(contentUri: Uri, ext: String): Map<String, Any?> {
+  private fun rollbackContent(contentUri: Uri, original: File): Boolean =
+    try {
+      openWriteStream(contentUri).use { output ->
+        original.inputStream().use { input -> input.copyTo(output) }
+      }
+      true
+    } catch (_: Exception) {
+      false
+    }
+
+  private fun readWrittenContent(
+    contentUri: Uri,
+    ext: String,
+    patched: File,
+  ): Map<String, Any?> {
     val verify = File.createTempFile("audio-tags-verify-", ".$ext", cacheDir())
     try {
       copyContent(contentUri, verify)
       return readFromFile(verify)
+    } catch (_: Exception) {
+      return try {
+        readFromFile(patched)
+      } catch (_: Exception) {
+        emptyMap()
+      }
     } finally {
       verify.delete()
     }
@@ -425,15 +456,27 @@ class AudioTagsModule : Module() {
 
   private fun snapshotFile(uriString: String): String {
     val uri = Uri.parse(uriString)
-    val ext = if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
-      resolveExtension(uri) ?: throw UnsupportedFormatException(uriString)
-    } else {
-      extensionFor(fileFor(uriString).name)
+    var contentSource: Uri? = null
+    val ext = when {
+      uri.scheme == ContentResolver.SCHEME_CONTENT -> {
+        contentSource = uri
+        resolveExtension(uri) ?: throw UnsupportedFormatException(uriString)
+      }
+      uri.scheme == null || uri.scheme == "file" -> {
+        val file = fileFor(uriString)
+        if (!isAppOwned(file)) contentSource = resolveContentUri(uriString)
+        extensionFor(file.name)
+      }
+      else -> throw UnsupportedFormatException(uriString)
     }
     if (ext !in SUPPORTED_EXTENSIONS) throw UnsupportedFormatException(uriString)
     val snapshot = File(cacheDir(), "krotify-snapshot-${System.nanoTime()}.$ext")
     try {
-      copySource(uriString, snapshot)
+      if (contentSource != null) {
+        copyContent(contentSource, snapshot)
+      } else {
+        fileFor(uriString).copyTo(snapshot, overwrite = true)
+      }
       return snapshot.absolutePath
     } catch (error: CodedException) {
       snapshot.delete()
@@ -525,7 +568,13 @@ class AudioTagsModule : Module() {
     }
     val roots = listOfNotNull(context.filesDir, context.cacheDir, context.getExternalFilesDir(null))
     return roots.any { root ->
-      val base = root.canonicalPath
+      val base = try {
+        root.canonicalPath
+      } catch (_: IOException) {
+        return@any false
+      } catch (_: SecurityException) {
+        return@any false
+      }
       target.path == base || target.path.startsWith(base + File.separator)
     }
   }
@@ -546,15 +595,6 @@ class AudioTagsModule : Module() {
     } catch (_: FileAlreadyExistsException) {
     }
     Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
-  }
-
-  private fun copySource(uriString: String, target: File) {
-    val uri = Uri.parse(uriString)
-    if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
-      copyContent(uri, target)
-    } else {
-      fileFor(uriString).copyTo(target, overwrite = true)
-    }
   }
 
   private fun openWriteStream(uri: Uri): OutputStream =
