@@ -2,7 +2,7 @@
   "expo": {
     "name": "Krotify",
     "slug": "krotify",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -23,7 +23,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 301
+      "versionCode": 400
     },
     "web": {
       "favicon": "./assets/favicon.png"
