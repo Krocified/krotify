@@ -1,7 +1,13 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getDb } from './index';
 
-export type Playlist = { id: string; name: string; createdAt: number };
+export type Playlist = {
+  id: string;
+  name: string;
+  createdAt: number;
+  description?: string;
+  artworkUri?: string;
+};
 
 export type CachedMetadata = {
   title?: string;
@@ -36,10 +42,27 @@ function newId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type PlaylistRow = {
+  id: string;
+  name: string;
+  createdAt: number;
+  description: string | null;
+  artworkUri: string | null;
+};
+
 export async function listPlaylists(): Promise<Playlist[]> {
   const db = await getDb();
   if (!db) return [];
-  return db.getAllAsync<Playlist>('SELECT id, name, createdAt FROM playlists ORDER BY createdAt DESC');
+  const rows = await db.getAllAsync<PlaylistRow>(
+    'SELECT id, name, createdAt, description, artworkUri FROM playlists ORDER BY createdAt DESC',
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt,
+    description: orUndefined(row.description),
+    artworkUri: orUndefined(row.artworkUri),
+  }));
 }
 
 export async function createPlaylist(name: string): Promise<Playlist> {
@@ -65,6 +88,37 @@ export async function renamePlaylist(id: string, name: string): Promise<void> {
   const db = await getDb();
   if (!db) return;
   await db.runAsync('UPDATE playlists SET name = ? WHERE id = ?', name, id);
+}
+
+export type PlaylistDetailsPatch = {
+  name?: string;
+  description?: string;
+  artworkUri?: string | null;
+};
+
+export async function updatePlaylistDetails(
+  id: string,
+  patch: PlaylistDetailsPatch,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const assignments: string[] = [];
+  const values: (string | null)[] = [];
+  if (patch.name !== undefined) {
+    assignments.push('name = ?');
+    values.push(patch.name);
+  }
+  if (patch.description !== undefined) {
+    assignments.push('description = ?');
+    values.push(patch.description);
+  }
+  if (patch.artworkUri !== undefined) {
+    assignments.push('artworkUri = ?');
+    values.push(patch.artworkUri);
+  }
+  if (assignments.length === 0) return;
+  values.push(id);
+  await db.runAsync(`UPDATE playlists SET ${assignments.join(', ')} WHERE id = ?`, ...values);
 }
 
 export async function listPlaylistTracks(playlistId: string): Promise<string[]> {
@@ -93,6 +147,42 @@ export async function removePlaylistTrack(playlistId: string, trackId: string): 
   const db = await getDb();
   if (!db) return;
   await db.runAsync('DELETE FROM playlist_tracks WHERE playlistId = ? AND trackId = ?', playlistId, trackId);
+}
+
+export async function reorderPlaylistTracks(
+  playlistId: string,
+  orderedIds: string[],
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const rows = await db.getAllAsync<{ trackId: string }>(
+    'SELECT trackId FROM playlist_tracks WHERE playlistId = ? ORDER BY position ASC, trackId ASC',
+    playlistId,
+  );
+  const current = rows.map((row) => row.trackId);
+  const present = new Set(current);
+  const next: string[] = [];
+  const placed = new Set<string>();
+  for (const id of orderedIds) {
+    if (!present.has(id) || placed.has(id)) continue;
+    placed.add(id);
+    next.push(id);
+  }
+  for (const id of current) {
+    if (placed.has(id)) continue;
+    placed.add(id);
+    next.push(id);
+  }
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < next.length; i += 1) {
+      await db.runAsync(
+        'UPDATE playlist_tracks SET position = ? WHERE playlistId = ? AND trackId = ?',
+        (i + 1) * 1000,
+        playlistId,
+        next[i],
+      );
+    }
+  });
 }
 
 type PositionRow = { trackId: string; position: number };

@@ -1,10 +1,12 @@
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS playlists (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  createdAt INTEGER NOT NULL
+  createdAt INTEGER NOT NULL,
+  description TEXT,
+  artworkUri TEXT
 );
 
 CREATE TABLE IF NOT EXISTS playlist_tracks (
@@ -58,6 +60,18 @@ export const MIGRATION_V2_COLUMNS = [
 export function pendingColumnMigrations(existing: Iterable<string>): string[] {
   const names = new Set(existing);
   return MIGRATION_V2_COLUMNS.filter((column) => !names.has(column.name)).map(
+    (column) => column.sql,
+  );
+}
+
+export const MIGRATION_V3_PLAYLIST_COLUMNS = [
+  { name: 'description', sql: 'ALTER TABLE playlists ADD COLUMN description TEXT' },
+  { name: 'artworkUri', sql: 'ALTER TABLE playlists ADD COLUMN artworkUri TEXT' },
+] as const;
+
+export function pendingPlaylistColumnMigrations(existing: Iterable<string>): string[] {
+  const names = new Set(existing);
+  return MIGRATION_V3_PLAYLIST_COLUMNS.filter((column) => !names.has(column.name)).map(
     (column) => column.sql,
   );
 }
