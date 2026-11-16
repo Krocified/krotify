@@ -1,7 +1,7 @@
 import { useAudioPlaylistStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { isMissingFileError } from '../library/playbackSource';
-import { buildPlayableWindow } from '../lib/playbackRecovery';
+import { buildPlayableWindow, shouldProbeDuration } from '../lib/playbackRecovery';
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
@@ -63,7 +63,8 @@ type ResolvedWindowTrack = WindowTrack & { global: number };
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: PropsWithChildren) {
-  const status = useAudioPlaylistStatus(engine.playlist);
+  const [playlist, setPlaylist] = useState(() => engine.playlist);
+  const status = useAudioPlaylistStatus(playlist);
   const [track, setTrack] = useState<Track | null>(null);
   const [queue, setQueueState] = useState<Track[]>([]);
   const [index, setIndex] = useState(-1);
@@ -96,7 +97,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
   const resetAudioWindow = useCallback(() => {
     loadGenerationRef.current += 1;
-    engine.stop();
+    engine.recreate();
+    setPlaylist(engine.playlist);
+    engine.setLoop(repeatRef.current === 'off' ? 'none' : repeatRef.current === 'one' ? 'single' : 'all');
+    if (trackRef.current) engine.updateLockScreenMetadata(trackRef.current);
     windowRef.current = { globalIndexes: [] };
     loadedQueueRef.current = null;
     appendingRef.current = false;
@@ -278,6 +282,25 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         return false;
       }
 
+      if (shouldProbeDuration(currentTrack.durationMs, currentTrack.source)) {
+        const targetEntry = resolved.find((entry) => entry.global === targetIndex);
+        if (targetEntry?.uri) {
+          const { probeDurationMs } = await import('../imports/probe');
+          const probedMs = await probeDurationMs(targetEntry.uri).catch(() => 0);
+          if (generation !== loadGenerationRef.current) return false;
+          if (probedMs <= 0) {
+            void setTrackMissing(currentTrack.id, true).catch(() => {});
+            setLastError(currentTrack.missing ? 'File missing' : 'Unplayable file');
+            setTrack({ ...currentTrack, missing: 1 });
+            setQueueState(nextQueue);
+            setIndex(targetIndex);
+            setMode('audio');
+            resetAudioWindow();
+            return false;
+          }
+        }
+      }
+
       const loaded = resolvedWindow.playable;
       try {
         engine.setVolume(1);
@@ -422,9 +445,9 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
-    const subscription = engine.playlist.addListener('trackChanged', handleTrackChanged);
+    const subscription = playlist.addListener('trackChanged', handleTrackChanged);
     return () => subscription.remove();
-  }, [handleTrackChanged]);
+  }, [playlist, handleTrackChanged]);
 
   const playTrack = useCallback(
     async (

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlayableWindow, nextPlayableIndex } from '../src/lib/playbackRecovery.ts';
+import { buildPlayableWindow, nextPlayableIndex, shouldProbeDuration } from '../src/lib/playbackRecovery.ts';
 
 test('buildPlayableWindow drops dead entries and reindexes the target', () => {
   const result = buildPlayableWindow(
@@ -42,4 +42,14 @@ test('nextPlayableIndex wraps only when asked', () => {
 
 test('nextPlayableIndex returns minus one when nothing is playable', () => {
   assert.equal(nextPlayableIndex(3, 0, new Set(), true), -1);
+});
+
+test('shouldProbeDuration probes zero-duration non-demo tracks', () => {
+  assert.equal(shouldProbeDuration(0, 'import'), true);
+  assert.equal(shouldProbeDuration(-1, 'scan'), true);
+});
+
+test('shouldProbeDuration skips playable and demo tracks', () => {
+  assert.equal(shouldProbeDuration(289_000, 'import'), false);
+  assert.equal(shouldProbeDuration(0, 'demo'), false);
 });
