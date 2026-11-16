@@ -15,7 +15,7 @@ import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
-import type { ImportFailure } from '../library/imports';
+import type { ImportFailure } from '../imports/plan';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 

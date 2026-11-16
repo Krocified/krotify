@@ -9,6 +9,7 @@ const imported = (id: string, title: string): Track => ({
   id,
   uri: `file://${id}`,
   source: 'import',
+  missing: 0,
   title,
   artist: '',
   album: '',

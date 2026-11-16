@@ -2,6 +2,7 @@ export type Track = {
   id: string;
   uri: string;
   source: 'scan' | 'import' | 'demo';
+  missing: 0 | 1;
   title: string;
   artist: string;
   album: string;

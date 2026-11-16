@@ -8,6 +8,7 @@ const track: Track = {
   id: 'track-1',
   uri: 'file:///music/song.mp3',
   source: 'scan',
+  missing: 0,
   title: 'Song',
   artist: 'Artist',
   album: 'Album',

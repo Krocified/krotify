@@ -8,6 +8,7 @@ const track: Track = {
   id: 't1',
   uri: 'file:///a.mp3',
   source: 'import',
+  missing: 0,
   title: 'A',
   artist: '',
   album: '',

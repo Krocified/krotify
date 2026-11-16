@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Directory, File, Paths } from 'expo-file-system';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,10 +15,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
-import { importTrackCopy } from '../library/imports';
-import { applyTagEdit, TagWriteError } from '../library/tagWriter';
-import { validateTagPatch, type ArtworkInput, type TagFields } from '../lib/tagPatch';
+import { validateArtworkInput, type ArtworkInput } from '../lib/artworkInput';
 import { formatDuration } from '../lib/format';
+import { buildTrackFieldPatch, type EditForm } from '../tracks/editPatch';
+import { updateTrackFields } from '../tracks/repo';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -31,18 +31,12 @@ export type EditTrackScreenProps = {
   mode?: EditTrackMode;
 };
 
-type StringKey = 'title' | 'artist' | 'album' | 'albumArtist' | 'genre';
-type NumberKey = 'trackNumber' | 'discNumber' | 'year';
-type FormState = Record<StringKey | NumberKey, string>;
-
-type AccessState = 'checking' | 'granted' | 'denied' | 'unavailable';
-
 type ArtworkSelection = {
   uri: string;
   input: ArtworkInput;
 };
 
-const STRING_FIELDS: { key: StringKey; label: string }[] = [
+const STRING_FIELDS: { key: keyof EditForm; label: string }[] = [
   { key: 'title', label: 'Title' },
   { key: 'artist', label: 'Artist' },
   { key: 'album', label: 'Album' },
@@ -50,10 +44,10 @@ const STRING_FIELDS: { key: StringKey; label: string }[] = [
   { key: 'genre', label: 'Genre' },
 ];
 
-const NUMBER_FIELDS: { key: NumberKey; label: string; min: number }[] = [
-  { key: 'trackNumber', label: 'Track number', min: 1 },
-  { key: 'discNumber', label: 'Disc number', min: 1 },
-  { key: 'year', label: 'Year', min: 0 },
+const NUMBER_FIELDS: { key: keyof EditForm; label: string }[] = [
+  { key: 'trackNumber', label: 'Track number' },
+  { key: 'discNumber', label: 'Disc number' },
+  { key: 'year', label: 'Year' },
 ];
 
 const MODE_TITLE: Record<EditTrackMode, string> = {
@@ -61,13 +55,6 @@ const MODE_TITLE: Record<EditTrackMode, string> = {
   rename: 'Rename track',
   details: 'Track details',
 };
-
-function initialAccess(track: Track, mode: EditTrackMode): AccessState {
-  if (mode === 'details' || track.source === 'import') return 'granted';
-  if (Platform.OS === 'web') return 'unavailable';
-  if (track.source === 'demo' || !track.uri) return 'denied';
-  return 'checking';
-}
 
 function fileSizeOf(uri: string): number | null {
   if (!uri.startsWith('file://')) return null;
@@ -79,7 +66,7 @@ function fileSizeOf(uri: string): number | null {
   }
 }
 
-function formFromTrack(track: Track): FormState {
+function formFromTrack(track: Track): EditForm {
   return {
     title: track.title,
     artist: track.artist,
@@ -90,64 +77,6 @@ function formFromTrack(track: Track): FormState {
     discNumber: track.discNumber === undefined ? '' : String(track.discNumber),
     year: track.year === undefined ? '' : String(track.year),
   };
-}
-
-function buildPatch(track: Track, form: FormState, renameOnly: boolean): {
-  patch: Partial<TagFields>;
-  error?: string;
-} {
-  const patch: Partial<TagFields> = {};
-
-  for (const { key } of STRING_FIELDS) {
-    if (renameOnly && key !== 'title') continue;
-    const value = form[key].trim();
-    if (key === 'title' && value.length === 0) {
-      return { patch, error: 'Title is required.' };
-    }
-    const current = (track[key] ?? '').trim();
-    if (value !== current) patch[key] = value;
-  }
-
-  if (!renameOnly) {
-    for (const { key, label, min } of NUMBER_FIELDS) {
-      const raw = form[key].trim();
-      if (raw.length === 0) continue;
-      const value = Number(raw);
-      if (!Number.isInteger(value)) {
-        return { patch, error: `${label} must be a whole number.` };
-      }
-      if (value < min) {
-        return { patch, error: min === 0 ? `${label} cannot be negative.` : `${label} must be at least 1.` };
-      }
-      if (value !== track[key]) patch[key] = value;
-    }
-  }
-
-  return { patch };
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof TagWriteError) {
-    switch (error.code) {
-      case 'NO_WRITE_ACCESS':
-        return 'This file cannot be edited in place. Import a copy and edit it instead.';
-      case 'UNSUPPORTED_FORMAT':
-        return 'This audio format cannot be edited.';
-      case 'INVALID_ARTWORK':
-        return error.message;
-      case 'CACHE_FAILED':
-        return error.message;
-      case 'WRITE_FAILED':
-        return error.message;
-      case 'RESTORE_FAILED':
-        return error.message;
-      case 'FILE_NOT_FOUND':
-        return 'The audio file is no longer available.';
-      default:
-        return error.message;
-    }
-  }
-  return error instanceof Error ? error.message : 'Could not save changes.';
 }
 
 function extensionOf(uri: string): string {
@@ -181,42 +110,13 @@ async function persistArtwork(file: File): Promise<string> {
 
 export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: EditTrackScreenProps) {
   const insets = useSafeAreaInsets();
-  const [workingTrack, setWorkingTrack] = useState(track);
-  const [form, setForm] = useState<FormState>(() => formFromTrack(track));
-  const [access, setAccess] = useState<AccessState>(() => initialAccess(track, mode));
+  const [form, setForm] = useState<EditForm>(() => formFromTrack(track));
   const [artwork, setArtwork] = useState<ArtworkSelection | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [needsCopy, setNeedsCopy] = useState(false);
   const fileSize = mode === 'details' ? fileSizeOf(track.uri) : null;
 
-  useEffect(() => {
-    if (
-      mode === 'details' ||
-      Platform.OS === 'web' ||
-      workingTrack.source === 'demo' ||
-      workingTrack.source === 'import' ||
-      !workingTrack.uri
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const native = await import('../../modules/audio-tags');
-        const granted = await native.requestWriteAccess([workingTrack.uri]);
-        if (!cancelled) setAccess(granted.includes(workingTrack.uri) ? 'granted' : 'denied');
-      } catch {
-        if (!cancelled) setAccess('unavailable');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, workingTrack.source, workingTrack.uri]);
-
-  function updateField(key: StringKey | NumberKey, value: string) {
+  function updateField(key: keyof EditForm, value: string) {
     setForm((previous) => ({ ...previous, [key]: value }));
     setError(null);
   }
@@ -228,7 +128,7 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
       if (picked.canceled) return;
       const file = picked.result;
       const input: ArtworkInput = { mimeType: artworkMime(file), sizeBytes: file.size };
-      const validation = validateTagPatch({}, input);
+      const validation = validateArtworkInput(input);
       if (!validation.ok) {
         setError(validation.errors.join(' '));
         return;
@@ -240,108 +140,37 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
     }
   }
 
-  async function importCopy() {
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await importTrackCopy(workingTrack);
-      if (!result.track) {
-        setError(result.failures[0]?.reason ?? 'No file was imported.');
-        return;
-      }
-      setWorkingTrack(result.track);
-      setNeedsCopy(false);
-      setAccess('granted');
-    } catch {
-      setError('Could not import a copy of this track.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function save() {
     setError(null);
-    const { patch, error: validationError } = buildPatch(workingTrack, form, mode === 'rename');
+    const { patch, error: validationError } = buildTrackFieldPatch(
+      track,
+      form,
+      mode === 'rename',
+    );
     if (validationError) {
       setError(validationError);
       return;
     }
-    if (Object.keys(patch).length === 0 && !artwork) {
+
+    const nextPatch = artwork ? { ...patch, artworkUri: artwork.uri } : patch;
+    if (Object.keys(nextPatch).length === 0) {
       setError('No changes to save.');
       return;
     }
 
     setBusy(true);
     try {
-      const saved = await applyTagEdit(
-        workingTrack,
-        patch,
-        artwork ? { artworkUri: artwork.uri, artwork: artwork.input } : undefined,
-      );
-      onSaved(saved);
+      await updateTrackFields(track.id, nextPatch);
+      onSaved({ ...track, ...nextPatch });
       onClose();
-    } catch (saveError) {
-      if (saveError instanceof TagWriteError && saveError.code === 'NO_WRITE_ACCESS') {
-        setNeedsCopy(true);
-      }
-      setError(errorMessage(saveError));
+    } catch {
+      setError('Could not save changes.');
     } finally {
       setBusy(false);
     }
   }
 
   function renderBody() {
-    if (access === 'checking') {
-      return (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={styles.centeredText}>Checking write access…</Text>
-        </View>
-      );
-    }
-
-    if (access === 'denied' || access === 'unavailable') {
-      const demo = workingTrack.source === 'demo';
-      const canCopy = !demo && access === 'denied' && Platform.OS !== 'web';
-      return (
-        <View style={styles.centered}>
-          <Ionicons name="lock-closed-outline" size={32} color={colors.textDim} />
-          <Text style={styles.centeredTitle}>Read-only track</Text>
-          <Text style={styles.centeredText}>
-            {access === 'unavailable'
-              ? 'Tag editing requires the Krotify development build. It is not available in this preview.'
-              : demo
-                ? 'Demo tracks are read-only.'
-                : 'Krotify does not have permission to edit this file in place. Import a copy and edit that instead.'}
-          </Text>
-          {canCopy ? (
-            <Pressable
-              onPress={() => void importCopy()}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel="Import a copy and edit"
-              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.text} />
-              ) : (
-                <Text style={styles.primaryText}>Import a copy and edit</Text>
-              )}
-            </Pressable>
-          ) : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-          >
-            <Text style={styles.secondaryText}>Cancel</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
     if (mode === 'details') {
       return (
         <ScrollView
@@ -350,30 +179,30 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
         >
           <View style={styles.detailHero}>
             <CoverArt
-              hue={workingTrack.artworkHue}
-              title={workingTrack.title}
+              hue={track.artworkHue}
+              title={track.title}
               size={120}
               radius={radius.coverLarge}
-              uri={workingTrack.artworkUri}
+              uri={track.artworkUri}
             />
           </View>
-          <DetailRow label="Title" value={workingTrack.title || '—'} />
-          <DetailRow label="Artist" value={workingTrack.artist || '—'} />
-          <DetailRow label="Album" value={workingTrack.album || '—'} />
-          <DetailRow label="Album artist" value={workingTrack.albumArtist || '—'} />
+          <DetailRow label="Title" value={track.title || '—'} />
+          <DetailRow label="Artist" value={track.artist || '—'} />
+          <DetailRow label="Album" value={track.album || '—'} />
+          <DetailRow label="Album artist" value={track.albumArtist || '—'} />
           <DetailRow
             label="Track / year"
-            value={`${workingTrack.trackNumber ?? '—'} / ${workingTrack.year ?? '—'}`}
+            value={`${track.trackNumber ?? '—'} / ${track.year ?? '—'}`}
           />
           <DetailRow
             label="Disc"
-            value={workingTrack.discNumber === undefined ? '—' : String(workingTrack.discNumber)}
+            value={track.discNumber === undefined ? '—' : String(track.discNumber)}
           />
-          <DetailRow label="Genre" value={workingTrack.genre || '—'} />
-          <DetailRow label="Duration" value={formatDuration(workingTrack.durationMs)} />
-          {workingTrack.uri ? <DetailRow label="Format" value={extensionOf(workingTrack.uri) || '—'} /> : null}
+          <DetailRow label="Genre" value={track.genre || '—'} />
+          <DetailRow label="Duration" value={formatDuration(track.durationMs)} />
+          {track.uri ? <DetailRow label="Format" value={extensionOf(track.uri) || '—'} /> : null}
           {fileSize !== null ? <DetailRow label="File size" value={formatBytes(fileSize)} /> : null}
-          {workingTrack.uri ? <DetailRow label="Path" value={workingTrack.uri} multiline /> : null}
+          {track.uri ? <DetailRow label="Path" value={track.uri} multiline /> : null}
         </ScrollView>
       );
     }
@@ -392,11 +221,11 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
           {!renameOnly ? (
             <View style={styles.artworkRow}>
               <CoverArt
-                hue={workingTrack.artworkHue}
-                title={workingTrack.title}
+                hue={track.artworkHue}
+                title={track.title}
                 size={92}
                 radius={radius.coverLarge}
-                uri={artwork?.uri ?? workingTrack.artworkUri}
+                uri={artwork?.uri ?? track.artworkUri}
               />
               <View style={styles.artworkActions}>
                 <Pressable
@@ -422,15 +251,17 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
             </View>
           ) : null}
 
-          {STRING_FIELDS.filter((field) => !renameOnly || field.key === 'title').map((field) => (
-            <Field
-              key={field.key}
-              label={field.label}
-              value={form[field.key]}
-              onChangeText={(value) => updateField(field.key, value)}
-              autoFocus={renameOnly && field.key === 'title'}
-            />
-          ))}
+          {STRING_FIELDS.filter((field) => !renameOnly || field.key === 'title').map(
+            (field) => (
+              <Field
+                key={field.key}
+                label={field.label}
+                value={form[field.key]}
+                onChangeText={(value) => updateField(field.key, value)}
+                autoFocus={renameOnly && field.key === 'title'}
+              />
+            ),
+          )}
 
           {!renameOnly
             ? NUMBER_FIELDS.map((field) => (
@@ -445,17 +276,6 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
             : null}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {needsCopy ? (
-            <Pressable
-              onPress={() => void importCopy()}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel="Import a copy and edit"
-              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-            >
-              <Text style={styles.secondaryText}>Import a copy and edit</Text>
-            </Pressable>
-          ) : null}
 
           <View style={styles.actions}>
             <Pressable
@@ -552,23 +372,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingTop: space.sm,
     gap: space.md,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-    gap: space.md,
-  },
-  centeredTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  centeredText: {
-    ...type.meta,
-    color: colors.textDim,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   artworkRow: {
     flexDirection: 'row',

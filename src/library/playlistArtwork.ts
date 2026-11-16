@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import { extensionForMime } from '../lib/importName';
-import { MAX_ARTWORK_BYTES } from '../lib/tagPatch';
+import { MAX_ARTWORK_BYTES } from '../lib/artworkInput';
 
 const DIRECTORY_NAME = 'playlist-artwork';
 const STAGING_DIRECTORY_NAME = 'playlist-cover-staging';

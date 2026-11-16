@@ -8,6 +8,7 @@ const track = (overrides: Partial<Track>): Track => ({
   id: `t${seq++}`,
   uri: `file:///${seq}.mp3`,
   source: 'scan',
+  missing: 0,
   title: 'Track',
   artist: '',
   album: '',

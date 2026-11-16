@@ -7,6 +7,7 @@ const track = (id: string): Track => ({
   id,
   uri: `file:///${id}.mp3`,
   source: 'scan',
+  missing: 0,
   title: id,
   artist: '',
   album: '',

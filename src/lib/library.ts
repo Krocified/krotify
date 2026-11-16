@@ -10,6 +10,7 @@ export function toTrack(meta: AssetMeta): Track {
     id: meta.id,
     uri: '',
     source: 'scan',
+    missing: 0,
     title,
     artist: '',
     album: '',

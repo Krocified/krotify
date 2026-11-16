@@ -22,30 +22,24 @@ import {
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
 import { listPlaylists, listRecentTrackIds, recordPlay, type Playlist } from './db/repo';
-import { hydrateArtwork } from './library/artwork';
+import { pickAndImportTracks } from './imports/local';
+import type { ImportFailure } from './imports/plan';
 import { DEMO_TRACKS } from './library/demo';
-import {
-  clearExcludedTracks,
-  excludeTrack,
-  excludeTracks,
-  loadExcludedTracks,
-  restoreTrack,
-} from './library/exclusions';
 import { useFavorites } from './library/FavoritesProvider';
-import {
-  deleteImportedFile,
-  loadImportedTracks,
-  pickAndImportTracks,
-  removeImportedTrack,
-  type ImportFailure,
-} from './library/imports';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
 import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
-import { enrichTracks } from './library/metadata';
 import { usePlayer } from './player/PlayerProvider';
+import { deleteOwnedFile } from './storage/root';
+import {
+  deleteTrackRecord,
+  listActiveTracks,
+  listHiddenTracks,
+  setTrackStatus,
+} from './tracks/repo';
+import { toUiTrack } from './tracks/view';
 import {
   EditTrackScreen,
   type EditTrackMode,
@@ -102,8 +96,6 @@ export function AppShell() {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [exitHint, setExitHint] = useState(false);
   const assetsRef = useRef(new Map<string, Asset>());
-  const libraryTracksRef = useRef<Track[]>([]);
-  const libraryGenerationRef = useRef(0);
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
@@ -168,26 +160,10 @@ export function AppShell() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    libraryTracksRef.current = libraryTracks;
-  }, [libraryTracks]);
-
-  const startHydration = useCallback((generation: number, targets: Track[]) => {
-    void hydrateArtwork(
-      targets,
-      (updated) => {
-        if (libraryGenerationRef.current !== generation) return;
-        const byId = new Map(updated.map((track) => [track.id, track]));
-        setLibraryTracks((prev) =>
-          prev.map((track) => {
-            const found = byId.get(track.id)?.artworkUri;
-            if (!found || track.artworkUri) return track;
-            return { ...track, artworkUri: found };
-          }),
-        );
-      },
-      { isCancelled: () => libraryGenerationRef.current !== generation },
-    ).catch(() => {});
+  const refreshLibraryFromDb = useCallback(async () => {
+    const [active, hidden] = await Promise.all([listActiveTracks(), listHiddenTracks()]);
+    setLibraryTracks(active.map(toUiTrack));
+    setExcluded(hidden.map(toUiTrack));
   }, []);
 
   const recentTracks = useMemo(() => {
@@ -229,7 +205,6 @@ export function AppShell() {
     let cancelled = false;
 
     async function loadLibrary() {
-      const generation = ++libraryGenerationRef.current;
       setStatus('scanning');
       setStatusNote(null);
       void listRecentTrackIds()
@@ -238,39 +213,21 @@ export function AppShell() {
         })
         .catch(() => {});
 
-      function enrich(initial: Track[]) {
-        const targets = initial.filter((track) => track.source !== 'demo');
-        if (targets.length === 0) return;
-        let hydrateTargets: Track[] = targets;
-        void enrichTracks(
-          targets,
-          async (track) =>
-            track.source === 'import'
-              ? track.uri
-              : (assetsRef.current.get(track.id)?.getUri() ?? null),
-          (batch) => {
-            if (cancelled) return;
-            const byId = new Map(batch.map((track) => [track.id, track]));
-            setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
-          },
-        )
-          .then((enriched) => {
-            hydrateTargets = enriched;
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (cancelled || libraryGenerationRef.current !== generation) return;
-            startHydration(generation, hydrateTargets);
-          });
+      let active: Track[] = [];
+      try {
+        const [activeRows, hiddenRows] = await Promise.all([
+          listActiveTracks(),
+          listHiddenTracks(),
+        ]);
+        if (cancelled) return;
+        active = activeRows.map(toUiTrack);
+        setExcluded(hiddenRows.map(toUiTrack));
+      } catch {
+        if (cancelled) return;
+        setExcluded([]);
       }
 
       if (Platform.OS === 'web') {
-        const [, excludedTracks] = await Promise.all([
-          loadImportedTracks(),
-          loadExcludedTracks(),
-        ]);
-        if (cancelled) return;
-        setExcluded(excludedTracks);
         setLibraryTracks(DEMO_TRACKS);
         setStatus('ready');
         setStatusNote('Web preview: demo library');
@@ -278,33 +235,20 @@ export function AppShell() {
         return;
       }
 
-      let importedTracks: Track[] = [];
-      let excludedTracks: Track[] = [];
+      if (scanEnabled !== true) {
+        setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
+        setStatus(active.length > 0 ? 'ready' : 'empty');
+        setLibraryLoaded(true);
+        return;
+      }
+
       try {
-        const [loadedImported, loadedExcluded] = await Promise.all([
-          loadImportedTracks(),
-          loadExcludedTracks(),
-        ]);
-        if (cancelled) return;
-        importedTracks = loadedImported;
-        excludedTracks = loadedExcluded;
-        setExcluded(excludedTracks);
-        const importOnly = mergeLibrary([], importedTracks, new Set());
-
-        if (scanEnabled !== true) {
-          setLibraryTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
-          enrich(importOnly);
-          setStatus(importOnly.length > 0 ? 'ready' : 'empty');
-          return;
-        }
-
         const granted = await ensureAudioPermission();
         if (cancelled) return;
         if (!granted) {
-          setLibraryTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
-          enrich(importOnly);
+          setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
           setStatus('denied');
-          if (importOnly.length > 0) {
+          if (active.length > 0) {
             setStatusNote('Audio permission denied. Showing imported tracks.');
           }
           return;
@@ -312,15 +256,12 @@ export function AppShell() {
         const result = await scanLibrary();
         if (cancelled) return;
         assetsRef.current = result.assets;
-        const merged = mergeLibrary(result.tracks, importedTracks, new Set());
+        const merged = mergeLibrary(result.tracks, active, new Set());
         setLibraryTracks(merged.length > 0 ? merged : DEMO_TRACKS);
-        enrich(merged);
         setStatus(merged.length > 0 ? 'ready' : 'empty');
       } catch {
         if (cancelled) return;
-        const importOnly = mergeLibrary([], importedTracks, new Set());
-        setLibraryTracks(importOnly.length > 0 ? importOnly : DEMO_TRACKS);
-        enrich(importOnly);
+        setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
         setStatus('error');
       } finally {
         if (!cancelled) setLibraryLoaded(true);
@@ -330,9 +271,8 @@ export function AppShell() {
     void loadLibrary();
     return () => {
       cancelled = true;
-      libraryGenerationRef.current += 1;
     };
-  }, [scanEnabled, scanId, scanPrefLoaded, startHydration]);
+  }, [scanEnabled, scanId, scanPrefLoaded]);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -531,21 +471,37 @@ export function AppShell() {
   }
 
   async function hideTrack(track: Track) {
-    const next = await excludeTrack(track);
-    setExcluded(next);
+    if (track.source === 'demo') return;
+    try {
+      await setTrackStatus(track.id, 'hidden');
+      await refreshLibraryFromDb();
+    } catch {
+      setStatusNote('Could not hide this track');
+      return;
+    }
     removeFromQueue([track.id]);
     setStatusNote(null);
   }
 
   async function handleRestore(id: string) {
-    const next = await restoreTrack(id);
-    setExcluded(next);
+    try {
+      await setTrackStatus(id, 'active');
+      await refreshLibraryFromDb();
+    } catch {
+      setStatusNote('Could not restore this track');
+      return;
+    }
     setStatusNote(null);
   }
 
   async function handleRestoreAll() {
-    const next = await clearExcludedTracks();
-    setExcluded(next);
+    try {
+      await Promise.all(excluded.map((track) => setTrackStatus(track.id, 'active')));
+      await refreshLibraryFromDb();
+    } catch {
+      setStatusNote('Could not restore the hidden tracks');
+      return;
+    }
     setStatusNote(null);
   }
 
@@ -554,8 +510,13 @@ export function AppShell() {
       (track) => track.source === 'scan' && !excludedIds.has(track.id),
     );
     if (targets.length === 0) return;
-    const next = await excludeTracks(targets);
-    setExcluded(next);
+    try {
+      await Promise.all(targets.map((track) => setTrackStatus(track.id, 'hidden')));
+      await refreshLibraryFromDb();
+    } catch {
+      setStatusNote('Could not hide the scanned tracks');
+      return;
+    }
     removeFromQueue(targets.map((track) => track.id));
     setStatusNote(`${targets.length} scanned tracks hidden. Restore them in Settings.`);
   }
@@ -564,17 +525,15 @@ export function AppShell() {
     try {
       if (track.source === 'scan') {
         await assetsRef.current.get(track.id)?.delete();
-      } else if (track.source === 'import') {
-        await deleteImportedFile(track.uri);
-        await removeImportedTrack(track.id);
+      } else if (track.source !== 'demo') {
+        await deleteOwnedFile(track.uri);
       }
+      await deleteTrackRecord(track.id);
+      await refreshLibraryFromDb();
     } catch {
       setStatusNote('Could not delete this file');
       return;
     }
-    const nextExcluded = await restoreTrack(track.id);
-    setExcluded(nextExcluded);
-    setLibraryTracks((prev) => prev.filter((item) => item.id !== track.id));
     removeFromQueue([track.id]);
     setStatusNote(null);
     if (currentTrack?.id === track.id) stop();
@@ -643,39 +602,27 @@ export function AppShell() {
     setImporting(true);
     setImportFailures([]);
     try {
-      const { tracks: added, failures } = await pickAndImportTracks();
+      const { added, skipped, failures } = await pickAndImportTracks();
       setImportFailures(failures);
-      if (added.length === 0) return;
+      const skippedNote =
+        skipped.length > 0
+          ? `${skipped.length} file${skipped.length === 1 ? '' : 's'} already in the library`
+          : null;
+      if (added.length === 0) {
+        setStatusNote(skippedNote);
+        return;
+      }
+      const uiAdded = added.map(toUiTrack);
       setLibraryTracks((prev) =>
         mergeLibrary(
           prev.filter((item) => item.source !== 'demo'),
-          added,
+          uiAdded,
           new Set(),
         ),
       );
-      const generation = ++libraryGenerationRef.current;
-      let hydrateTargets: Track[] = added;
-      void enrichTracks(
-        added,
-        async (track) => track.uri || null,
-        (batch) => {
-          if (libraryGenerationRef.current !== generation) return;
-          const byId = new Map(batch.map((track) => [track.id, track]));
-          setLibraryTracks((prev) => prev.map((track) => byId.get(track.id) ?? track));
-        },
-      )
-        .then((enriched) => {
-          const byId = new Map(libraryTracksRef.current.map((track) => [track.id, track]));
-          for (const track of enriched) byId.set(track.id, track);
-          hydrateTargets = [...byId.values()];
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (libraryGenerationRef.current !== generation) return;
-          startHydration(generation, hydrateTargets);
-        });
       setStatus('ready');
-      setStatusNote(null);
+      setStatusNote(skippedNote);
+      setScreen('library');
     } finally {
       setImporting(false);
     }
