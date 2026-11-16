@@ -1,5 +1,7 @@
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDuration } from '../lib/format';
+import { isMissingTrack } from '../lib/settingsView';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
@@ -12,6 +14,7 @@ type Props = {
 
 export function TrackRow({ track, onPress, onLongPress }: Props) {
   const duration = formatDuration(track.durationMs);
+  const missing = isMissingTrack(track);
   const label = track.artist
     ? `${track.title} by ${track.artist}, ${duration}`
     : `${track.title}, ${duration}`;
@@ -20,7 +23,7 @@ export function TrackRow({ track, onPress, onLongPress }: Props) {
       onPress={() => onPress(track)}
       onLongPress={onLongPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={missing ? `${label}, file missing` : label}
       accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
@@ -35,7 +38,14 @@ export function TrackRow({ track, onPress, onLongPress }: Props) {
         <Text style={styles.title} numberOfLines={1}>
           {track.title}
         </Text>
-        {track.artist ? (
+        {missing ? (
+          <View style={styles.missing}>
+            <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
+            <Text style={styles.missingText} numberOfLines={1}>
+              File missing
+            </Text>
+          </View>
+        ) : track.artist ? (
           <Text style={styles.artist} numberOfLines={1}>
             {track.artist}
           </Text>
@@ -71,6 +81,15 @@ const styles = StyleSheet.create({
   artist: {
     ...type.meta,
     color: colors.textDim,
+  },
+  missing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  missingText: {
+    ...type.meta,
+    color: colors.danger,
   },
   duration: {
     ...type.meta,
