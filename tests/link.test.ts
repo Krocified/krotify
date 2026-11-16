@@ -54,6 +54,34 @@ test('cleans HTML from an error response', () => {
   );
 });
 
+test('caps a cleaned error message at 180 characters', () => {
+  const result = parseConvertResponse(
+    JSON.stringify({ success: false, error: `<b>${'x'.repeat(200)}</b>` }),
+  );
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, 'x'.repeat(180));
+  assert.equal(result.error.length, 180);
+});
+
+test('accepts numeric strings for duration and size', () => {
+  const result = parseConvertResponse(
+    JSON.stringify({
+      success: true,
+      videoId: 'dQw4w9WgXcQ',
+      title: 'A',
+      thumbnail: null,
+      duration: '213',
+      size: '3407872',
+      downloadUrl: 'https://tmp.ytmp3.ge/dl/abc123.mp3',
+    }),
+  );
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.data.durationMs, 213000);
+  assert.equal(result.data.sizeBytes, 3407872);
+});
+
 test('reports an unexpected response body', () => {
   assert.deepEqual(parseConvertResponse('<html>502</html>'), {
     ok: false,
@@ -125,6 +153,10 @@ test('derives a safe file name from the title', () => {
   assert.equal(linkFileName('AC/DC: Back in Black'), 'AC-DC- Back in Black.mp3');
   assert.equal(linkFileName('Song.mp4'), 'Song.mp3');
   assert.equal(linkFileName(''), 'youtube-audio.mp3');
+});
+
+test('caps the sanitized file name base at 80 characters', () => {
+  assert.equal(linkFileName(`${'a'.repeat(100)}.mp3`), `${'a'.repeat(80)}.mp3`);
 });
 
 test('reads the thumbnail extension', () => {
