@@ -1,3 +1,5 @@
+import type { TrackRecord } from '../tracks/types.ts';
+
 export const YTMP3_ENDPOINT = 'https://ytmp3.ge/api/convert';
 export const LINK_TIMEOUT_MS = 300_000;
 
@@ -18,6 +20,22 @@ export type LinkDownload = {
 };
 
 export type LinkProgress = { phase: 'convert' | 'download' | 'thumbnail' | 'save' };
+
+export type LinkImportOutcome =
+  | { ok: true; record: TrackRecord }
+  | { ok: false; error: string; cancelled?: boolean };
+
+export type LinkImportOptions = {
+  signal?: AbortSignal;
+  onProgress?: (progress: LinkProgress) => void;
+};
+
+type DownloadedFile = {
+  uri: string;
+  name: string;
+  size: number;
+  exists: boolean;
+};
 
 type LinkParseResult = ({ ok: true } & LinkTarget) | { ok: false; reason: string };
 
@@ -174,4 +192,172 @@ export function thumbnailExtension(url: string): string {
 
 export function linkProgressLabel(progress: LinkProgress): string {
   return PROGRESS_LABELS[progress.phase];
+}
+
+const CANCELLED_ERROR = 'Download cancelled.';
+const TIMEOUT_ERROR = 'The download service timed out. Try again.';
+const NETWORK_ERROR = 'Could not reach the download service. Check your connection.';
+const DOWNLOAD_ERROR =
+  'Could not download the file. Check your connection and the storage folder.';
+const EMPTY_ERROR = 'The downloaded file is empty.';
+const SAVE_ERROR = 'Could not add the download to the library.';
+
+function cancelled(): LinkImportOutcome {
+  return { ok: false, cancelled: true, error: CANCELLED_ERROR };
+}
+
+async function discard(uri: string): Promise<void> {
+  try {
+    // Native modules load lazily so this file still loads under node --test.
+    const { deleteOwnedFile } = await import('../storage/root');
+    await deleteOwnedFile(uri);
+  } catch {}
+}
+
+async function saveThumbnail(payload: LinkDownload): Promise<string | undefined> {
+  if (!payload.thumbnail) return undefined;
+  try {
+    const { Directory, File, Paths } = await import('expo-file-system');
+    const directory = new Directory(Paths.document, 'artwork');
+    directory.create({ idempotent: true, intermediates: true });
+    const name = `ytmp3-${payload.videoId || Date.now()}.${thumbnailExtension(payload.thumbnail)}`;
+    const destination = new File(directory, name);
+    await File.downloadFileAsync(payload.thumbnail, destination, { idempotent: true });
+    if (destination.exists && destination.size > 0) return destination.uri;
+  } catch {}
+  return undefined;
+}
+
+async function durationOf(payload: LinkDownload, uri: string): Promise<number> {
+  if (payload.durationMs > 0) return payload.durationMs;
+  try {
+    const { probeDurationMs } = await import('./probe');
+    return await probeDurationMs(uri);
+  } catch {
+    return 0;
+  }
+}
+
+export async function importFromLink(
+  rawUrl: string,
+  quality: LinkQuality,
+  options: LinkImportOptions = {},
+): Promise<LinkImportOutcome> {
+  const target = parseYoutubeInput(rawUrl);
+  if (!target.ok) return { ok: false, error: target.reason };
+
+  const { signal, onProgress } = options;
+  const controller = new AbortController();
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let downloaded: DownloadedFile | null = null;
+
+  const forwardAbort = () => {
+    try {
+      controller.abort();
+    } catch {}
+  };
+
+  if (signal?.aborted) forwardAbort();
+  else signal?.addEventListener('abort', forwardAbort);
+
+  const clearTimer = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const report = (phase: LinkProgress['phase']) => {
+    try {
+      onProgress?.({ phase });
+    } catch {}
+  };
+
+  try {
+    timer = setTimeout(() => {
+      timedOut = true;
+      forwardAbort();
+    }, LINK_TIMEOUT_MS);
+
+    report('convert');
+
+    let payload: LinkDownload;
+    try {
+      const response = await fetch(YTMP3_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: buildConvertBody(target, quality),
+        signal: controller.signal,
+      });
+      const raw = await response.text();
+      const parsed = parseConvertResponse(raw);
+      if (!parsed.ok) return { ok: false, error: parsed.error };
+      payload = parsed.data;
+    } catch {
+      clearTimer();
+      if (signal?.aborted) return cancelled();
+      if (timedOut) return { ok: false, error: TIMEOUT_ERROR };
+      return { ok: false, error: NETWORK_ERROR };
+    }
+    clearTimer();
+
+    report('download');
+
+    let file: DownloadedFile;
+    try {
+      const { downloadOwnedFile } = await import('../storage/store');
+      file = await downloadOwnedFile(payload.downloadUrl, linkFileName(payload.title), {
+        signal: controller.signal,
+      });
+    } catch {
+      if (signal?.aborted) return cancelled();
+      return { ok: false, error: DOWNLOAD_ERROR };
+    }
+    downloaded = file;
+
+    if (!file.exists || file.size <= 0) {
+      await discard(file.uri);
+      return { ok: false, error: EMPTY_ERROR };
+    }
+
+    report('thumbnail');
+    const artworkUri = await saveThumbnail(payload);
+    const durationMs = await durationOf(payload, file.uri);
+
+    if (signal?.aborted) {
+      await discard(file.uri);
+      return cancelled();
+    }
+
+    report('save');
+
+    try {
+      const { insertOwnedTrack } = await import('../tracks/repo');
+      const record = await insertOwnedTrack({
+        source: 'download',
+        location: file.uri,
+        fileName: file.name,
+        sizeBytes: file.size > 0 ? file.size : (payload.sizeBytes ?? undefined),
+        durationMs,
+        title: payload.title,
+        artist: '',
+        album: '',
+        artworkUri,
+      });
+      return { ok: true, record };
+    } catch {
+      await discard(file.uri);
+      return { ok: false, error: SAVE_ERROR };
+    }
+  } catch {
+    if (downloaded) await discard(downloaded.uri);
+    return { ok: false, error: SAVE_ERROR };
+  } finally {
+    clearTimer();
+    signal?.removeEventListener('abort', forwardAbort);
+  }
 }
