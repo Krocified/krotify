@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: krotify-link
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /health
+    envVars:
+      - key: API_TOKEN
+        sync: false
+      - key: MAX_JOBS
+        value: "2"

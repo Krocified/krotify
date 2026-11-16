@@ -45,3 +45,4 @@ yarn-error.*
 
 # git worktrees
 .worktrees/
+/server/.env
