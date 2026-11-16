@@ -19,8 +19,9 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Browse and search a real collection by album and artist, not by filenames.
 - Keep playback contextual: what I open (album, artist, search, recent) becomes
   the queue, and repeat/history follow that context.
-- Make adding music a first-class flow: pick local files, and where permitted
-  pull audio from a link, without leaving the app.
+- Make adding music a first-class flow: pick local files, and pull audio from a
+  YouTube link, without leaving the app. A link import either produces a playable
+  file or a clear failure; a web page is never added as a track.
 - Explore beyond the library without losing it: internet radio and external
   metadata are opt-in extras, not a replacement for local playback.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
@@ -45,11 +46,18 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - I can fix a wrong tag or cover without opening another app.
 - The download stays lean: a phone build around 25MB, not a 76MB universal
   bundle of architectures I do not own.
+- A downloaded track plays on the first try, and one bad file never stops the
+  next one.
 
 ## Principles
-- **Local-first**: the MP3s are the truth; playback never needs the network.
-  Lyrics lookup is the one optional exception, cached locally so it works
-  offline after the first fetch.
+- **Local-first**: the MP3s are the truth for playback; playback never needs the
+  network. Lyrics lookup is the one optional exception, cached locally so it
+  works offline after the first fetch.
+- **Playable or absent**: a track exists in the library only if the app can play
+  it. Link imports validate the bytes; a failed or HTML download is removed, not
+  kept as a 0:00 row, and never wedges the player.
+- **Edit in the app**: metadata edits change the library record, never the audio
+  file.
 - **Consent first**: nothing changes files without an explicit choice. Imports
   and deletes are deliberate; scanning is being made opt-in.
 - **Truthful metadata**: tags come from the files; filenames are only a fallback

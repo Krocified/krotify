@@ -306,6 +306,33 @@ Plans:
 - `docs/superpowers/plans/2026-11-16-v5-player-hidden-settings.md`
 - `docs/superpowers/plans/2026-11-16-v5-library-tags-and-link-import.md`
 
+### v5.1: UX and playback reliability (planned)
+
+Focus: make the v5 surfaces usable and make a bad download harmless.
+
+- Settings and Hidden are layers. Settings appears instantly, with no slide
+  transition. Hidden tracks slides in over Settings, and back closes Hidden to
+  Settings without closing Settings.
+- Link import uses a companion service shipped in `server/` and configured in
+  Settings. The service is a small Express app over `yt-dlp`; it exposes video
+  info and a best-quality MP3 download. The local import card expands to take more
+  of the screen and uses a striped, drop-field border. There is no quality
+  selector: the service always extracts the best audio.
+- A link download is added only after its bytes are verified as audio. ytmp3.ge
+  currently returns an HTML landing page (`ryin.info/...html`) as `downloadUrl`, so
+  it is no longer used. An HTML or unplayable file is deleted, never inserted as a
+  0:00 track.
+- A bad or missing file is marked, stops and resets the audio engine, and the next
+  track starts normally. One broken file cannot wedge playback.
+- The hold menu loses Edit metadata and Rename. Details gains a pencil that toggles
+  inline editing of title, artist, album, year, genre and artwork. Duration,
+  format and file size stay visible and read-only.
+- Now Playing gains tag controls and a save-to-playlist bookmark beside the sleep
+  timer. The hold menu gains the same two actions.
+- Tag editing is keyboard-safe: the editor scrolls so fields and chips are never
+  obscured by the keyboard.
+- The Liked Songs row and the tag filter pills have no gap between them.
+
 ## Library management
 
 Two sources, one list.
@@ -342,10 +369,12 @@ while Settings is open.
   Publishing, flagging and bulk prefetch are out of scope.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
-- **ytmp3.ge** (v5): YouTube-to-MP3 link import. `POST /api/convert` with
-  `youtube_url` and `quality`; the returned `downloadUrl` is downloaded into the
-  chosen storage folder. The service is third-party and unauthenticated, so the
-  link module isolates its failures from the local library.
+- **Self-hosted link service** (v5.1): a companion Express app in `server/` runs
+  `yt-dlp` on the user's machine or server. `GET /info/:videoId` returns title,
+  thumbnail and duration; `GET /video/:videoId` returns a best-quality MP3. The app
+  stores the service base URL in Settings, downloads into the chosen storage
+  folder, verifies the bytes are audio, and never adds an HTML or unplayable file.
+  ytmp3.ge is retired because its `downloadUrl` returns an HTML page.
 
 ## Screens & flows
 
@@ -359,12 +388,12 @@ in the header.
 hydration runs from the library after metadata enrichment so Library and Now
 Playing keep real covers.
 
-**Library** — shared header (`Krotify` wordmark + lyrics mark, search, settings),
-a Liked Songs row, a playlists rail with create/open actions, optional Recently
-played rail, and the track list. Rows show cover, title, artist,
-duration; long press opens the in-app action sheet (details, edit, rename,
-exclude, delete, favorite, add to playlist). Scrolling shows a thin blue scrollbar
-from below the header to the mini-player.
+**Library** — shared header (`Krotify` wordmark, search, settings), a Liked Songs
+row, the tag filter pills directly beneath it with no gap, a playlists rail with
+create/open actions, optional Recently played rail, and the track list. Rows show
+cover, title, artist and duration; long press opens the in-app action sheet
+(details, tags, save to playlist, favorite, exclude, delete). Scrolling shows a
+thin blue scrollbar from below the header to the mini-player.
 
 **Catalog / Albums (unwired)**: kept for the later redesign. Segmented control;
 artist section headers; rows with cover, album title, and "N tracks · M min".
@@ -381,22 +410,28 @@ the order persists and matches playback. Entry from Library.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
-**Import**: a dedicated tab, not a Settings row. System document picker with
-per-file failure reasons, progress, empty and error states. v5 removes the
-recent-imports list and returns to Library after a successful import. Link import
-posts to the ytmp3.ge API and downloads into the chosen storage folder.
+**Track details** — reached from the action sheet. Shows cover, title, artist,
+album, album artist, track/year, disc, genre, duration, format and file size. A
+pencil in the header toggles inline editing of title, artist, album, year, genre
+and artwork only; duration, format and file size stay read-only. Edit metadata and
+Rename are no longer separate menu items.
+
+**Import**: a dedicated tab, not a Settings row. The local import card expands to
+take most of the screen and uses a striped drop-field border. System document
+picker with per-file failure reasons, progress, empty and error states. There is
+no recent-imports list; a successful import returns to Library. Link import always
+requests 320 kbps, posts to the ytmp3.ge API, verifies the downloaded bytes are
+audio, and downloads into the chosen storage folder.
 
 **Search** — slide-in overlay with a borderless field (accent cursor) and
 incremental results across title, artist and album.
 
 **Now Playing** — plain back/down control aligned with the other back pills, no
 black pill. Full-bleed cover-color backdrop and draggable progress with previous/
-play/next centered on play and repeat at the right. Two content modes share the
-screen: **art** (large 1:1 cover, title, artist) and **lyrics** (a smaller cover
-stays visible at the top while the timed lyrics fill the remaining space, active
-line highlighted, lyric lines tappable to seek). The mode toggle sits in the top
-bar or beside the transport. A heart beside the sleep timer toggles Liked Songs
-and persists. Closing is instant and returns to the screen it was opened from.
+play/next centered on play and repeat at the right. The transport row holds the
+heart, tag controls and a save-to-playlist bookmark beside the sleep timer. Lyrics
+remain code-only behind `LYRICS_ENABLED = false`. Closing is instant and returns
+to the screen it was opened from.
 
 **Mini-player** — floating card inset from the edges, radius 4, 2px inset
 progress line, cover, title, artist, close and play/pause. It stacks above the
@@ -405,9 +440,10 @@ and moves to the next or previous track with queue wrap; vertical swipe does
 nothing; the bar itself never moves. Closing the song page returns to this card
 at the current position with no slide.
 
-**Settings** — slide-in page, sectioned into Library (rescan, import, exclude
-all), Hidden tracks (restore), About (version from `app.json`). Tabs and the
-mini-player stay available.
+**Settings** — an instant page, sectioned into Library (permission, scan, rescan,
+exclude all), Storage, Playback, and About. Hidden tracks is a separate layer that
+slides in over Settings; back returns to Settings with Settings still open. Tabs
+and the mini-player stay available.
 
 ## Visual design system
 
