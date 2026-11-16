@@ -31,6 +31,15 @@ function fileExists(location: string): boolean {
   }
 }
 
+function fileSize(location: string): number | undefined {
+  try {
+    const size = new File(location).size;
+    return typeof size === 'number' && Number.isFinite(size) ? size : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function migrate(db: SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -67,6 +76,7 @@ async function migrate(db: SQLiteDatabase): Promise<void> {
         imports,
         excluded,
         fileExists,
+        fileSize,
       });
     }
   });

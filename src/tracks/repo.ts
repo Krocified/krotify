@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { stripCollisionSuffix } from '../storage/names.ts';
 import { ownedTrackId } from './ids.ts';
 import { ownedRow, scanRow } from './rows.ts';
 import {
@@ -210,12 +211,15 @@ export function createTrackRepo(db: TrackDb): TrackRepo {
     },
 
     async findOwnedByKey(fileName, sizeBytes) {
-      const row = await db.getFirstAsync<TrackRow>(
+      const rows = await db.getAllAsync<TrackRow>(
         `SELECT ${TRACK_COLUMNS} FROM tracks
-          WHERE source IN ('import', 'download') AND fileName = ? AND sizeBytes = ?
-          ORDER BY addedAt DESC LIMIT 1`,
-        fileName,
+          WHERE source IN ('import', 'download') AND sizeBytes = ?
+          ORDER BY addedAt DESC`,
         sizeBytes,
+      );
+      const key = stripCollisionSuffix(fileName);
+      const row = rows.find(
+        (item) => stripCollisionSuffix(item.fileName) === key,
       );
       return row ? toRecord(row) : null;
     },

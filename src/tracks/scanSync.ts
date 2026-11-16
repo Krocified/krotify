@@ -2,24 +2,15 @@ import { putScanSummary, type ScanSummary } from '../db/settings.ts';
 import {
   getTrack,
   listActiveTracks,
+  listHiddenTracks,
   listRemovedOwnedTracks,
   updateTrackFields,
   upsertScanTracks,
 } from './repo.ts';
-import { filterScanCandidates, ownedKey } from './scanPlan.ts';
+import { filterScanCandidates, ownedKeysOf } from './scanPlan.ts';
 import { readTrackSeed } from './seed.ts';
 import { seedToTrackPatch } from './seedMap.ts';
-import type { ScanTrackInput, TrackRecord } from './types.ts';
-
-function ownedKeysOf(records: TrackRecord[]): Set<string> {
-  const keys = new Set<string>();
-  for (const record of records) {
-    if (record.source !== 'import' && record.source !== 'download') continue;
-    const key = ownedKey(record.fileName, record.sizeBytes);
-    if (key !== null) keys.add(key);
-  }
-  return keys;
-}
+import type { ScanTrackInput } from './types.ts';
 
 async function seedInsertedTracks(ids: string[]): Promise<void> {
   let next = 0;
@@ -49,11 +40,12 @@ export async function syncScanResults(
   candidates: ScanTrackInput[],
   options: { rootUri: string | null },
 ): Promise<{ summary: ScanSummary; skippedOwned: number }> {
-  const [active, removed] = await Promise.all([
+  const [active, removed, hidden] = await Promise.all([
     listActiveTracks(),
     listRemovedOwnedTracks(),
+    listHiddenTracks(),
   ]);
-  const ownedKeys = ownedKeysOf([...active, ...removed]);
+  const ownedKeys = ownedKeysOf([...active, ...removed, ...hidden]);
 
   const { accepted, skippedOwned } = filterScanCandidates(candidates, {
     rootUri: options.rootUri,
@@ -65,7 +57,7 @@ export async function syncScanResults(
 
   const summary: ScanSummary = {
     lastScanAt: Date.now(),
-    found: candidates.length,
+    found: accepted.length,
     newTracks: insertedIds.length,
     missing,
   };

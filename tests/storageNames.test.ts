@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { uniqueFileName, withCollisionSuffix } from '../src/storage/names.ts';
+import {
+  stripCollisionSuffix,
+  uniqueFileName,
+  withCollisionSuffix,
+} from '../src/storage/names.ts';
 
 test('a free name is unchanged', () => {
   assert.equal(uniqueFileName('Song.mp3', new Set()), 'Song.mp3');
@@ -27,4 +31,12 @@ test('a name without an extension still gets a suffix', () => {
 
 test('a hidden extension is preserved', () => {
   assert.equal(withCollisionSuffix('.nomedia', 2), '.nomedia (2)');
+});
+
+test('stripCollisionSuffix removes only a numeric collision suffix', () => {
+  assert.equal(stripCollisionSuffix('Song.mp3'), 'Song.mp3');
+  assert.equal(stripCollisionSuffix('Song (2).mp3'), 'Song.mp3');
+  assert.equal(stripCollisionSuffix('Song (12).mp3'), 'Song.mp3');
+  assert.equal(stripCollisionSuffix('Song (Live).mp3'), 'Song (Live).mp3');
+  assert.equal(stripCollisionSuffix('Song (2)'), 'Song');
 });

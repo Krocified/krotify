@@ -55,6 +55,7 @@ export async function downloadOwnedFile(
       options.signal?.aborted ||
       (error instanceof Error && error.name === 'AbortError')
     ) {
+      discard(destination);
       throw error;
     }
 

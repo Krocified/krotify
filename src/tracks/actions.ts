@@ -31,7 +31,10 @@ export async function deleteTrackEverywhere(
 ): Promise<void> {
   if (track.source === 'scan') {
     const asset = assets.get(track.id);
-    if (asset) await asset.delete();
+    if (!asset) {
+      throw new Error(`Media asset ${track.id} is no longer available.`);
+    }
+    await asset.delete();
   } else if (track.source !== 'demo') {
     deleteOwnedFileStrict(track.uri);
   }

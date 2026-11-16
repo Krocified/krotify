@@ -108,15 +108,25 @@ function insertOwned(
   source: 'import' | 'download',
   fileName: string,
   lastSeenAt = 1_000,
+  sizeBytes: number | null = null,
 ): void {
   raw
     .prepare(
       `INSERT INTO tracks
-         (id, source, location, fileName, durationMs, title, artist, album,
+         (id, source, location, fileName, sizeBytes, durationMs, title, artist, album,
           status, missing, addedAt, lastSeenAt, artworkHue)
-       VALUES (?, ?, ?, ?, 0, ?, '', '', 'active', 0, ?, ?, 0)`,
+       VALUES (?, ?, ?, ?, ?, 0, ?, '', '', 'active', 0, ?, ?, 0)`,
     )
-    .run(id, source, `file:///owned/${fileName}`, fileName, fileName, lastSeenAt, lastSeenAt);
+    .run(
+      id,
+      source,
+      `file:///owned/${fileName}`,
+      fileName,
+      sizeBytes,
+      fileName,
+      lastSeenAt,
+      lastSeenAt,
+    );
 }
 
 function stored(raw: DatabaseSync, id: string): StoredTrack | undefined {
@@ -479,6 +489,16 @@ test('repository deletes dependents in order and cascades tags', async () => {
   );
   assert.deepEqual(tags(raw, '1'), []);
   assert.deepEqual(tags(raw, '2'), ['t1']);
+});
+
+test('findOwnedByKey matches a collision-suffixed copy by base name and size', async () => {
+  const raw = createDb();
+  const repo = createTrackRepo(repoDb(raw).db);
+  insertOwned(raw, 'import:2', 'import', 'Song (2).mp3', 100, 4_096);
+
+  const match = await repo.findOwnedByKey('Song.mp3', 4_096);
+  assert.equal(match?.id, 'import:2');
+  assert.equal(await repo.findOwnedByKey('Song.mp3', 4_097), null);
 });
 
 test('repository inserts every owned column and reads it back', async () => {

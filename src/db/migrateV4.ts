@@ -15,6 +15,7 @@ export type MigrationInput = {
   imports: LegacyImport[];
   excluded: LegacyExcluded[];
   fileExists: (location: string) => boolean;
+  fileSize: (location: string) => number | undefined;
 };
 
 export type MigrationResult = {
@@ -71,13 +72,15 @@ async function insertImport(
   const fileName = fileNameFromUri(record.uri);
   const title = record.title || titleFromFilename(fileName);
   const missing = input.fileExists(record.uri) ? 0 : 1;
+  const sizeBytes = input.fileSize(record.uri);
   return runChanges(
     db,
     `INSERT OR IGNORE INTO tracks (${TRACK_COLUMNS})
-     VALUES (?, 'import', ?, ?, NULL, ?, ?, ?, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', ?, ?, ?, ?)`,
+     VALUES (?, 'import', ?, ?, ?, ?, ?, ?, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', ?, ?, ?, ?)`,
     record.id,
     record.uri,
     fileName,
+    sizeBytes ?? null,
     record.durationMs,
     title,
     record.artist,

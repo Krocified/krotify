@@ -11,11 +11,15 @@ export function withCollisionSuffix(name: string, index: number): string {
 
 const COLLISION_SUFFIX = / \(\d+\)$/;
 
+export function stripCollisionSuffix(name: string): string {
+  const { stem, ext } = splitExtension(name);
+  return `${stem.replace(COLLISION_SUFFIX, '')}${ext}`;
+}
+
 export function uniqueFileName(name: string, taken: ReadonlySet<string>): string {
   if (!taken.has(name)) return name;
 
-  const { stem, ext } = splitExtension(name);
-  const base = `${stem.replace(COLLISION_SUFFIX, '')}${ext}`;
+  const base = stripCollisionSuffix(name);
   if (!taken.has(base)) return base;
 
   for (let index = 2; ; index += 1) {

@@ -20,6 +20,7 @@ function migrate(
     imports: [],
     excluded: [],
     fileExists: () => true,
+    fileSize: () => undefined,
     ...overrides,
   });
 }
@@ -36,6 +37,7 @@ type TrackRow = {
   source: string;
   location: string;
   fileName: string;
+  sizeBytes: number | null;
   durationMs: number;
   title: string;
   artist: string;
@@ -279,6 +281,20 @@ test('v4 migration hides excluded ids and keeps the file state', async () => {
   assert.equal(orphan.status, 'hidden');
   assert.equal(orphan.location, '');
   assert.equal(orphan.missing, 1);
+});
+
+test('v4 migration records known import sizes and leaves unknown sizes null', async () => {
+  const fixture = createV3Fixture();
+  await migrate(fixture, {
+    imports: [
+      { id: 'import:known', uri: 'file:///docs/imports/song.mp3', title: 'Song', artist: '', durationMs: 9 },
+      { id: 'import:unknown', uri: 'file:///docs/imports/lost.mp3', title: 'Lost', artist: '', durationMs: 9 },
+    ],
+    fileSize: (location) => (location.endsWith('song.mp3') ? 4_096 : undefined),
+  });
+
+  assert.equal(trackRow(fixture, 'import:known').sizeBytes, 4_096);
+  assert.equal(trackRow(fixture, 'import:unknown').sizeBytes, null);
 });
 
 test('v4 migration keeps scan asset ids and import ids verbatim', async () => {

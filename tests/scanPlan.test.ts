@@ -1,7 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterScanCandidates, ownedKey } from '../src/tracks/scanPlan.ts';
-import type { ScanTrackInput } from '../src/tracks/types.ts';
+import {
+  filterScanCandidates,
+  ownedKey,
+  ownedKeysOf,
+} from '../src/tracks/scanPlan.ts';
+import type { ScanTrackInput, TrackRecord } from '../src/tracks/types.ts';
+
+function record(overrides: Partial<TrackRecord> = {}): TrackRecord {
+  return {
+    id: 'import:1',
+    source: 'import',
+    location: 'file:///owned/song.mp3',
+    fileName: 'song.mp3',
+    sizeBytes: 4_096,
+    durationMs: 180_000,
+    title: 'Song',
+    artist: '',
+    album: '',
+    status: 'active',
+    missing: 0,
+    addedAt: 1,
+    lastSeenAt: 1,
+    artworkHue: 0,
+    ...overrides,
+  };
+}
 
 function candidate(overrides: Partial<ScanTrackInput> = {}): ScanTrackInput {
   return {
@@ -59,6 +83,22 @@ test('an owned name and size is skipped even without a prefix match', () => {
 
   assert.deepEqual(result.accepted, []);
   assert.equal(result.skippedOwned, 1);
+});
+
+test('owned keys include hidden owned rows and ignore scan rows', () => {
+  const hiddenKey = ownedKey('hidden.mp3', 5_000);
+  assert.ok(hiddenKey);
+  const keys = ownedKeysOf([
+    record({ id: 'import:a', status: 'active' }),
+    record({ id: 'import:b', fileName: 'removed.mp3', sizeBytes: 4_500, status: 'removed' }),
+    record({ id: 'import:c', fileName: 'hidden.mp3', sizeBytes: 5_000, status: 'hidden' }),
+    record({ id: 'scan:d', source: 'scan', fileName: 'scan.mp3', sizeBytes: 5_500 }),
+  ]);
+
+  assert.ok(keys.has(ownedKey('song.mp3', 4_096) ?? ''));
+  assert.ok(keys.has(ownedKey('removed.mp3', 4_500) ?? ''));
+  assert.ok(keys.has(hiddenKey));
+  assert.equal(keys.has(ownedKey('scan.mp3', 5_500) ?? ''), false);
 });
 
 test('a scan asset outside the root is kept', () => {

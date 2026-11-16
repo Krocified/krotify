@@ -74,6 +74,21 @@ function collectFiles(directory: Directory, found: File[] = []): File[] {
   return found;
 }
 
+function deleteEmptyDirectories(directory: Directory): void {
+  let entries: (Directory | File)[];
+  try {
+    entries = directory.list();
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry instanceof Directory) deleteEmptyDirectories(entry);
+  }
+  try {
+    if (directory.exists && directory.list().length === 0) directory.delete();
+  } catch {}
+}
+
 export async function getStorageRoot(): Promise<StorageRoot> {
   const [uri, name, kind] = await Promise.all([
     getSetting(ROOT_URI_KEY),
@@ -136,7 +151,7 @@ export async function listOwnedFiles(root: StorageRoot): Promise<File[]> {
 
 export async function moveOwnedFiles(to: StorageRoot): Promise<MoveResult> {
   const from = await getStorageRoot();
-  if (from.uri === to.uri) return { moved: 0, failures: [] };
+  const flatten = from.uri === to.uri;
 
   const failures: { name: string; reason: string }[] = [];
   let moved = 0;
@@ -181,6 +196,17 @@ export async function moveOwnedFiles(to: StorageRoot): Promise<MoveResult> {
     entries = source.list();
   } catch (error) {
     return { moved: 0, failures: [{ name: from.name, reason: errorMessage(error) }] };
+  }
+
+  if (flatten) {
+    const directories = entries.filter(
+      (entry): entry is Directory => entry instanceof Directory,
+    );
+    for (const directory of directories) {
+      for (const file of collectFiles(directory)) await moveFile(file);
+    }
+    for (const directory of directories) deleteEmptyDirectories(directory);
+    return { moved, failures };
   }
 
   const directories: Directory[] = [];
@@ -236,9 +262,14 @@ export async function storageInfo(): Promise<{
   return { root, fileCount: files.length, totalBytes, reclaimableBytes };
 }
 
-export async function cleanRemovedOwnedFiles(): Promise<{ deleted: number; bytes: number }> {
+export async function cleanRemovedOwnedFiles(): Promise<{
+  deleted: number;
+  bytes: number;
+  failures: { name: string; reason: string }[];
+}> {
   let deleted = 0;
   let bytes = 0;
+  const failures: { name: string; reason: string }[] = [];
 
   for (const track of await listRemovedOwnedTracks()) {
     try {
@@ -249,11 +280,19 @@ export async function cleanRemovedOwnedFiles(): Promise<{ deleted: number; bytes
         deleted += 1;
         if (Number.isFinite(size) && size > 0) bytes += size;
       }
+    } catch (error) {
+      failures.push({ name: track.fileName, reason: errorMessage(error) });
+      continue;
+    }
+
+    try {
       await deleteTrackRecord(track.id);
-    } catch {}
+    } catch (error) {
+      failures.push({ name: track.fileName, reason: errorMessage(error) });
+    }
   }
 
-  return { deleted, bytes };
+  return { deleted, bytes, failures };
 }
 
 export async function deleteOwnedFile(location: string): Promise<void> {

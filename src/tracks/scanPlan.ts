@@ -1,4 +1,14 @@
-import type { ScanTrackInput } from './types.ts';
+import type { ScanTrackInput, TrackRecord } from './types.ts';
+
+export function ownedKeysOf(records: TrackRecord[]): Set<string> {
+  const keys = new Set<string>();
+  for (const record of records) {
+    if (record.source !== 'import' && record.source !== 'download') continue;
+    const key = ownedKey(record.fileName, record.sizeBytes);
+    if (key !== null) keys.add(key);
+  }
+  return keys;
+}
 
 export function ownedKey(
   fileName: string,

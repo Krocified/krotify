@@ -123,7 +123,7 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
         continue;
       }
 
-      const durationMs = await probeDurationMs(copied.uri);
+      const durationMs = await probeDurationMs(copied.uri).catch(() => 0);
       const seed = await readTrackSeed(copied.uri);
       const patch = seedToTrackPatch(seed, name);
 
