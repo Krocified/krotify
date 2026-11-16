@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { TagEditor } from '../components/TagEditor';
 import { validateArtworkInput, type ArtworkInput } from '../lib/artworkInput';
 import { formatDuration } from '../lib/format';
 import { buildTrackFieldPatch, type EditForm } from '../tracks/editPatch';
@@ -203,6 +204,7 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
           {track.uri ? <DetailRow label="Format" value={extensionOf(track.uri) || '—'} /> : null}
           {fileSize !== null ? <DetailRow label="File size" value={formatBytes(fileSize)} /> : null}
           {track.uri ? <DetailRow label="Path" value={track.uri} multiline /> : null}
+          <TagEditor trackId={track.id} readOnly />
         </ScrollView>
       );
     }
@@ -274,6 +276,8 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
                 />
               ))
             : null}
+
+          {!renameOnly ? <TagEditor trackId={track.id} /> : null}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
