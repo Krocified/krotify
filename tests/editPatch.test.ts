@@ -28,31 +28,44 @@ const form = (overrides: Partial<EditForm> = {}): EditForm => ({
   title: 'Old Title',
   artist: 'Artist',
   album: 'Album',
-  albumArtist: '',
   genre: '',
-  trackNumber: '',
-  discNumber: '',
   year: '',
   ...overrides,
 });
 
-test('rename patches only the title', () => {
+test('patches changed string fields', () => {
   const result = buildTrackFieldPatch(
     track,
     form({ title: 'New Title', artist: 'Another Artist', album: 'Another Album' }),
-    true,
   );
-  assert.deepEqual(result, { patch: { title: 'New Title' } });
+  assert.deepEqual(result, {
+    patch: { title: 'New Title', artist: 'Another Artist', album: 'Another Album' },
+  });
 });
 
 test('an empty title is rejected', () => {
-  const result = buildTrackFieldPatch(track, form({ title: '   ' }), false);
+  const result = buildTrackFieldPatch(track, form({ title: '   ' }));
   assert.equal(result.error, 'Title is required.');
 });
 
 test('unchanged fields are omitted', () => {
-  const result = buildTrackFieldPatch(track, form({ title: ' Old Title ' }), false);
+  const result = buildTrackFieldPatch(track, form({ title: ' Old Title ' }));
   assert.deepEqual(result, { patch: {} });
+});
+
+test('patches a whole-number year', () => {
+  const result = buildTrackFieldPatch(track, form({ year: '1999' }));
+  assert.deepEqual(result, { patch: { year: 1999 } });
+});
+
+test('rejects a fractional year', () => {
+  const result = buildTrackFieldPatch(track, form({ year: '19.5' }));
+  assert.equal(result.error, 'Year must be a whole number.');
+});
+
+test('rejects a negative year', () => {
+  const result = buildTrackFieldPatch(track, form({ year: '-1' }));
+  assert.equal(result.error, 'Year cannot be negative.');
 });
 
 test('artwork validation accepts an image under the limit', () => {

@@ -19,8 +19,7 @@ type Props = {
   missing?: boolean;
   onClose: () => void;
   onDetails?: (track: Track) => void;
-  onEdit?: (track: Track) => void;
-  onRename?: (track: Track) => void;
+  onTags?: (track: Track) => void;
   onExclude?: (track: Track) => void;
   onDelete?: (track: Track) => void;
   onClear?: (track: Track) => void;
@@ -43,8 +42,7 @@ export function TrackActionsSheet({
   missing = false,
   onClose,
   onDetails,
-  onEdit,
-  onRename,
+  onTags,
   onExclude,
   onDelete,
   onClear,
@@ -74,8 +72,7 @@ export function TrackActionsSheet({
     }
   } else {
     if (onDetails) actions.push({ key: 'details', label: 'Details', icon: 'information-circle-outline', onPress: onDetails });
-    if (onEdit) actions.push({ key: 'edit', label: 'Edit metadata', icon: 'create-outline', onPress: onEdit });
-    if (onRename) actions.push({ key: 'rename', label: 'Rename', icon: 'pencil', onPress: onRename });
+    if (onTags) actions.push({ key: 'tags', label: 'Tags', icon: 'pricetags-outline', onPress: onTags });
     if (onFavorite) {
       actions.push({
         key: 'favorite',
@@ -88,8 +85,8 @@ export function TrackActionsSheet({
     if (onAddToPlaylist) {
       actions.push({
         key: 'playlist',
-        label: 'Add to playlist',
-        icon: 'add-circle-outline',
+        label: 'Save to playlist',
+        icon: 'bookmark-outline',
         onPress: onAddToPlaylist,
       });
     }

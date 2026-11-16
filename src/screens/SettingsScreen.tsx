@@ -3,13 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Easing,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Switch,
   Text,
-  useWindowDimensions,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,7 @@ import {
   type PermissionState,
   type StorageView,
 } from '../lib/settingsView';
+import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverConfig';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -58,8 +59,6 @@ type Props = {
 
 const RELEASE_ABI = 'arm64-v8a';
 
-const SLIDE_MS = 280;
-
 function scanSummaryLabel(summary: ScanSummary): string {
   const result = scanResultLabel(summary.found, summary.newTracks, summary.missing);
   return `${result} · ${new Date(summary.lastScanAt).toLocaleString()}`;
@@ -87,9 +86,12 @@ export function SettingsScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
-  const { width } = useWindowDimensions();
   const { sleep, setSleep } = usePlayer();
-  const [anim] = useState(() => new Animated.Value(0));
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkToken, setLinkToken] = useState('');
+  const [linkNote, setLinkNote] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   const scanning = status === 'scanning';
   const canRescan = scanEnabled && !scanning;
   const permissionText = permission === null ? 'Checking' : permissionLabel(permission);
@@ -101,13 +103,34 @@ export function SettingsScreen({
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: visible ? 1 : 0,
-      duration: SLIDE_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [anim, visible]);
+    if (!visible) return;
+    let cancelled = false;
+    void loadLinkServerConfig()
+      .then((config) => {
+        if (cancelled) return;
+        setLinkUrl(config?.url ?? '');
+        setLinkToken(config?.token ?? '');
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  async function saveLinkConfig() {
+    if (linkBusy) return;
+    setLinkBusy(true);
+    setLinkNote(null);
+    setLinkError(null);
+    try {
+      await saveLinkServerConfig({ url: linkUrl.trim(), token: linkToken.trim() });
+      setLinkNote('Saved.');
+    } catch {
+      setLinkError('Could not save the link service settings.');
+    } finally {
+      setLinkBusy(false);
+    }
+  }
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {
@@ -118,17 +141,8 @@ export function SettingsScreen({
   );
 
   return (
-    <Animated.View
-      style={[
-        styles.root,
-        {
-          transform: [
-            {
-              translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [width, 0] }),
-            },
-          ],
-        },
-      ]}
+    <View
+      style={styles.root}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
@@ -139,9 +153,14 @@ export function SettingsScreen({
         <View style={styles.iconButton} />
       </View>
 
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
           {...scrollHandlers}
           contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
         >
@@ -331,6 +350,65 @@ export function SettingsScreen({
               </View>
               <Text style={styles.actionText}>Clean</Text>
             </Pressable>
+
+            <View style={styles.linkFields}>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Link service URL</Text>
+                <TextInput
+                  value={linkUrl}
+                  onChangeText={(value) => {
+                    setLinkUrl(value);
+                    setLinkNote(null);
+                    setLinkError(null);
+                  }}
+                  placeholder="https://links.example.com"
+                  placeholderTextColor={colors.textDim}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  accessibilityLabel="Link service URL"
+                  style={styles.input}
+                />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Link service token</Text>
+                <TextInput
+                  value={linkToken}
+                  onChangeText={(value) => {
+                    setLinkToken(value);
+                    setLinkNote(null);
+                    setLinkError(null);
+                  }}
+                  placeholder="Optional access token"
+                  placeholderTextColor={colors.textDim}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry
+                  accessibilityLabel="Link service token"
+                  style={styles.input}
+                />
+              </View>
+              <Pressable
+                onPress={() => void saveLinkConfig()}
+                disabled={linkBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Save link service settings"
+                accessibilityState={{ disabled: linkBusy, busy: linkBusy }}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  linkBusy && styles.rowDisabled,
+                  pressed && !linkBusy && styles.actionPressed,
+                ]}
+              >
+                {linkBusy ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
+              </Pressable>
+              {linkNote ? <Text style={styles.saveNote}>{linkNote}</Text> : null}
+              {linkError ? <Text style={styles.saveError}>{linkError}</Text> : null}
+            </View>
           </View>
 
           <Text style={styles.sectionTitle}>Playback</Text>
@@ -369,8 +447,8 @@ export function SettingsScreen({
           viewportHeight={viewportHeight}
           bottomOffset={TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8}
         />
-      </View>
-    </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -462,5 +540,48 @@ const styles = StyleSheet.create({
   actionText: {
     ...type.meta,
     color: colors.accent2,
+  },
+  flex: {
+    flex: 1,
+  },
+  linkFields: {
+    gap: space.sm,
+    padding: space.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#ffffff10',
+  },
+  field: {
+    gap: space.xs,
+  },
+  fieldLabel: {
+    ...type.meta,
+    color: colors.textDim,
+  },
+  input: {
+    ...type.body,
+    color: colors.text,
+    backgroundColor: colors.surfaceHi,
+    borderRadius: radius.screen,
+    paddingHorizontal: space.md,
+    minHeight: 48,
+  },
+  saveButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.screen,
+    backgroundColor: colors.accent,
+  },
+  saveButtonText: {
+    ...type.body,
+    color: colors.text,
+  },
+  saveNote: {
+    ...type.meta,
+    color: colors.accent2,
+  },
+  saveError: {
+    ...type.meta,
+    color: colors.danger,
   },
 });

@@ -123,14 +123,6 @@ export function LibraryScreen({
               )}
               ListHeaderComponent={
                 <View>
-                  <TagFilterBar
-                    tags={tags}
-                    selectedId={selectedTagId}
-                    onSelect={onSelectTag}
-                  />
-                  {selectedTagId === null && recentTracks.length > 0 ? (
-                    <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
-                  ) : null}
                   {onOpenLiked ? (
                     <Pressable
                       onPress={onOpenLiked}
@@ -149,6 +141,14 @@ export function LibraryScreen({
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
                     </Pressable>
+                  ) : null}
+                  <TagFilterBar
+                    tags={tags}
+                    selectedId={selectedTagId}
+                    onSelect={onSelectTag}
+                  />
+                  {selectedTagId === null && recentTracks.length > 0 ? (
+                    <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
                   ) : null}
                   {onOpenPlaylists !== undefined || (playlists?.length ?? 0) > 0 ? (
                     <View style={styles.rails}>
@@ -310,7 +310,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.md,
     marginHorizontal: space.md,
-    marginBottom: space.md,
     padding: space.md,
     borderRadius: radius.screen,
     backgroundColor: colors.surface,

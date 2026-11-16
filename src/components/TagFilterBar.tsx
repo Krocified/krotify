@@ -50,6 +50,7 @@ export function TagFilterBar({ tags, selectedId, onSelect }: Props) {
 const styles = StyleSheet.create({
   list: {
     paddingHorizontal: space.md,
+    paddingBottom: space.md,
     gap: space.sm,
   },
   chip: {

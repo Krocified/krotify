@@ -17,6 +17,8 @@ import { LyricsPanel } from '../components/LyricsPanel';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
+import { TagAssignSheet } from '../components/TagAssignSheet';
+import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
 import { coverColors } from '../lib/cover';
 import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
@@ -75,6 +77,8 @@ export function NowPlayingScreen({
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
 
@@ -196,6 +200,22 @@ export function NowPlayingScreen({
                   {formatSleepRemaining(sleep.mode, sleep.remainingMs)}
                 </Text>
               ) : null}
+            </Pressable>
+            <Pressable
+              onPress={() => setTagOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Tags"
+              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
+            >
+              <Ionicons name="pricetags-outline" size={22} color={colors.textDim} />
+            </Pressable>
+            <Pressable
+              onPress={() => setPlaylistOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Save to playlist"
+              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
+            >
+              <Ionicons name="bookmark-outline" size={22} color={colors.textDim} />
             </Pressable>
             <Pressable
               onPress={toggleLike}
@@ -451,6 +471,16 @@ export function NowPlayingScreen({
           ) : null}
         </View>
       </View>
+      <TagAssignSheet
+        visible={tagOpen}
+        track={track}
+        onClose={() => setTagOpen(false)}
+      />
+      <PlaylistPickerSheet
+        visible={playlistOpen}
+        track={track}
+        onClose={() => setPlaylistOpen(false)}
+      />
     </Animated.View>
   );
 }
