@@ -34,6 +34,7 @@ import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
 import { usePlayer } from './player/PlayerProvider';
 import { deleteOwnedFile, getStorageRoot } from './storage/root';
+import { filterTracksByTag, reconcileTagFilter } from './tags/filter';
 import { useTags } from './tags/TagProvider';
 import {
   deleteTrackRecord,
@@ -74,7 +75,8 @@ export function AppShell() {
     setQueue,
   } = usePlayer();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
-  const { refresh: refreshTags } = useTags();
+  const { tags, assignments, refresh: refreshTags } = useTags();
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
   const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
@@ -131,6 +133,13 @@ export function AppShell() {
   const tracks = useMemo(
     () => sortTracks(libraryTracks.filter((track) => !excludedIds.has(track.id))),
     [libraryTracks, excludedIds],
+  );
+  useEffect(() => {
+    setSelectedTagId((current) => reconcileTagFilter(current, tags));
+  }, [tags]);
+  const filteredTracks = useMemo(
+    () => filterTracksByTag(tracks, selectedTagId, assignments),
+    [tracks, selectedTagId, assignments],
   );
   const hiddenScannedCount = useMemo(
     () => excluded.filter((track) => track.source === 'scan').length,
@@ -682,8 +691,11 @@ export function AppShell() {
       >
         {activeTab === 'library' ? (
           <LibraryScreen
-            tracks={tracks}
+            tracks={filteredTracks}
             recentTracks={recentTracks}
+            tags={tags}
+            selectedTagId={selectedTagId}
+            onSelectTag={setSelectedTagId}
             status={status}
             statusNote={statusNote ?? hiddenNote}
             onSelect={handleSelect}
