@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagEditor } from '../components/TagEditor';
 import { validateArtworkInput, type ArtworkInput } from '../lib/artworkInput';
 import { formatDuration } from '../lib/format';
@@ -160,7 +161,13 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
     return (
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
+        contentContainerStyle={[
+            styles.content,
+            {
+              paddingBottom:
+                insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+            },
+          ]}
       >
         <View style={styles.detailHero}>
           <CoverArt
@@ -203,7 +210,13 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingBottom:
+                insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+            },
+          ]}
         >
           <View style={styles.artworkRow}>
             <CoverArt

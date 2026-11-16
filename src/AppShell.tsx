@@ -878,11 +878,7 @@ export function AppShell() {
   const fullScreenOverlay = editTarget !== null;
   const showTabs =
     !fullScreenOverlay && (screen === 'library' || screen === 'import');
-  const showTabBar =
-    screen !== 'nowPlaying' &&
-    screen !== 'search' &&
-    screen !== 'hiddenTracks' &&
-    !fullScreenOverlay;
+  const showTabBar = screen !== 'nowPlaying';
   const activeTab: TabName =
     screen === 'library' || screen === 'import' ? screen : tab;
 
@@ -908,6 +904,7 @@ export function AppShell() {
     setPlaylistsOpen(false);
     setOpenPlaylistId(null);
     setLikedOpen(false);
+    setEditTarget(null);
     setTab(next);
     setScreen(next);
   }

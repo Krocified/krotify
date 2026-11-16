@@ -378,8 +378,9 @@ while Settings is open.
 
 ## Screens & flows
 
-**Tabs**: Library and Import. Persistent on Settings, hidden on Now Playing and
-Search. A floating blur pill above the system inset; active tab uses a filled
+**Tabs**: Library and Import. Persistent on every page except Now Playing:
+Library, Import, Settings, Hidden tracks, Search, Playlists, Liked Songs and track
+details. A floating blur pill above the system inset; active tab uses a filled
 icon and white label, inactive uses an outline icon and dim label. Settings stays
 in the header.
 

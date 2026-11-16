@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill } from '../components/ScreenHeader';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ScrollBar } from '../components/ScrollBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { isMissingTrack } from '../lib/settingsView';
@@ -80,7 +81,13 @@ export function HiddenTracksScreen({
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
           {...scrollHandlers}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingBottom:
+                insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+            },
+          ]}
         >
           {tracks.length === 0 ? (
             <Text style={styles.empty}>
@@ -177,7 +184,7 @@ export function HiddenTracksScreen({
           scrollY={scrollY}
           contentHeight={contentHeight}
           viewportHeight={viewportHeight}
-          bottomOffset={insets.bottom + space.md}
+          bottomOffset={TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8}
         />
       </View>
     </Animated.View>

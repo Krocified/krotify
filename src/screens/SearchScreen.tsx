@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollBar } from '../components/ScrollBar';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { searchTracks } from '../lib/search';
@@ -29,7 +30,7 @@ type Props = {
 };
 
 const SLIDE_MS = 280;
-const BOTTOM_PAD = 88;
+const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 110;
 const webInput =
   Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
@@ -131,7 +132,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
             scrollY={scrollY}
             contentHeight={contentHeight}
             viewportHeight={viewportHeight}
-            bottomOffset={insets.bottom}
+            bottomOffset={TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8}
             onScrollTo={(offset) => listRef.current?.scrollToOffset({ offset, animated: false })}
           />
         </View>
