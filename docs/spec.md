@@ -331,7 +331,41 @@ Focus: make the v5 surfaces usable and make a bad download harmless.
   timer. The hold menu gains the same two actions.
 - Tag editing is keyboard-safe: the editor scrolls so fields and chips are never
   obscured by the keyboard.
-- The Liked Songs row and the tag filter pills have no gap between them.
+- Tag pills sit above the Liked Songs row, with a margin between them.
+
+### v7: Local lyrics, artists, artwork and list polish (planned)
+
+Focus: bring lyrics back without the network, make real artwork drive color, and
+finish the library and playlist surfaces.
+
+- **Lyrics, local only.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics mode
+  and an Import .lrc action. Picking a local `.lrc` reads and parses it, then
+  stores the text in `lyrics_cache` for that track. No LRCLIB, no network lookup,
+  no Settings toggle. Timed highlight, auto-scroll and tap-to-seek return. If a
+  track has no local lyrics, the panel offers Import .lrc.
+- **Ambient color from the art.** The Now Playing backdrop uses the dominant color
+  of the real cover, cached per artwork URI. The generated hue is only a fallback
+  when there is no real art or extraction fails.
+- **Artists in Library.** An Artists section or rail shows circular covers and
+  `N albums · M tracks`, hidden when there are no artists. Tapping opens artist
+  detail with a circular hero and the artist's track list. No Albums tab.
+- **Square art cropper.** A reusable cropper with pinch zoom, pan, resize and a
+  square selection applies to track, playlist and artist art. The result is saved
+  as a new square image in the app artwork folder and its URI is stored in the DB.
+  Audio files are never touched.
+- **Active-page navbar blur.** The tab bar blurs the active page. Settings,
+  Hidden tracks, Search, Playlists, Liked Songs and Details each provide their own
+  blur target, so Settings no longer shows the blurred Library underneath.
+- **Playlists revamp.** The index becomes a two-column cover grid with a prominent
+  Create action, per-card overflow (edit, delete), a track count and an empty
+  state. Detail keeps the hero, cover editing through the cropper, Play, Shuffle,
+  drag reorder and the persistent bottom nav/player.
+- **Create playlist from the picker.** The playlist picker sheet used by the hold
+  menu and the Now Playing bookmark gains a New playlist row with a name field. It
+  creates the playlist and adds the current track in one step.
+- **Library song rows.** Each row shows cover, title and `artist · duration` on the
+  second line. An ellipsis button on the right opens the same action sheet as a
+  long press. Duration leaves the far right.
 
 ## Library management
 
@@ -362,11 +396,9 @@ while Settings is open.
 
 ## External services
 
-- **LRCLIB** (`https://lrclib.net`): optional lyrics lookup. Requests carry
-  `User-Agent: Krotify <version> (https://github.com/Krocified/krotify)` (or
-  `X-User-Agent` on web), are sequential with a short delay, and cache the
-  response locally. Only title, artist, album and duration leave the device.
-  Publishing, flagging and bulk prefetch are out of scope.
+- **LRCLIB** is retired in v7. Lyrics are local `.lrc` imports only; no title,
+  artist or album leaves the device for lyrics. The old network lookup and its
+  Settings toggle are removed.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
 - **Self-hosted link service** (v5.1): a companion Express app in `server/` runs
@@ -389,12 +421,13 @@ in the header.
 hydration runs from the library after metadata enrichment so Library and Now
 Playing keep real covers.
 
-**Library** — shared header (`Krotify` wordmark, search, settings), a Liked Songs
-row, the tag filter pills directly beneath it with no gap, a playlists rail with
-create/open actions, optional Recently played rail, and the track list. Rows show
-cover, title, artist and duration; long press opens the in-app action sheet
-(details, tags, save to playlist, favorite, exclude, delete). Scrolling shows a
-thin blue scrollbar from below the header to the mini-player.
+**Library** — shared header (`Krotify` wordmark, search, settings), tag filter
+pills above a Liked Songs row with a margin between them, a playlists rail, an
+Artists rail, optional Recently played rail, and the track list. Song rows show
+cover, title, `artist · duration`, and an ellipsis button that opens the same
+action sheet as a long press (details, tags, save to playlist, favorite, exclude,
+delete). Scrolling shows a thin blue scrollbar from below the header to the
+mini-player.
 
 **Catalog / Albums (unwired)**: kept for the later redesign. Segmented control;
 artist section headers; rows with cover, album title, and "N tracks · M min".
@@ -405,17 +438,23 @@ track list.
 artist name, "N albums · M tracks". Artist detail mirrors the album detail with
 a circular hero.
 
-**Playlists**: index (create, edit, delete) and detail with a hero cover, title,
-description, meta, Play and Shuffle. Rows drag to reorder with auto-scroll, and
-the order persists and matches playback. Entry from Library.
+**Playlists**: a two-column cover grid with Create, per-card overflow (edit,
+delete), count and an empty state. Detail keeps the hero, cover editing through
+the cropper, title, description, meta, Play and Shuffle. Rows drag to reorder with
+auto-scroll, and the order persists and matches playback. Entry from Library. The
+bottom nav and mini-player stay visible.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
-**Track details** — reached from the action sheet. Shows cover, title, artist,
-album, album artist, track/year, disc, genre, duration, format and file size. A
-pencil in the header toggles inline editing of title, artist, album, year, genre
-and artwork only; duration, format and file size stay read-only. Edit metadata and
-Rename are no longer separate menu items.
+**Track details** — reached from the action sheet or the Now Playing info button.
+Shows cover, title, artist, album, album artist, track/year, disc, genre,
+duration, format and file size. A pencil in the header toggles inline editing of
+title, artist, album, year, genre and artwork only; duration, format and file size
+stay read-only. Edit metadata and Rename are no longer separate menu items.
+
+**Artist detail** — circular hero art, artist name, `N albums · M tracks`, and the
+artist's track list. The artist art can be replaced and cropped. Reached from the
+Library Artists rail.
 
 **Import**: a dedicated tab, not a Settings row. The local import card expands to
 take most of the screen and uses a striped drop-field border. System document
@@ -428,11 +467,13 @@ audio, and downloads into the chosen storage folder.
 incremental results across title, artist and album.
 
 **Now Playing** — plain back/down control aligned with the other back pills, no
-black pill. Full-bleed cover-color backdrop and draggable progress with previous/
-play/next centered on play and repeat at the right. The transport row holds the
-heart, tag controls and a save-to-playlist bookmark beside the sleep timer. Lyrics
-remain code-only behind `LYRICS_ENABLED = false`. Closing is instant and returns
-to the screen it was opened from.
+black pill. The backdrop is the dominant color of the real cover, dimmed; the
+generated hue is only a fallback. Draggable progress with previous/play/next
+centered on play and repeat at the right. The transport row holds details, tags,
+a save-to-playlist bookmark, the heart and the sleep timer. Lyrics mode returns
+with local `.lrc` only: an Import .lrc action, timed highlight, auto-scroll and
+tap-to-seek. There is no network lookup. Closing is instant and returns to the
+screen it was opened from.
 
 **Mini-player** — floating card inset from the edges, radius 4, 2px inset
 progress line, cover, title, artist, close and play/pause. It stacks above the
@@ -444,7 +485,8 @@ at the current position with no slide.
 **Settings** — an instant page, sectioned into Library (permission, scan, rescan,
 exclude all), Storage, Playback, and About. Hidden tracks is a separate layer that
 slides in over Settings; back returns to Settings with Settings still open. Tabs
-and the mini-player stay available.
+and the mini-player stay available, and the tab-bar blur samples Settings itself.
+There is no network lyrics setting; lyrics are imported on the song page.
 
 ## Visual design system
 
@@ -472,8 +514,9 @@ overlaid, never distorted, animated or blurred.
   album's initial in 800-weight white at 40% opacity. Generated art is ours, so
   it may also carry the grain.
 - 1:1, 4px radius on phone, 8px on large screens, subtle outer shadow.
-- Now Playing backdrop = color extracted from the current cover, dimmed to ~35%
-  (`#191414` fallback), filling the screen behind the content. No blur of real art.
+- Now Playing backdrop = the dominant color extracted from the current cover,
+  dimmed to ~35% (`#191414` fallback), filling the screen behind the content. The
+  generated hue is only a fallback when there is no real art. No blur of real art.
 - No logo, wordmark or playback controls on top of artwork.
 
 **Metadata** — always legible, never manipulated; truncate with ellipsis and let
@@ -525,13 +568,15 @@ type PlayerState = {
 ```
 
 SQLite tables (`krotify.db`, `PRAGMA user_version` migrations):
+- `tracks`, `tags`, `track_tags`, `settings` (v5); tracks hold the display
+  metadata, artwork URI and app state.
 - `playlists` (name, description, artworkUri), `playlist_tracks` (gap-numbered
   positions)
 - `favorites`
 - `play_history`
-- `track_metadata` (cached ID3 fields and artwork URI)
-
-Imports and exclusions remain in AsyncStorage from v1.
+- `lyrics_cache` (local `.lrc` text keyed by track; no network source)
+- `artist_art` (`artistKey`, `artworkUri`, `updatedAt`) for cropped artist art
+- `artwork_colors` (cache of dominant color per artwork URI)
 
 ## Demo data
 Ten in-memory tracks across four artists and five albums (Mira Vale with two

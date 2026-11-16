@@ -22,14 +22,16 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Make adding music a first-class flow: pick local files, and pull audio from a
   YouTube link, without leaving the app. A link import either produces a playable
   file or a clear failure; a web page is never added as a track.
+- Keep lyrics local: import a `.lrc` file for a track and show timed lyrics with
+  no network lookup.
 - Explore beyond the library without losing it: internet radio and external
   metadata are opt-in extras, not a replacement for local playback.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
 - Streaming as the primary library or an online catalogue that replaces local
-  files. Lyrics lookup and optional radio/metadata exploration are separate,
-  opt-in calls, never the default.
+  files. Lyrics are local `.lrc` files only; no online lyric lookup. Optional
+  radio/metadata exploration is a separate opt-in surface.
 - Social features, accounts, recommendations, third-party lyric catalogues.
 - Cross-platform polish (iOS/tablet) in v0 — Android first.
 - Matching Spotify's catalogue or backend. This is a player, not a service.
@@ -44,6 +46,8 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Adding the next milestone is a weekend, not a rewrite.
 - The library reads as a collection of albums and artists, not a file listing.
 - I can fix a wrong tag or cover without opening another app.
+- I can import a `.lrc` from the song page and read it in time with the track.
+- I can crop a square cover for a track, playlist or artist.
 - The download stays lean: a phone build around 25MB, not a 76MB universal
   bundle of architectures I do not own.
 - A downloaded track plays on the first try, and one bad file never stops the
@@ -51,8 +55,7 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 
 ## Principles
 - **Local-first**: the MP3s are the truth for playback; playback never needs the
-  network. Lyrics lookup is the one optional exception, cached locally so it
-  works offline after the first fetch.
+  network. Lyrics are local `.lrc` files; they never need the network either.
 - **Playable or absent**: a track exists in the library only if the app can play
   it. Link imports validate the bytes; a failed or HTML download is removed, not
   kept as a 0:00 row, and never wedges the player.
@@ -62,7 +65,8 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
   and deletes are deliberate; scanning is being made opt-in.
 - **Truthful metadata**: tags come from the files; filenames are only a fallback
   and nothing is invented.
-- **Art-first**: every track/album has a beautiful cover, real or generated.
+- **Art-first**: every track, playlist and artist has a beautiful cover, real or
+  generated, and any chosen image can be cropped square.
 - **Incremental**: v0 proves the loop; each version deepens one axis.
 - **Lazy by design**: stdlib and Expo primitives before new dependencies.
 - **Lean artifacts**: ship only the ABIs the target needs; no unused native
