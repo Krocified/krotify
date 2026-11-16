@@ -174,12 +174,10 @@ export function AppShell() {
     () => sortTracks(libraryTracks.filter((track) => !excludedIds.has(track.id))),
     [libraryTracks, excludedIds],
   );
-  useEffect(() => {
-    setSelectedTagId((current) => reconcileTagFilter(current, tags));
-  }, [tags]);
+  const effectiveTagId = reconcileTagFilter(selectedTagId, tags);
   const filteredTracks = useMemo(
-    () => filterTracksByTag(tracks, selectedTagId, assignments),
-    [tracks, selectedTagId, assignments],
+    () => filterTracksByTag(tracks, effectiveTagId, assignments),
+    [tracks, effectiveTagId, assignments],
   );
   const hiddenScannedCount = useMemo(
     () => excluded.filter((track) => track.source === 'scan').length,
@@ -239,14 +237,35 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    refreshPermission();
-  }, [refreshPermission]);
+    let cancelled = false;
+    void readAudioPermissionState()
+      .then((next) => {
+        if (!cancelled) setPermission(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (screen !== 'settings') return;
-    refreshPermission();
-    void refreshStorage();
-  }, [screen, refreshPermission, refreshStorage]);
+    let cancelled = false;
+    void readAudioPermissionState()
+      .then((next) => {
+        if (!cancelled) setPermission(next);
+      })
+      .catch(() => {});
+    void (async () => {
+      try {
+        const next = toStorageView(await storageInfo());
+        if (!cancelled) setStorage(next);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== 'settings' || status === 'scanning') return;
@@ -454,9 +473,7 @@ export function AppShell() {
     if (screen === 'library') refreshRecent();
   }, [screen, refreshRecent]);
 
-  useEffect(() => {
-    if (lastError === 'File missing') setStatusNote('File missing');
-  }, [lastError]);
+
 
   useEffect(() => {
     resumeSnapshotRef.current = currentTrack
@@ -904,10 +921,12 @@ export function AppShell() {
             tracks={filteredTracks}
             recentTracks={recentTracks}
             tags={tags}
-            selectedTagId={selectedTagId}
+            selectedTagId={effectiveTagId}
             onSelectTag={setSelectedTagId}
             status={status}
-            statusNote={statusNote ?? hiddenNote}
+            statusNote={
+              statusNote ?? (lastError === 'File missing' ? 'File missing' : null) ?? hiddenNote
+            }
             onSelect={handleSelect}
             onManage={handleManage}
             onOpenSearch={openSearch}
