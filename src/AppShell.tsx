@@ -34,6 +34,7 @@ import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
 import { usePlayer } from './player/PlayerProvider';
 import { deleteOwnedFile, getStorageRoot } from './storage/root';
+import { useTags } from './tags/TagProvider';
 import {
   deleteTrackRecord,
   listActiveTracks,
@@ -73,6 +74,7 @@ export function AppShell() {
     setQueue,
   } = usePlayer();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
+  const { refresh: refreshTags } = useTags();
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
   const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
@@ -166,7 +168,8 @@ export function AppShell() {
     const [active, hidden] = await Promise.all([listActiveTracks(), listHiddenTracks()]);
     setLibraryTracks(active.map(toUiTrack));
     setExcluded(hidden.map(toUiTrack));
-  }, []);
+    void refreshTags();
+  }, [refreshTags]);
 
   const recentTracks = useMemo(() => {
     const byId = new Map(tracks.map((track) => [track.id, track]));
@@ -234,6 +237,7 @@ export function AppShell() {
         setStatus('ready');
         setStatusNote('Web preview: demo library');
         setLibraryLoaded(true);
+        void refreshTags();
         return;
       }
 
@@ -241,6 +245,7 @@ export function AppShell() {
         setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
         setStatus(active.length > 0 ? 'ready' : 'empty');
         setLibraryLoaded(true);
+        void refreshTags();
         return;
       }
 
@@ -274,7 +279,10 @@ export function AppShell() {
         setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
         setStatus('error');
       } finally {
-        if (!cancelled) setLibraryLoaded(true);
+        if (!cancelled) {
+          setLibraryLoaded(true);
+          void refreshTags();
+        }
       }
     }
 
@@ -282,7 +290,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [scanEnabled, scanId, scanPrefLoaded]);
+  }, [refreshTags, scanEnabled, scanId, scanPrefLoaded]);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -623,6 +631,7 @@ export function AppShell() {
       setStatus('ready');
       setStatusNote(skippedNote);
       setScreen('library');
+      void refreshTags();
     } finally {
       setImporting(false);
     }
