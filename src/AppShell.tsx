@@ -175,6 +175,7 @@ export function AppShell() {
     [libraryTracks, excludedIds],
   );
   const effectiveTagId = reconcileTagFilter(selectedTagId, tags);
+  if (effectiveTagId !== selectedTagId) setSelectedTagId(effectiveTagId);
   const filteredTracks = useMemo(
     () => filterTracksByTag(tracks, effectiveTagId, assignments),
     [tracks, effectiveTagId, assignments],
@@ -552,6 +553,12 @@ export function AppShell() {
     returnScreenRef.current = screen === 'search' ? tab : screen;
   }
 
+  function closeNowPlayingIfOpen() {
+    if (screenRef.current !== 'nowPlaying') return;
+    if (closeNowPlayingRef.current) closeNowPlayingRef.current();
+    else setScreen(returnScreenRef.current);
+  }
+
   async function handleSelect(track: Track, queue?: Track[]) {
     if (currentTrack?.id === track.id) {
       setQueue(queue ?? tracks);
@@ -565,7 +572,10 @@ export function AppShell() {
       queue ?? tracks,
     );
     if (!ok) {
-      if (currentTrack?.id !== track.id) setStatusNote('Could not play this file');
+      setLibraryTracks((prev) =>
+        prev.map((item) => (item.id === track.id ? { ...item, missing: 1 } : item)),
+      );
+      setStatusNote('File missing');
     } else {
       setStatusNote(null);
       void recordPlay(track.id).then(refreshRecent).catch(() => {});
@@ -604,7 +614,7 @@ export function AppShell() {
       await setTrackStatus(id, 'active');
       await refreshLibraryFromDb();
     } catch {
-      setStatusNote('Could not restore this track');
+      showToast('Could not restore this track');
       return;
     }
     setStatusNote(null);
@@ -619,7 +629,7 @@ export function AppShell() {
       }
       await refreshLibraryFromDb();
     } catch {
-      setStatusNote('Could not restore the hidden tracks');
+      showToast('Could not restore the hidden tracks');
       return;
     }
     setStatusNote(null);
@@ -646,11 +656,14 @@ export function AppShell() {
       await clearTrack(track.id);
       await refreshLibraryFromDb();
     } catch {
-      setStatusNote('Could not remove this track');
+      showToast('Could not remove this track');
       return;
     }
     removeFromQueue([track.id]);
-    if (currentTrack?.id === track.id) stop();
+    if (currentTrack?.id === track.id) {
+      stop();
+      closeNowPlayingIfOpen();
+    }
     setStatusNote(null);
   }
 
@@ -659,12 +672,15 @@ export function AppShell() {
       await deleteTrackEverywhere(track, assetsRef.current);
       await refreshLibraryFromDb();
     } catch {
-      setStatusNote('Could not delete this file');
+      showToast('Could not delete this file');
       return;
     }
     removeFromQueue([track.id]);
     setStatusNote(null);
-    if (currentTrack?.id === track.id) stop();
+    if (currentTrack?.id === track.id) {
+      stop();
+      closeNowPlayingIfOpen();
+    }
   }
 
   function handleManage(track: Track) {
