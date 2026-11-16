@@ -23,13 +23,10 @@ import { updateTrackFields } from '../tracks/repo';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
-export type EditTrackMode = 'edit' | 'rename' | 'details';
-
 export type EditTrackScreenProps = {
   track: Track;
   onSaved: (track: Track) => void;
   onClose: () => void;
-  mode?: EditTrackMode;
 };
 
 type ArtworkSelection = {
@@ -41,21 +38,8 @@ const STRING_FIELDS: { key: keyof EditForm; label: string }[] = [
   { key: 'title', label: 'Title' },
   { key: 'artist', label: 'Artist' },
   { key: 'album', label: 'Album' },
-  { key: 'albumArtist', label: 'Album artist' },
   { key: 'genre', label: 'Genre' },
 ];
-
-const NUMBER_FIELDS: { key: keyof EditForm; label: string }[] = [
-  { key: 'trackNumber', label: 'Track number' },
-  { key: 'discNumber', label: 'Disc number' },
-  { key: 'year', label: 'Year' },
-];
-
-const MODE_TITLE: Record<EditTrackMode, string> = {
-  edit: 'Edit track',
-  rename: 'Rename track',
-  details: 'Track details',
-};
 
 function fileSizeOf(uri: string): number | null {
   if (!uri.startsWith('file://')) return null;
@@ -72,10 +56,7 @@ function formFromTrack(track: Track): EditForm {
     title: track.title,
     artist: track.artist,
     album: track.album,
-    albumArtist: track.albumArtist ?? '',
     genre: track.genre ?? '',
-    trackNumber: track.trackNumber === undefined ? '' : String(track.trackNumber),
-    discNumber: track.discNumber === undefined ? '' : String(track.discNumber),
     year: track.year === undefined ? '' : String(track.year),
   };
 }
@@ -109,16 +90,24 @@ async function persistArtwork(file: File): Promise<string> {
   return destination.uri;
 }
 
-export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: EditTrackScreenProps) {
+export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProps) {
   const insets = useSafeAreaInsets();
+  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditForm>(() => formFromTrack(track));
   const [artwork, setArtwork] = useState<ArtworkSelection | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileSize = mode === 'details' ? fileSizeOf(track.uri) : null;
+  const fileSize = fileSizeOf(track.uri);
 
   function updateField(key: keyof EditForm, value: string) {
     setForm((previous) => ({ ...previous, [key]: value }));
+    setError(null);
+  }
+
+  function stopEditing() {
+    setEditing(false);
+    setForm(formFromTrack(track));
+    setArtwork(null);
     setError(null);
   }
 
@@ -143,11 +132,7 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
 
   async function save() {
     setError(null);
-    const { patch, error: validationError } = buildTrackFieldPatch(
-      track,
-      form,
-      mode === 'rename',
-    );
+    const { patch, error: validationError } = buildTrackFieldPatch(track, form);
     if (validationError) {
       setError(validationError);
       return;
@@ -171,119 +156,119 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
     }
   }
 
-  function renderBody() {
-    if (mode === 'details') {
-      return (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
-        >
-          <View style={styles.detailHero}>
-            <CoverArt
-              hue={track.artworkHue}
-              title={track.title}
-              size={120}
-              radius={radius.coverLarge}
-              uri={track.artworkUri}
-            />
-          </View>
-          <DetailRow label="Title" value={track.title || '—'} />
-          <DetailRow label="Artist" value={track.artist || '—'} />
-          <DetailRow label="Album" value={track.album || '—'} />
-          <DetailRow label="Album artist" value={track.albumArtist || '—'} />
-          <DetailRow
-            label="Track / year"
-            value={`${track.trackNumber ?? '—'} / ${track.year ?? '—'}`}
+  function renderDetails() {
+    return (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
+      >
+        <View style={styles.detailHero}>
+          <CoverArt
+            hue={track.artworkHue}
+            title={track.title}
+            size={120}
+            radius={radius.coverLarge}
+            uri={track.artworkUri}
           />
-          <DetailRow
-            label="Disc"
-            value={track.discNumber === undefined ? '—' : String(track.discNumber)}
-          />
-          <DetailRow label="Genre" value={track.genre || '—'} />
-          <DetailRow label="Duration" value={formatDuration(track.durationMs)} />
-          {track.uri ? <DetailRow label="Format" value={extensionOf(track.uri) || '—'} /> : null}
-          {fileSize !== null ? <DetailRow label="File size" value={formatBytes(fileSize)} /> : null}
-          {track.uri ? <DetailRow label="Path" value={track.uri} multiline /> : null}
-          <TagEditor trackId={track.id} readOnly />
-        </ScrollView>
-      );
-    }
+        </View>
+        <DetailRow label="Title" value={track.title || '—'} />
+        <DetailRow label="Artist" value={track.artist || '—'} />
+        <DetailRow label="Album" value={track.album || '—'} />
+        <DetailRow label="Album artist" value={track.albumArtist || '—'} />
+        <DetailRow
+          label="Track / year"
+          value={`${track.trackNumber ?? '—'} / ${track.year ?? '—'}`}
+        />
+        <DetailRow
+          label="Disc"
+          value={track.discNumber === undefined ? '—' : String(track.discNumber)}
+        />
+        <DetailRow label="Genre" value={track.genre || '—'} />
+        <DetailRow label="Duration" value={formatDuration(track.durationMs)} />
+        {track.uri ? <DetailRow label="Format" value={extensionOf(track.uri) || '—'} /> : null}
+        {fileSize !== null ? <DetailRow label="File size" value={formatBytes(fileSize)} /> : null}
+        {track.uri ? <DetailRow label="Path" value={track.uri} multiline /> : null}
+        <TagEditor trackId={track.id} readOnly />
+      </ScrollView>
+    );
+  }
 
-    const renameOnly = mode === 'rename';
+  function renderEditor() {
     return (
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
         >
-          {!renameOnly ? (
-            <View style={styles.artworkRow}>
-              <CoverArt
-                hue={track.artworkHue}
-                title={track.title}
-                size={92}
-                radius={radius.coverLarge}
-                uri={artwork?.uri ?? track.artworkUri}
-              />
-              <View style={styles.artworkActions}>
+          <View style={styles.artworkRow}>
+            <CoverArt
+              hue={track.artworkHue}
+              title={track.title}
+              size={92}
+              radius={radius.coverLarge}
+              uri={artwork?.uri ?? track.artworkUri}
+            />
+            <View style={styles.artworkActions}>
+              <Pressable
+                onPress={() => void chooseArtwork()}
+                accessibilityRole="button"
+                accessibilityLabel="Choose artwork"
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              >
+                <Ionicons name="image-outline" size={18} color={colors.text} />
+                <Text style={styles.secondaryText}>Choose artwork</Text>
+              </Pressable>
+              {artwork ? (
                 <Pressable
-                  onPress={() => void chooseArtwork()}
+                  onPress={() => setArtwork(null)}
                   accessibilityRole="button"
-                  accessibilityLabel="Choose artwork"
-                  style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+                  accessibilityLabel="Remove selected artwork"
+                  style={({ pressed }) => [styles.link, pressed && styles.pressed]}
                 >
-                  <Ionicons name="image-outline" size={18} color={colors.text} />
-                  <Text style={styles.secondaryText}>Choose artwork</Text>
+                  <Text style={styles.linkText}>Remove</Text>
                 </Pressable>
-                {artwork ? (
-                  <Pressable
-                    onPress={() => setArtwork(null)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Remove selected artwork"
-                    style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.linkText}>Remove</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+              ) : null}
             </View>
-          ) : null}
+          </View>
 
-          {STRING_FIELDS.filter((field) => !renameOnly || field.key === 'title').map(
-            (field) => (
-              <Field
-                key={field.key}
-                label={field.label}
-                value={form[field.key]}
-                onChangeText={(value) => updateField(field.key, value)}
-                autoFocus={renameOnly && field.key === 'title'}
-              />
-            ),
-          )}
+          {STRING_FIELDS.map((field) => (
+            <Field
+              key={field.key}
+              label={field.label}
+              value={form[field.key]}
+              onChangeText={(value) => updateField(field.key, value)}
+            />
+          ))}
 
-          {!renameOnly
-            ? NUMBER_FIELDS.map((field) => (
-                <Field
-                  key={field.key}
-                  label={field.label}
-                  value={form[field.key]}
-                  onChangeText={(value) => updateField(field.key, value)}
-                  keyboardType="number-pad"
-                />
-              ))
-            : null}
+          <Field
+            label="Year"
+            value={form.year}
+            onChangeText={(value) => updateField('year', value)}
+            keyboardType="number-pad"
+          />
 
-          {!renameOnly ? <TagEditor trackId={track.id} /> : null}
+          <TagEditor trackId={track.id} />
+
+          <View style={styles.readOnlyGroup}>
+            <DetailRow label="Duration" value={formatDuration(track.durationMs)} />
+            {track.uri ? (
+              <DetailRow label="Format" value={extensionOf(track.uri) || '—'} />
+            ) : null}
+            {fileSize !== null ? (
+              <DetailRow label="File size" value={formatBytes(fileSize)} />
+            ) : null}
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={styles.actions}>
             <Pressable
-              onPress={onClose}
+              onPress={stopEditing}
               disabled={busy}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
@@ -313,18 +298,33 @@ export function EditTrackScreen({ track, onSaved, onClose, mode = 'edit' }: Edit
 
   return (
     <View style={styles.root}>
-      <ScreenHeader leading={<BackPill onPress={onClose} />} title={MODE_TITLE[mode]} />
-      {renderBody()}
+      <ScreenHeader
+        leading={<BackPill onPress={onClose} />}
+        title="Track details"
+        trailing={
+          <Pressable
+            onPress={() => (editing ? stopEditing() : setEditing(true))}
+            accessibilityRole="button"
+            accessibilityLabel={editing ? 'Stop editing' : 'Edit track details'}
+            accessibilityState={{ selected: editing }}
+            hitSlop={space.sm}
+            style={({ pressed }) => [
+              styles.editButton,
+              editing && styles.editButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="pencil"
+              size={20}
+              color={editing ? colors.accent2 : colors.textDim}
+            />
+          </Pressable>
+        }
+      />
+      {editing ? renderEditor() : renderDetails()}
     </View>
   );
-}
-
-export function TrackDetailsScreen(props: Omit<EditTrackScreenProps, 'mode'>) {
-  return <EditTrackScreen {...props} mode="details" />;
-}
-
-export function RenameTrackScreen(props: Omit<EditTrackScreenProps, 'mode'>) {
-  return <EditTrackScreen {...props} mode="rename" />;
 }
 
 type FieldProps = {
@@ -332,10 +332,9 @@ type FieldProps = {
   value: string;
   onChangeText: (value: string) => void;
   keyboardType?: 'default' | 'number-pad';
-  autoFocus?: boolean;
 };
 
-function Field({ label, value, onChangeText, keyboardType = 'default', autoFocus }: FieldProps) {
+function Field({ label, value, onChangeText, keyboardType = 'default' }: FieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -345,7 +344,6 @@ function Field({ label, value, onChangeText, keyboardType = 'default', autoFocus
         placeholder={label}
         placeholderTextColor={colors.textDim}
         keyboardType={keyboardType}
-        autoFocus={autoFocus}
         autoCapitalize={keyboardType === 'default' ? 'words' : 'none'}
         style={styles.input}
       />
@@ -450,6 +448,16 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: '#FF6B6B',
   },
+  editButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  editButtonActive: {
+    backgroundColor: colors.surfaceHi,
+  },
   detailHero: {
     alignItems: 'center',
     paddingVertical: space.md,
@@ -472,5 +480,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     textAlign: 'right',
+  },
+  readOnlyGroup: {
+    marginTop: space.sm,
   },
 });

@@ -16,6 +16,7 @@ import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
 import { Sheet } from './components/Sheet';
 import { TabBar, type TabName } from './components/TabBar';
+import { TagAssignSheet } from './components/TagAssignSheet';
 import { Toast } from './components/Toast';
 import {
   PlaylistPickerSheet,
@@ -57,10 +58,7 @@ import { listActiveTracks, listHiddenTracks, setTrackStatus } from './tracks/rep
 import { syncScanResults } from './tracks/scanSync';
 import type { TrackRecord } from './tracks/types';
 import { toUiTrack } from './tracks/view';
-import {
-  EditTrackScreen,
-  type EditTrackMode,
-} from './screens/EditTrackScreen';
+import { EditTrackScreen } from './screens/EditTrackScreen';
 import { HiddenTracksScreen } from './screens/HiddenTracksScreen';
 import { ImportScreen } from './screens/ImportScreen';
 import { LibraryScreen } from './screens/LibraryScreen';
@@ -74,8 +72,6 @@ import type { LibraryStatus, ScreenName, Track } from './types';
 
 const RESUME_KEY = 'krotify.resume.v1';
 const EXIT_WINDOW_MS = 2000;
-
-type EditTarget = { track: Track; mode: EditTrackMode };
 
 const toStorageView = (
   info: Awaited<ReturnType<typeof storageInfo>>,
@@ -133,7 +129,8 @@ export function AppShell() {
   const [deleteTarget, setDeleteTarget] = useState<Track | null>(null);
   const [excludeAllConfirm, setExcludeAllConfirm] = useState(false);
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null);
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [tagTrack, setTagTrack] = useState<Track | null>(null);
+  const [editTarget, setEditTarget] = useState<Track | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const assetsRef = useRef(new Map<string, Asset>());
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
@@ -955,6 +952,7 @@ export function AppShell() {
           />
         ) : (
           <ImportScreen
+            active={screen === 'import'}
             importing={importing}
             importFailures={importFailures}
             onImport={handleImport}
@@ -980,7 +978,7 @@ export function AppShell() {
         onBack={() => setScreen(searchReturnRef.current)}
       />
       <SettingsScreen
-        visible={screen === 'settings'}
+        visible={screen === 'settings' || screen === 'hiddenTracks'}
         status={status}
         scanEnabled={scanEnabled === true}
         permission={permission}
@@ -1034,8 +1032,7 @@ export function AppShell() {
       {editTarget ? (
         <View style={styles.overlay}>
           <EditTrackScreen
-            track={editTarget.track}
-            mode={editTarget.mode}
+            track={editTarget}
             onSaved={handleTrackSaved}
             onClose={() => setEditTarget(null)}
           />
@@ -1061,9 +1058,8 @@ export function AppShell() {
         favorite={actionTrack ? favoriteIds.has(actionTrack.id) : false}
         missing={actionTrack ? isMissingTrack(actionTrack) : false}
         onClose={() => setActionTrack(null)}
-        onDetails={(track) => setEditTarget({ track, mode: 'details' })}
-        onEdit={(track) => setEditTarget({ track, mode: 'edit' })}
-        onRename={(track) => setEditTarget({ track, mode: 'rename' })}
+        onDetails={(track) => setEditTarget(track)}
+        onTags={(track) => setTagTrack(track)}
         onExclude={(track) => void hideTrack(track)}
         onDelete={(track) => setDeleteTarget(track)}
         onClear={(track) => setClearTarget(track)}
@@ -1076,6 +1072,11 @@ export function AppShell() {
         track={pickerTrack}
         onClose={() => setPickerTrack(null)}
         onAdded={() => refreshPlaylists()}
+      />
+      <TagAssignSheet
+        visible={tagTrack !== null}
+        track={tagTrack}
+        onClose={() => setTagTrack(null)}
       />
       <ConfirmSheet
         visible={clearTarget !== null}

@@ -14,19 +14,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
-  DEFAULT_LINK_QUALITY,
   importFromLink,
-  LINK_QUALITIES,
   linkProgressLabel,
   parseYoutubeInput,
   type LinkProgress,
-  type LinkQuality,
 } from '../imports/link';
+import { loadLinkServerConfig } from '../imports/serverConfig';
 import type { ImportFailure } from '../imports/local';
 import { colors, radius, space, type } from '../theme';
 import type { TrackRecord } from '../tracks/types';
 
 type Props = {
+  active: boolean;
   importing: boolean;
   importFailures: ImportFailure[];
   onImport: () => Promise<void>;
@@ -36,6 +35,7 @@ type Props = {
 };
 
 export function ImportScreen({
+  active,
   importing,
   importFailures,
   onImport,
@@ -46,7 +46,7 @@ export function ImportScreen({
   const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [linkUrl, setLinkUrl] = useState('');
-  const [quality, setQuality] = useState<LinkQuality>(DEFAULT_LINK_QUALITY);
+  const [serverReady, setServerReady] = useState<boolean | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkNote, setLinkNote] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -54,13 +54,29 @@ export function ImportScreen({
   const abortRef = useRef<AbortController | null>(null);
   const canImport = Platform.OS !== 'web';
   const showIdle = !importing && importFailures.length === 0;
-  const canDownload = canImport && !linkBusy && linkUrl.trim() !== '';
+  const canDownload =
+    canImport && !linkBusy && linkUrl.trim() !== '' && serverReady !== false;
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void loadLinkServerConfig()
+      .then((config) => {
+        if (!cancelled) setServerReady(Boolean(config?.url));
+      })
+      .catch(() => {
+        if (!cancelled) setServerReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   async function startImport() {
     if (!canImport || importing) return;
@@ -86,7 +102,7 @@ export function ImportScreen({
     abortRef.current = controller;
     setLinkBusy(true);
     try {
-      const outcome = await importFromLink(url, quality, {
+      const outcome = await importFromLink(url, {
         signal: controller.signal,
         onProgress: setLinkProgress,
       });
@@ -137,26 +153,24 @@ export function ImportScreen({
             accessibilityLabel="Import audio files"
             accessibilityState={{ disabled: !canImport || importing, busy: importing }}
             style={({ pressed }) => [
-              styles.card,
+              styles.localCard,
               (!canImport || importing) && styles.cardDisabled,
               pressed && canImport && !importing && styles.cardPressed,
             ]}
           >
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Import audio files</Text>
-              <Text style={styles.cardMeta}>
-                {canImport
-                  ? importing
-                    ? 'Importing files…'
-                    : 'Copy audio files into the app'
-                  : 'Available on device builds'}
-              </Text>
-            </View>
             {importing ? (
               <ActivityIndicator color={colors.accent} />
             ) : (
-              <Ionicons name="add" size={24} color={colors.textDim} />
+              <Ionicons name="cloud-upload-outline" size={34} color={colors.accent2} />
             )}
+            <Text style={styles.cardTitle}>Import audio files</Text>
+            <Text style={styles.localMeta}>
+              {canImport
+                ? importing
+                  ? 'Importing files…'
+                  : 'Tap to copy audio files into the app'
+                : 'Available on device builds'}
+            </Text>
           </Pressable>
 
           {error ? (
@@ -182,6 +196,19 @@ export function ImportScreen({
                 <Text style={styles.cardMeta}>Available on device builds</Text>
               )}
             </View>
+            {serverReady === false ? (
+              <Pressable
+                onPress={onOpenSettings}
+                accessibilityRole="button"
+                accessibilityLabel="Open Settings to set the link service URL"
+                style={({ pressed }) => [styles.serverNote, pressed && styles.cardPressed]}
+              >
+                <Ionicons name="link-outline" size={18} color={colors.accent2} />
+                <Text style={styles.serverNoteText}>
+                  Set the link service URL in Settings to download from a link.
+                </Text>
+              </Pressable>
+            ) : null}
             <TextInput
               value={linkUrl}
               onChangeText={setLinkUrl}
@@ -194,30 +221,6 @@ export function ImportScreen({
               accessibilityLabel="YouTube link"
               style={[styles.linkInput, !canImport && styles.controlDisabled]}
             />
-            <View style={styles.qualityRow}>
-              {LINK_QUALITIES.map((value) => {
-                const selected = value === quality;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => setQuality(value)}
-                    disabled={!canImport || linkBusy}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${value} kbps`}
-                    accessibilityState={{ selected, disabled: !canImport || linkBusy }}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      selected && styles.chipSelected,
-                      pressed && canImport && !linkBusy && styles.cardPressed,
-                    ]}
-                  >
-                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                      {value} kbps
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
             {linkNote ? <Text style={styles.linkNote}>{linkNote}</Text> : null}
             {linkError ? <Text style={styles.linkError}>{linkError}</Text> : null}
             {linkProgress ? (
@@ -286,15 +289,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.screen,
     backgroundColor: colors.surface,
   },
+  localCard: {
+    minHeight: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    padding: space.lg,
+    borderRadius: radius.screen,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
+  },
+  localMeta: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
+  },
   cardDisabled: {
     opacity: 0.55,
   },
   cardPressed: {
     backgroundColor: colors.surfaceHi,
-  },
-  cardText: {
-    flex: 1,
-    gap: space.xs,
   },
   linkCard: {
     flexDirection: 'column',
@@ -312,26 +328,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
-  qualityRow: {
+  serverNote: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: space.sm,
-  },
-  chip: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    padding: space.sm,
     borderRadius: radius.screen,
     backgroundColor: colors.surfaceHi,
   },
-  chipSelected: {
-    backgroundColor: colors.accent,
-  },
-  chipText: {
+  serverNoteText: {
     ...type.meta,
-    color: colors.textDim,
-  },
-  chipTextSelected: {
-    color: colors.text,
+    flex: 1,
+    color: colors.accent2,
   },
   linkNote: {
     ...type.meta,
