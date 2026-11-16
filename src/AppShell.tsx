@@ -964,6 +964,7 @@ export function AppShell() {
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
+          onDetails={(track) => setEditTarget(track)}
           onClearTrack={(track) => setClearTarget(track)}
           onDeleteFile={(track) => setDeleteTarget(track)}
           registerClose={registerClose}

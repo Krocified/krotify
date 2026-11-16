@@ -31,6 +31,7 @@ import type { Track } from '../types';
 
 type Props = {
   onClose: () => void;
+  onDetails?: (track: Track) => void;
   onClearTrack?: (track: Track) => void;
   onDeleteFile?: (track: Track) => void;
   registerClose?: (close: (() => void) | null) => void;
@@ -43,6 +44,7 @@ const LYRICS_COVER_SIZE = 180;
 
 export function NowPlayingScreen({
   onClose,
+  onDetails,
   onClearTrack,
   onDeleteFile,
   registerClose,
@@ -216,6 +218,18 @@ export function NowPlayingScreen({
               style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
             >
               <Ionicons name="bookmark-outline" size={22} color={colors.textDim} />
+            </Pressable>
+            <Pressable
+              onPress={() => onDetails?.(track)}
+              accessibilityRole="button"
+              accessibilityLabel="Track details"
+              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={22}
+                color={colors.textDim}
+              />
             </Pressable>
             <Pressable
               onPress={toggleLike}
