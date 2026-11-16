@@ -244,8 +244,9 @@ Sources to evaluate:
 - https://publicapis.dev/resource/audiometa-io/wlceksvl
 
 - **Genius** (`https://docs.genius.com`): song/artist metadata and annotations.
-  Its public API does not serve lyrics for playback. Metadata enrichment only;
-  LRCLIB stays the lyrics source.
+  Its public API does not serve lyrics for playback. Metadata enrichment only.
+  Local `.lrc` stays the shipped lyrics source; LRCLIB is an optional v7
+  exploration.
 - **Radio Browser** (`https://api.radio-browser.info`): free, open internet-radio
   directory. If adopted, it is an opt-in separate section, not mixed into the
   local queue. Discover servers via DNS, identify the client with a User-Agent,
@@ -259,8 +260,8 @@ Sources to evaluate:
 
 Guardrails: every external feature is opt-in, the app still starts and plays
 local files offline, requests identify the client, rate limits are honored,
-responses are cached, and source attribution is visible. LRCLIB remains the only
-lyric source.
+responses are cached, and source attribution is visible. Local `.lrc` remains the
+shipped lyric source; LRCLIB is an optional, off-by-default v7 exploration.
 
 ### v5: File ownership (built, device verification pending)
 
@@ -338,11 +339,21 @@ Focus: make the v5 surfaces usable and make a bad download harmless.
 Focus: bring lyrics back without the network, make real artwork drive color, and
 finish the library and playlist surfaces.
 
-- **Lyrics, local only.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics mode
-  and an Import .lrc action. Picking a local `.lrc` reads and parses it, then
-  stores the text in `lyrics_cache` for that track. No LRCLIB, no network lookup,
-  no Settings toggle. Timed highlight, auto-scroll and tap-to-seek return. If a
-  track has no local lyrics, the panel offers Import .lrc.
+- **Lyrics, local first.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics
+  mode and an Import .lrc action. Picking a local `.lrc` reads and parses it, then
+  stores the text in `lyrics_cache` for that track. Local lyrics always win.
+  Timed highlight, auto-scroll and tap-to-seek return. If a track has no local
+  lyrics, the panel offers Import .lrc.
+- **LRCLIB exploration.** Evaluate an optional, opt-in network lookup against
+  `https://lrclib.net/docs`. Local `.lrc` remains the default and the baseline
+  release; LRCLIB is not required. The exploration covers `GET /api/get` with
+  title, artist, album and duration, plus `/api/search` or the beta
+  `/api/v2/search` for lookup, client identification through `User-Agent`,
+  sequential requests with a short delay, honoring `429`/`Retry-After`, and
+  caching results locally. No publish, flag or bulk prefetch. If adopted, it is
+  off by default with a Settings toggle and sends only title, artist, album and
+  duration. Findings and the gate live in
+  `docs/research/v7-lrclib-exploration.md`.
 - **Ambient color from the art.** The Now Playing backdrop uses the dominant color
   of the real cover, cached per artwork URI. The generated hue is only a fallback
   when there is no real art or extraction fails.
@@ -396,9 +407,13 @@ while Settings is open.
 
 ## External services
 
-- **LRCLIB** is retired in v7. Lyrics are local `.lrc` imports only; no title,
-  artist or album leaves the device for lyrics. The old network lookup and its
-  Settings toggle are removed.
+- **LRCLIB** (`https://lrclib.net/docs`): v7 exploration for an optional,
+  off-by-default network lyric lookup. Local `.lrc` is the baseline and always
+  wins. Use `GET /api/get` with title, artist, album and duration; use
+  `/api/search` or beta `/api/v2/search` for matching; identify with a
+  `User-Agent`; send requests sequentially with a short delay; honor
+  `429`/`Retry-After`; cache results. No publish, flag or bulk prefetch. It ships
+  only after the exploration gate clears.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
 - **Self-hosted link service** (v5.1): a companion Express app in `server/` runs
@@ -472,8 +487,9 @@ generated hue is only a fallback. Draggable progress with previous/play/next
 centered on play and repeat at the right. The transport row holds details, tags,
 a save-to-playlist bookmark, the heart and the sleep timer. Lyrics mode returns
 with local `.lrc` only: an Import .lrc action, timed highlight, auto-scroll and
-tap-to-seek. There is no network lookup. Closing is instant and returns to the
-screen it was opened from.
+tap-to-seek. Local `.lrc` is the baseline; an optional LRCLIB lookup is an
+off-by-default exploration. Closing is instant and returns to the screen it was
+opened from.
 
 **Mini-player** — floating card inset from the edges, radius 4, 2px inset
 progress line, cover, title, artist, close and play/pause. It stacks above the

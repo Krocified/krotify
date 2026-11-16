@@ -22,16 +22,17 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Make adding music a first-class flow: pick local files, and pull audio from a
   YouTube link, without leaving the app. A link import either produces a playable
   file or a clear failure; a web page is never added as a track.
-- Keep lyrics local: import a `.lrc` file for a track and show timed lyrics with
-  no network lookup.
+- Keep lyrics local by default: import a `.lrc` file for a track and show timed
+  lyrics. Explore LRCLIB as an optional lookup, never as a requirement.
 - Explore beyond the library without losing it: internet radio and external
   metadata are opt-in extras, not a replacement for local playback.
 - Be genuinely incremental: every milestone is shippable and useful on its own.
 
 ## Non-goals
 - Streaming as the primary library or an online catalogue that replaces local
-  files. Lyrics are local `.lrc` files only; no online lyric lookup. Optional
-  radio/metadata exploration is a separate opt-in surface.
+  files. Lyrics are local `.lrc` files by default. An optional LRCLIB lookup is
+  an exploration, never a replacement or requirement. Optional radio/metadata
+  exploration is a separate opt-in surface.
 - Social features, accounts, recommendations, third-party lyric catalogues.
 - Cross-platform polish (iOS/tablet) in v0 — Android first.
 - Matching Spotify's catalogue or backend. This is a player, not a service.
@@ -55,7 +56,8 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 
 ## Principles
 - **Local-first**: the MP3s are the truth for playback; playback never needs the
-  network. Lyrics are local `.lrc` files; they never need the network either.
+  network. Lyrics are local `.lrc` files by default. An optional LRCLIB lookup is
+  opt-in, cached, and never required.
 - **Playable or absent**: a track exists in the library only if the app can play
   it. Link imports validate the bytes; a failed or HTML download is removed, not
   kept as a 0:00 row, and never wedges the player.
