@@ -149,7 +149,7 @@ Playback and listening:
   (`GET /api/get`, no key) using title, artist, album and duration, with the
   required client User-Agent. Fetch only when the user opens lyrics, cache the
   result locally, honor `429 Retry-After`, and keep the app fully usable
-  offline. Timed highlight and auto-scroll; no licensed lyric sources.
+  offline. Timed highlight and auto-scroll. LRCLIB is the only lyric source.
 - Settings grows only when a feature actually exists.
 
 Library ownership:
@@ -165,9 +165,7 @@ Library ownership:
   same sheet, so the app looks and behaves the same on Android and web.
 - Catalog: Albums and Artists consolidated into one tab with a segmented control.
 - Import becomes its own tab: local files move there from Settings, with a
-  planned link-import section for YouTube-to-MP3 through a resolver service.
-  The resolver is a server-side dependency; the app never scrapes YouTube, and
-  the flow is limited to content the user has the rights to download.
+  planned link-import section for YouTube-to-MP3 through the ytmp3.ge API.
 - Batch edit is a stretch, not baseline.
 
 Release packaging:
@@ -219,9 +217,7 @@ Removed or hidden, with reasons:
 - **Catalog:** removed for now. The redesign is not settled, and an unused tab
   would expose a half-finished surface. The screen and grouping logic are kept
   for that redesign.
-- **Link import:** hidden until a licensed resolver exists. No resolver is
-  selected, and scraping is rejected, so the app shows no link control rather
-  than a dead one. Only content the user has the rights to download is in scope.
+- **Link import:** hidden in v4. v5 wires the ytmp3.ge API.
 
 Discovery is gated, not shipped. See
 `docs/superpowers/plans/2026-11-15-v4-gated-expansion.md` and the per-source
@@ -248,9 +244,8 @@ Sources to evaluate:
 - https://publicapis.dev/resource/audiometa-io/wlceksvl
 
 - **Genius** (`https://docs.genius.com`): song/artist metadata and annotations.
-  Its public API does not serve lyrics for playback; do not scrape the web
-  pages. Use only for metadata enrichment if licensing allows; LRCLIB stays the
-  lyrics source.
+  Its public API does not serve lyrics for playback. Metadata enrichment only;
+  LRCLIB stays the lyrics source.
 - **Radio Browser** (`https://api.radio-browser.info`): free, open internet-radio
   directory. If adopted, it is an opt-in separate section, not mixed into the
   local queue. Discover servers via DNS, identify the client with a User-Agent,
@@ -264,8 +259,30 @@ Sources to evaluate:
 
 Guardrails: every external feature is opt-in, the app still starts and plays
 local files offline, requests identify the client, rate limits are honored,
-responses are cached, and source attribution is visible. No licensed lyric
-catalogues and no scraping.
+responses are cached, and source attribution is visible. LRCLIB remains the only
+lyric source.
+
+### v5: File ownership (planned, not built)
+
+Focus: stop treating the audio file as truth. SQLite owns the name, artist, album,
+artwork and tags; files are copied once into a user-chosen folder and never renamed
+or tag-written. In-place tag editing is removed, which fixes the edit and rename
+failures by elimination. Imports validate a non-zero copy instead of comparing
+provider-reported size, which fixes the false "copy failed". Missing files are
+detected before load and surface a warning with a delete call to action. Hidden
+tracks gain their own Settings page with Clear (remove from the app, keep the file)
+and Delete (remove the file). App-local tags get a filter bar above Recently played.
+Import gains ytmp3.ge link import and loses the recent-imports list. Lyrics UI is
+hidden behind a flag.
+
+Design: `docs/superpowers/specs/2026-11-16-krotify-v5-file-ownership-design.md`.
+Plans:
+- `docs/superpowers/plans/2026-11-16-v5-track-store-and-imports.md`
+- `docs/superpowers/plans/2026-11-16-v5-player-hidden-settings.md`
+- `docs/superpowers/plans/2026-11-16-v5-library-tags-and-link-import.md`
+
+Nothing in this milestone is built. Device evidence and the release notes follow the
+same rule as v4: a row is not a pass until it is run on a device and recorded.
 
 ## Library management
 
@@ -303,10 +320,10 @@ while Settings is open.
   Publishing, flagging and bulk prefetch are out of scope.
 - **Genius**, **Radio Browser**, **Audiometa.io**: v4 exploration only, each
   behind an opt-in surface with its own terms, rate limits and attribution.
-- **Link importer resolver** (hidden): the resolver is not selected. The Import
-  tab shows no link control until a self-hosted or licensed service is chosen.
-  The client never scrapes YouTube and only content the user has the rights to
-  download is supported.
+- **ytmp3.ge** (v5): YouTube-to-MP3 link import. `POST /api/convert` with
+  `youtube_url` and `quality`; the returned `downloadUrl` is downloaded into the
+  chosen storage folder. The service is third-party and unauthenticated, so the
+  link module isolates its failures from the local library.
 
 ## Screens & flows
 
@@ -342,10 +359,10 @@ the order persists and matches playback. Entry from Library.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
-**Import**: a dedicated tab, not a Settings row. System document picker with a
-recent-imports list, per-file failure reasons, progress, empty and error states.
-Link import is hidden until a licensed resolver exists. The app never scrapes
-YouTube, and only content the user has the rights to download is supported.
+**Import**: a dedicated tab, not a Settings row. System document picker with
+per-file failure reasons, progress, empty and error states. v5 removes the
+recent-imports list and returns to Library after a successful import. Link import
+posts to the ytmp3.ge API and downloads into the chosen storage folder.
 
 **Search** — slide-in overlay with a borderless field (accent cursor) and
 incremental results across title, artist and album.

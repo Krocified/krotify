@@ -29,7 +29,7 @@ Me. One user, my own MP3 library on my Android phone. No accounts, no sharing.
 - Streaming as the primary library or an online catalogue that replaces local
   files. Lyrics lookup and optional radio/metadata exploration are separate,
   opt-in calls, never the default.
-- Social features, accounts, recommendations, licensed lyric catalogues.
+- Social features, accounts, recommendations, third-party lyric catalogues.
 - Cross-platform polish (iOS/tablet) in v0 — Android first.
 - Matching Spotify's catalogue or backend. This is a player, not a service.
 
