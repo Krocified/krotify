@@ -1,51 +1,39 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
-import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
-import { TrackRow } from '../components/TrackRow';
-import { useScrollProgress } from '../components/useScrollProgress';
-import type { ImportFailure } from '../imports/plan';
+import type { ImportFailure } from '../imports/local';
 import { colors, radius, space, type } from '../theme';
-import type { Track } from '../types';
 
 type Props = {
-  imports: Track[];
   importing: boolean;
   importFailures: ImportFailure[];
   onImport: () => Promise<void>;
-  onSelect: (track: Track, queue: Track[]) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
 };
 
-export const LINK_IMPORT_ENABLED = false;
-
 export function ImportScreen({
-  imports,
   importing,
   importFailures,
   onImport,
-  onSelect,
   onOpenSearch,
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
-  const listRef = useRef<FlatList<Track>>(null);
   const [error, setError] = useState<string | null>(null);
   const canImport = Platform.OS !== 'web';
-  const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8;
+  const showIdle = !importing && importFailures.length === 0;
 
   async function startImport() {
     if (!canImport || importing) return;
@@ -66,87 +54,69 @@ export function ImportScreen({
           <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
         }
       />
-      <View style={{ flex: 1 }}>
-        <FlatList
-          ref={listRef}
-          data={imports}
-          keyExtractor={(track) => track.id}
-          showsVerticalScrollIndicator={false}
-          {...scrollHandlers}
-          contentContainerStyle={{
-            paddingHorizontal: space.md,
-            paddingBottom: TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 170,
-          }}
-          ListHeaderComponent={
-            <View style={styles.header}>
-              <Pressable
-                onPress={() => void startImport()}
-                disabled={!canImport || importing}
-                accessibilityRole="button"
-                accessibilityLabel="Import audio files"
-                accessibilityState={{ disabled: !canImport || importing, busy: importing }}
-                style={({ pressed }) => [
-                  styles.card,
-                  (!canImport || importing) && styles.cardDisabled,
-                  pressed && canImport && !importing && styles.cardPressed,
-                ]}
-              >
-                <View style={styles.cardText}>
-                  <Text style={styles.cardTitle}>Import audio files</Text>
-                  <Text style={styles.cardMeta}>
-                    {canImport
-                      ? importing
-                        ? 'Importing files…'
-                        : 'Copy audio files into the app'
-                      : 'Available on device builds'}
-                  </Text>
-                </View>
-                {importing ? (
-                  <ActivityIndicator color={colors.accent} />
-                ) : (
-                  <Ionicons name="add" size={24} color={colors.textDim} />
-                )}
-              </Pressable>
-
-              {error ? (
-                <View style={styles.error}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              ) : null}
-
-              {importFailures.length > 0 ? (
-                <View style={styles.failure}>
-                  <Text style={styles.failureText}>
-                    {importFailures.length} file{importFailures.length === 1 ? '' : 's'} could
-                    not be imported
-                  </Text>
-                  <Text style={styles.failureMeta}>{importFailures[0].reason}</Text>
-                </View>
-              ) : null}
-
-              <Text style={styles.sectionTitle}>Recent imports</Text>
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No imports yet</Text>
-              <Text style={styles.emptyMeta}>
-                Pick audio files to copy them into Krotify. They stay on this device.
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: space.md,
+          paddingBottom: TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 32,
+        }}
+      >
+        <View style={styles.content}>
+          <Pressable
+            onPress={() => void startImport()}
+            disabled={!canImport || importing}
+            accessibilityRole="button"
+            accessibilityLabel="Import audio files"
+            accessibilityState={{ disabled: !canImport || importing, busy: importing }}
+            style={({ pressed }) => [
+              styles.card,
+              (!canImport || importing) && styles.cardDisabled,
+              pressed && canImport && !importing && styles.cardPressed,
+            ]}
+          >
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>Import audio files</Text>
+              <Text style={styles.cardMeta}>
+                {canImport
+                  ? importing
+                    ? 'Importing files…'
+                    : 'Copy audio files into the app'
+                  : 'Available on device builds'}
               </Text>
             </View>
-          }
-          renderItem={({ item }) => (
-            <TrackRow track={item} onPress={(track) => onSelect(track, imports)} />
-          )}
-        />
-        <ScrollBar
-          scrollY={scrollY}
-          contentHeight={contentHeight}
-          viewportHeight={viewportHeight}
-          bottomOffset={bottomOffset}
-          onScrollTo={(offset) => listRef.current?.scrollToOffset({ offset, animated: false })}
-        />
-      </View>
+            {importing ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <Ionicons name="add" size={24} color={colors.textDim} />
+            )}
+          </Pressable>
+
+          {error ? (
+            <View style={styles.error}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {importFailures.length > 0 ? (
+            <View style={styles.failure}>
+              <Text style={styles.failureText}>
+                {importFailures.length} file{importFailures.length === 1 ? '' : 's'} could
+                not be imported
+              </Text>
+              <Text style={styles.failureMeta}>{importFailures[0].reason}</Text>
+            </View>
+          ) : null}
+
+          {showIdle ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Nothing imported yet</Text>
+              <Text style={styles.emptyMeta}>
+                Pick audio files or paste a link. Imports appear in the Library tab.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -156,7 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  header: {
+  content: {
     gap: space.md,
     paddingTop: space.sm,
   },
@@ -208,11 +178,6 @@ const styles = StyleSheet.create({
   failureMeta: {
     ...type.meta,
     color: colors.textDim,
-  },
-  sectionTitle: {
-    ...type.meta,
-    color: colors.textDim,
-    paddingTop: space.sm,
   },
   empty: {
     alignItems: 'center',

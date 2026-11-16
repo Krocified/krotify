@@ -1,4 +1,3 @@
-import { createAudioPlayer } from 'expo-audio';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { importedFileName } from '../lib/importName.ts';
@@ -22,8 +21,9 @@ import {
   type ImportResult,
   type ImportSkip,
 } from './plan.ts';
+import { probeDurationMs } from './probe.ts';
 
-const PROBE_TIMEOUT_MS = 2000;
+export type { ImportFailure } from './plan.ts';
 
 function mediaType(mime: string): string {
   return mime.split(';')[0]?.trim().toLowerCase() ?? '';
@@ -32,40 +32,6 @@ function mediaType(mime: string): string {
 function isAudioMime(mime: string): boolean {
   const type = mediaType(mime);
   return type === '' || type === 'application/octet-stream' || type.startsWith('audio/');
-}
-
-function probeDurationMs(uri: string): Promise<number> {
-  return new Promise((resolve) => {
-    let player: ReturnType<typeof createAudioPlayer> | null = null;
-    let subscription: { remove(): void } | null = null;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let settled = false;
-
-    const finish = (ms: number) => {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      try {
-        subscription?.remove();
-      } catch {
-      }
-      try {
-        player?.remove();
-      } catch {
-      }
-      resolve(ms);
-    };
-
-    try {
-      player = createAudioPlayer(uri, { updateInterval: 100 });
-      subscription = player.addListener('playbackStatusUpdate', (status) => {
-        if (status.isLoaded) finish(Math.round((status.duration ?? 0) * 1000));
-      });
-      timer = setTimeout(() => finish(0), PROBE_TIMEOUT_MS);
-    } catch {
-      finish(0);
-    }
-  });
 }
 
 function discard(file: File | null): void {
