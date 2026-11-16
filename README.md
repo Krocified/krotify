@@ -5,7 +5,7 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-Current version: `0.5.0`.
+Current version: `0.6.2`.
 
 v0 through v5.1 are built. The app is a local-first player with a real library,
 a chosen storage folder, app-owned metadata and tags, and recovery from missing
