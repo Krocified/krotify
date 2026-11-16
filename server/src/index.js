@@ -1,10 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { fetchInfo, downloadMp3, ytdlpVersion } = require('./ytdlp');
 
+const TMP_ROOT = path.join(__dirname, '..', '.tmp');
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.API_TOKEN || '';
@@ -88,7 +88,8 @@ app.get('/video/:id', requireToken, async (req, res) => {
   await acquire();
   let workDir = null;
   try {
-    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'krotify-'));
+    await fs.mkdir(TMP_ROOT, { recursive: true });
+    workDir = await fs.mkdtemp(path.join(TMP_ROOT, 'job-'));
     const file = await downloadMp3(id, workDir);
     const title = (info?.title || id).replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
     res.setHeader('Content-Type', 'audio/mpeg');

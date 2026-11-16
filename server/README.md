@@ -29,13 +29,27 @@ as a bot. Two ways forward:
 
 ## Run locally
 
-Requires Node 20+, Python 3.11+, `yt-dlp` on `PATH`, and `ffmpeg`.
+Requires Node 20+ and `ffmpeg`. The repo uses `server/bin/yt-dlp`; if that is
+missing, put a `yt-dlp` binary there or on `PATH`.
+
+From the repo root:
 
 ```bash
-cd server
-npm install
-API_TOKEN=dev PORT=3000 npm start
+./run-server.sh
 ```
+
+All server state stays under `server/`: `bin/yt-dlp`, `.env`, `.tmp/`,
+`node_modules/` and logs. Nothing is written to your home directory.
+
+For Tailscale:
+
+```bash
+sudo tailscale up
+tailscale ip -4
+```
+
+Install Tailscale on the phone, sign in to the same account, and open
+`http://<tailscale-ip>:3000/health`. Use that URL in the app.
 
 Check it:
 

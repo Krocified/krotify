@@ -15,8 +15,13 @@ fi
 export API_TOKEN
 export PORT="${PORT:-3000}"
 
+export TMPDIR="$PWD/.tmp"
+export XDG_CACHE_HOME="$PWD/.cache"
+export npm_config_cache="$PWD/.npm-cache"
+mkdir -p "$TMPDIR" "$XDG_CACHE_HOME" "$npm_config_cache"
+
 if [ -z "${YTDLP_PATH:-}" ]; then
-  for candidate in "$HOME/.local/bin/yt-dlp" "$(command -v yt-dlp 2>/dev/null || true)" "/tmp/yt-dlp_linux"; do
+  for candidate in "./bin/yt-dlp" "$(command -v yt-dlp 2>/dev/null || true)"; do
     if [ -n "$candidate" ] && [ -x "$candidate" ]; then
       YTDLP_PATH="$candidate"
       break

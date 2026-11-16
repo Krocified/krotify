@@ -3,7 +3,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
-const YTDLP = process.env.YTDLP_PATH || 'yt-dlp';
+const LOCAL_YTDLP = path.join(__dirname, '..', 'bin', 'yt-dlp');
+const TMP_ROOT = path.join(__dirname, '..', '.tmp');
+const YTDLP =
+  process.env.YTDLP_PATH || (fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'yt-dlp');
 const TIMEOUT_MS = Number(process.env.YTDLP_TIMEOUT_MS || 240000);
 const CLIENTS = (process.env.YTDLP_PLAYER_CLIENTS || 'android_vr,tv_embedded,default')
   .split(',')
@@ -16,7 +19,8 @@ let cookiesFile = COOKIES_PATH;
 
 if (!cookiesFile && COOKIES_B64) {
   try {
-    cookiesFile = path.join('/tmp', 'krotify-cookies.txt');
+    fs.mkdirSync(TMP_ROOT, { recursive: true });
+    cookiesFile = path.join(TMP_ROOT, 'cookies.txt');
     fs.writeFileSync(cookiesFile, Buffer.from(COOKIES_B64, 'base64'));
   } catch {
     cookiesFile = '';

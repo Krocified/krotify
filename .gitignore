@@ -46,3 +46,8 @@ yarn-error.*
 # git worktrees
 .worktrees/
 /server/.env
+/server/.tmp/
+/server/bin/
+/server/*.log
+/server/.cache/
+/server/.npm-cache/

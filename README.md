@@ -81,9 +81,22 @@ Run it on your PC:
 ./run-server.sh
 ```
 
-It reads `server/.env`, finds `yt-dlp` (`~/.local/bin/yt-dlp` or `PATH`), prints the
-LAN URL, and serves on port 3000. Put that URL and token in Krotify: Settings >
-Storage > Link service.
+It reads `server/.env`, finds `server/bin/yt-dlp`, prints the LAN URL, and serves on
+port 3000. Put that URL and token in Krotify: Settings > Storage > Link service.
+All server state (binary, `.env`, temp files, logs) stays under `server/`.
+
+### Phone access with Tailscale
+
+```bash
+sudo tailscale up
+tailscale ip -4
+```
+
+Install Tailscale on the phone, sign in to the same account, and open
+`http://<tailscale-ip>:3000/health` in the phone browser. Use
+`http://<tailscale-ip>:3000` in Settings. The app allows cleartext HTTP through
+`plugins/with-cleartext.js`, so rebuild the APK/dev client after pulling this
+change.
 
 Or deploy it on Render with the root `render.yaml` (Docker). Details are in
 `server/README.md`.
