@@ -8,21 +8,23 @@ type Props = {
   onSelect: (track: Track, queue: Track[]) => void;
 };
 
-const SIZE = 120;
+const SIZE = 72;
+const LIMIT = 8;
 
 export function RecentlyPlayed({ tracks, onSelect }: Props) {
+  const visible = tracks.slice(0, LIMIT);
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Recently played</Text>
       <FlatList
         horizontal
-        data={tracks.slice(0, 12)}
+        data={visible}
         keyExtractor={(track) => track.id}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => onSelect(item, tracks)}
+            onPress={() => onSelect(item, visible)}
             accessibilityRole="button"
             accessibilityLabel={`Play ${item.title}`}
             style={({ pressed }) => [styles.item, pressed && styles.pressed]}
