@@ -1,22 +1,14 @@
 import type { TrackRecord } from '../tracks/types.ts';
 
-export const YTMP3_ENDPOINT = 'https://ytmp3.ge/api/convert';
 export const LINK_TIMEOUT_MS = 300_000;
-
-export type LinkQuality = 128 | 192 | 256 | 320;
-
-export const LINK_QUALITIES: readonly LinkQuality[] = [128, 192, 256, 320];
-export const DEFAULT_LINK_QUALITY: LinkQuality = 192;
 
 export type LinkTarget = { videoId: string; url: string };
 
-export type LinkDownload = {
+export type LinkInfo = {
   videoId: string;
   title: string;
   thumbnail: string | null;
   durationMs: number;
-  sizeBytes: number | null;
-  downloadUrl: string;
 };
 
 export type LinkProgress = { phase: 'convert' | 'download' | 'thumbnail' | 'save' };
@@ -39,7 +31,7 @@ type DownloadedFile = {
 
 type LinkParseResult = ({ ok: true } & LinkTarget) | { ok: false; reason: string };
 
-type ConvertResult = { ok: true; data: LinkDownload } | { ok: false; error: string };
+type InfoResult = { ok: true; data: LinkInfo } | { ok: false; error: string };
 
 const LINK_PATTERN = /^(https?):\/\/([^/?#]+)([^?#]*)(?:\?([^#]*))?(?:#.*)?$/i;
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -47,6 +39,8 @@ const WATCH_URL = 'https://www.youtube.com/watch?v=';
 const NO_SCHEME_REASON = 'Paste a full YouTube link starting with https://';
 const WRONG_LINK_REASON = 'Only youtube.com/watch and youtu.be links work.';
 const INVALID_ID_REASON = 'That link does not contain a valid video id.';
+const INFO_ERROR = 'The service sent an unexpected response.';
+const MISSING_URL_ERROR = 'Set the link service URL in Settings first.';
 
 const ILLEGAL_NAME_CHARS = /[/\\?%*:|"<>]/g;
 const AUDIO_VIDEO_EXTENSION =
@@ -84,17 +78,13 @@ function cleanText(value: unknown): string | null {
   return text || null;
 }
 
-function numericValue(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
-
 function isHttpUrl(value: unknown): value is string {
   return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function serviceError(raw: string): string | null {
+  const message = cleanText(recordOf(raw)?.error);
+  return message ? message.slice(0, 180).trimEnd() : null;
 }
 
 export function parseYoutubeInput(raw: string): LinkParseResult {
@@ -134,31 +124,14 @@ export function parseYoutubeInput(raw: string): LinkParseResult {
   return withVideoId(videoParam?.[1] ?? '');
 }
 
-export function buildConvertBody(target: LinkTarget, quality: LinkQuality): string {
-  return `youtube_url=${encodeURIComponent(target.url)}&quality=${quality}`;
-}
-
-export function parseConvertResponse(raw: string): ConvertResult {
+export function parseInfoResponse(raw: string): InfoResult {
   const payload = recordOf(raw);
-  if (!payload) {
-    return { ok: false, error: 'The download service sent an unexpected response.' };
-  }
+  if (!payload) return { ok: false, error: INFO_ERROR };
 
-  if (payload.success === false) {
-    const message = cleanText(payload.error);
-    return {
-      ok: false,
-      error: message
-        ? message.slice(0, 180).trimEnd()
-        : 'The download service could not convert this link.',
-    };
+  const duration = payload.durationMs;
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0) {
+    return { ok: false, error: INFO_ERROR };
   }
-
-  if (payload.success !== true || !isHttpUrl(payload.downloadUrl)) {
-    return { ok: false, error: 'The download service did not return a file.' };
-  }
-
-  const duration = numericValue(payload.duration);
 
   return {
     ok: true,
@@ -166,9 +139,7 @@ export function parseConvertResponse(raw: string): ConvertResult {
       videoId: typeof payload.videoId === 'string' ? payload.videoId : '',
       title: cleanText(payload.title) ?? 'YouTube audio',
       thumbnail: isHttpUrl(payload.thumbnail) ? payload.thumbnail : null,
-      durationMs: duration === null ? 0 : Math.round(duration * 1000),
-      sizeBytes: numericValue(payload.size),
-      downloadUrl: payload.downloadUrl,
+      durationMs: duration,
     },
   };
 }
@@ -200,36 +171,39 @@ const NETWORK_ERROR = 'Could not reach the download service. Check your connecti
 const DOWNLOAD_ERROR =
   'Could not download the file. Check your connection and the storage folder.';
 const EMPTY_ERROR = 'The downloaded file is empty.';
+const UNPLAYABLE_ERROR = 'The service returned an unplayable file.';
 const SAVE_ERROR = 'Could not add the download to the library.';
 
 function cancelled(): LinkImportOutcome {
   return { ok: false, cancelled: true, error: CANCELLED_ERROR };
 }
 
+function timedOut(): LinkImportOutcome {
+  return { ok: false, error: TIMEOUT_ERROR };
+}
+
 async function discard(uri: string): Promise<void> {
   try {
-    // Native modules load lazily so this file still loads under node --test.
     const { deleteOwnedFile } = await import('../storage/root');
     await deleteOwnedFile(uri);
   } catch {}
 }
 
-async function saveThumbnail(payload: LinkDownload): Promise<string | undefined> {
-  if (!payload.thumbnail) return undefined;
+async function saveThumbnail(info: LinkInfo, videoId: string): Promise<string | undefined> {
+  if (!info.thumbnail) return undefined;
   try {
     const { Directory, File, Paths } = await import('expo-file-system');
     const directory = new Directory(Paths.document, 'artwork');
     directory.create({ idempotent: true, intermediates: true });
-    const name = `ytmp3-${payload.videoId || Date.now()}.${thumbnailExtension(payload.thumbnail)}`;
+    const name = `link-${videoId || Date.now()}.${thumbnailExtension(info.thumbnail)}`;
     const destination = new File(directory, name);
-    await File.downloadFileAsync(payload.thumbnail, destination, { idempotent: true });
+    await File.downloadFileAsync(info.thumbnail, destination, { idempotent: true });
     if (destination.exists && destination.size > 0) return destination.uri;
   } catch {}
   return undefined;
 }
 
-async function durationOf(payload: LinkDownload, uri: string): Promise<number> {
-  if (payload.durationMs > 0) return payload.durationMs;
+async function probeFile(uri: string): Promise<number> {
   try {
     const { probeDurationMs } = await import('./probe');
     return await probeDurationMs(uri);
@@ -240,7 +214,6 @@ async function durationOf(payload: LinkDownload, uri: string): Promise<number> {
 
 export async function importFromLink(
   rawUrl: string,
-  quality: LinkQuality,
   options: LinkImportOptions = {},
 ): Promise<LinkImportOutcome> {
   const target = parseYoutubeInput(rawUrl);
@@ -248,7 +221,7 @@ export async function importFromLink(
 
   const { signal, onProgress } = options;
   const controller = new AbortController();
-  let timedOut = false;
+  let didTimeout = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let downloaded: DownloadedFile | null = null;
 
@@ -274,48 +247,70 @@ export async function importFromLink(
     } catch {}
   };
 
+  const stopReason = (): LinkImportOutcome | null => {
+    if (signal?.aborted) return cancelled();
+    if (didTimeout) return timedOut();
+    return null;
+  };
+
   try {
+    if (signal?.aborted) return cancelled();
+
     timer = setTimeout(() => {
-      timedOut = true;
+      didTimeout = true;
       forwardAbort();
     }, LINK_TIMEOUT_MS);
 
+    let base = '';
+    let token = '';
+    try {
+      // Native modules load lazily so this file still loads under node --test.
+      const { loadLinkServerConfig } = await import('./serverConfig');
+      const config = await loadLinkServerConfig();
+      base = config.url;
+      token = config.token;
+    } catch {
+      return { ok: false, error: NETWORK_ERROR };
+    }
+
+    if (!base) return { ok: false, error: MISSING_URL_ERROR };
+
     report('convert');
 
-    let payload: LinkDownload;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) headers['x-api-key'] = token;
+
+    let info: LinkInfo;
     try {
-      const response = await fetch(YTMP3_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: buildConvertBody(target, quality),
+      const response = await fetch(`${base}/info/${target.videoId}`, {
+        headers,
         signal: controller.signal,
       });
       const raw = await response.text();
-      const parsed = parseConvertResponse(raw);
+      if (!response.ok) {
+        return stopReason() ?? { ok: false, error: serviceError(raw) ?? INFO_ERROR };
+      }
+      const parsed = parseInfoResponse(raw);
       if (!parsed.ok) return { ok: false, error: parsed.error };
-      payload = parsed.data;
+      info = parsed.data;
     } catch {
-      clearTimer();
-      if (signal?.aborted) return cancelled();
-      if (timedOut) return { ok: false, error: TIMEOUT_ERROR };
-      return { ok: false, error: NETWORK_ERROR };
+      return stopReason() ?? { ok: false, error: NETWORK_ERROR };
     }
-    clearTimer();
+
+    const stopAfterInfo = stopReason();
+    if (stopAfterInfo) return stopAfterInfo;
 
     report('download');
 
     let file: DownloadedFile;
     try {
       const { downloadOwnedFile } = await import('../storage/store');
-      file = await downloadOwnedFile(payload.downloadUrl, linkFileName(payload.title), {
+      file = await downloadOwnedFile(`${base}/video/${target.videoId}`, linkFileName(info.title), {
         signal: controller.signal,
+        headers: token ? { 'x-api-key': token } : undefined,
       });
     } catch {
-      if (signal?.aborted) return cancelled();
-      return { ok: false, error: DOWNLOAD_ERROR };
+      return stopReason() ?? { ok: false, error: DOWNLOAD_ERROR };
     }
     downloaded = file;
 
@@ -324,13 +319,25 @@ export async function importFromLink(
       return { ok: false, error: EMPTY_ERROR };
     }
 
-    report('thumbnail');
-    const artworkUri = await saveThumbnail(payload);
-    const durationMs = await durationOf(payload, file.uri);
-
-    if (signal?.aborted) {
+    const durationMs = await probeFile(file.uri);
+    if (durationMs <= 0) {
       await discard(file.uri);
-      return cancelled();
+      return { ok: false, error: UNPLAYABLE_ERROR };
+    }
+
+    const stopAfterProbe = stopReason();
+    if (stopAfterProbe) {
+      await discard(file.uri);
+      return stopAfterProbe;
+    }
+
+    report('thumbnail');
+    const artworkUri = await saveThumbnail(info, target.videoId);
+
+    const stopAfterArtwork = stopReason();
+    if (stopAfterArtwork) {
+      await discard(file.uri);
+      return stopAfterArtwork;
     }
 
     report('save');
@@ -341,9 +348,9 @@ export async function importFromLink(
         source: 'download',
         location: file.uri,
         fileName: file.name,
-        sizeBytes: file.size > 0 ? file.size : (payload.sizeBytes ?? undefined),
+        sizeBytes: file.size > 0 ? file.size : undefined,
         durationMs,
-        title: payload.title,
+        title: info.title,
         artist: '',
         album: '',
         artworkUri,
@@ -355,7 +362,7 @@ export async function importFromLink(
     }
   } catch {
     if (downloaded) await discard(downloaded.uri);
-    return { ok: false, error: SAVE_ERROR };
+    return stopReason() ?? { ok: false, error: SAVE_ERROR };
   } finally {
     clearTimer();
     signal?.removeEventListener('abort', forwardAbort);

@@ -37,7 +37,7 @@ export async function storeOwnedFile(
 export async function downloadOwnedFile(
   url: string,
   fileName: string,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; headers?: Record<string, string> } = {},
 ): Promise<File> {
   const root = await getStorageRoot();
   const directory = new Directory(root.uri);
@@ -49,7 +49,10 @@ export async function downloadOwnedFile(
   const destination = new File(directory, name);
 
   try {
-    return await File.downloadFileAsync(url, destination, { signal: options.signal });
+    return await File.downloadFileAsync(url, destination, {
+      signal: options.signal,
+      headers: options.headers,
+    });
   } catch (error) {
     if (
       options.signal?.aborted ||
@@ -62,7 +65,10 @@ export async function downloadOwnedFile(
     discard(destination);
     const cache = new File(Paths.cache, `download-${Date.now()}`);
     try {
-      await File.downloadFileAsync(url, cache, { signal: options.signal });
+      await File.downloadFileAsync(url, cache, {
+        signal: options.signal,
+        headers: options.headers,
+      });
       return await storeOwnedFile(cache.uri, fileName, root);
     } finally {
       discard(cache);

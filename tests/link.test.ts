@@ -1,99 +1,75 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildConvertBody,
   linkFileName,
   linkProgressLabel,
-  parseConvertResponse,
+  parseInfoResponse,
   parseYoutubeInput,
   thumbnailExtension,
 } from '../src/imports/link.ts';
+import { normalizeLinkServerUrl } from '../src/imports/serverUrl.ts';
 
-const SUCCESS = JSON.stringify({
-  success: true,
-  videoId: 'dQw4w9WgXcQ',
-  title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
-  thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-  duration: 213,
-  size: 3407872,
-  downloadUrl: 'https://tmp.ytmp3.ge/dl/abc123.mp3',
-});
-
-test('parses a realistic success response', () => {
-  assert.deepEqual(parseConvertResponse(SUCCESS), {
-    ok: true,
-    data: {
-      videoId: 'dQw4w9WgXcQ',
-      title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
-      thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-      durationMs: 213000,
-      sizeBytes: 3407872,
-      downloadUrl: 'https://tmp.ytmp3.ge/dl/abc123.mp3',
+test('parses a realistic info response', () => {
+  assert.deepEqual(
+    parseInfoResponse(
+      JSON.stringify({
+        videoId: 'dQw4w9WgXcQ',
+        title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
+        thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        durationMs: 213000,
+      }),
+    ),
+    {
+      ok: true,
+      data: {
+        videoId: 'dQw4w9WgXcQ',
+        title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
+        thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        durationMs: 213000,
+      },
     },
-  });
+  );
 });
 
-test('turns an error response into readable copy', () => {
+test('defaults the title and thumbnail when they are missing', () => {
   assert.deepEqual(
-    parseConvertResponse(JSON.stringify({ success: false, error: 'This video is unavailable.' })),
-    { ok: false, error: 'This video is unavailable.' },
+    parseInfoResponse(JSON.stringify({ videoId: 'dQw4w9WgXcQ', durationMs: 0 })),
+    {
+      ok: true,
+      data: {
+        videoId: 'dQw4w9WgXcQ',
+        title: 'YouTube audio',
+        thumbnail: null,
+        durationMs: 0,
+      },
+    },
   );
 });
 
-test('falls back when an error response has no message', () => {
-  assert.deepEqual(parseConvertResponse(JSON.stringify({ success: false })), {
-    ok: false,
-    error: 'The download service could not convert this link.',
-  });
-});
-
-test('cleans HTML from an error response', () => {
-  assert.deepEqual(
-    parseConvertResponse(JSON.stringify({ success: false, error: '<b>Rate</b>\n limited' })),
-    { ok: false, error: 'Rate limited' },
-  );
-});
-
-test('caps a cleaned error message at 180 characters', () => {
-  const result = parseConvertResponse(
-    JSON.stringify({ success: false, error: `<b>${'x'.repeat(200)}</b>` }),
-  );
-  assert.equal(result.ok, false);
-  if (result.ok) return;
-  assert.equal(result.error, 'x'.repeat(180));
-  assert.equal(result.error.length, 180);
-});
-
-test('accepts numeric strings for duration and size', () => {
-  const result = parseConvertResponse(
-    JSON.stringify({
-      success: true,
-      videoId: 'dQw4w9WgXcQ',
-      title: 'A',
-      thumbnail: null,
-      duration: '213',
-      size: '3407872',
-      downloadUrl: 'https://tmp.ytmp3.ge/dl/abc123.mp3',
-    }),
+test('drops a non-http thumbnail', () => {
+  const result = parseInfoResponse(
+    JSON.stringify({ videoId: 'dQw4w9WgXcQ', title: 'A', thumbnail: 'not-a-url', durationMs: 1 }),
   );
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.equal(result.data.durationMs, 213000);
-  assert.equal(result.data.sizeBytes, 3407872);
+  assert.equal(result.data.thumbnail, null);
 });
 
-test('reports an unexpected response body', () => {
-  assert.deepEqual(parseConvertResponse('<html>502</html>'), {
-    ok: false,
-    error: 'The download service sent an unexpected response.',
-  });
-});
-
-test('rejects a success response without a file', () => {
-  assert.deepEqual(parseConvertResponse(JSON.stringify({ success: true, title: 'A' })), {
-    ok: false,
-    error: 'The download service did not return a file.',
-  });
+test('rejects malformed or incomplete info responses', () => {
+  for (const raw of [
+    '<html>502</html>',
+    '[]',
+    'null',
+    JSON.stringify({ title: 'A' }),
+    JSON.stringify({ durationMs: '213000' }),
+    JSON.stringify({ durationMs: -1 }),
+    JSON.stringify({ durationMs: null }),
+  ]) {
+    assert.deepEqual(parseInfoResponse(raw), {
+      ok: false,
+      error: 'The service sent an unexpected response.',
+    });
+  }
 });
 
 test('accepts a watch link and canonicalizes it', () => {
@@ -139,16 +115,6 @@ test('rejects invalid URLs and hosts', () => {
   }
 });
 
-test('builds the form body with the canonical url and quality', () => {
-  assert.equal(
-    buildConvertBody(
-      { videoId: 'dQw4w9WgXcQ', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-      192,
-    ),
-    'youtube_url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&quality=192',
-  );
-});
-
 test('derives a safe file name from the title', () => {
   assert.equal(linkFileName('AC/DC: Back in Black'), 'AC-DC- Back in Black.mp3');
   assert.equal(linkFileName('Song.mp4'), 'Song.mp3');
@@ -170,4 +136,22 @@ test('labels every download phase', () => {
   assert.equal(linkProgressLabel({ phase: 'download' }), 'Downloading…');
   assert.equal(linkProgressLabel({ phase: 'thumbnail' }), 'Saving artwork…');
   assert.equal(linkProgressLabel({ phase: 'save' }), 'Adding to Library…');
+});
+
+test('normalizes a link server url', () => {
+  assert.equal(normalizeLinkServerUrl('  https://example.com/  '), 'https://example.com');
+  assert.equal(
+    normalizeLinkServerUrl('http://192.168.1.20:3000///'),
+    'http://192.168.1.20:3000',
+  );
+  assert.equal(
+    normalizeLinkServerUrl('https://example.com/krotify/'),
+    'https://example.com/krotify',
+  );
+});
+
+test('rejects an empty or invalid link server url', () => {
+  for (const raw of ['', '   ', 'example.com', 'ftp://example.com', 'https://', 'nonsense']) {
+    assert.equal(normalizeLinkServerUrl(raw), null, raw);
+  }
 });
