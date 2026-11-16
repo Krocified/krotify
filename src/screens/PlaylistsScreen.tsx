@@ -17,6 +17,7 @@ import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
 import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
   createPlaylist,
   deletePlaylist,
@@ -263,7 +264,13 @@ export function PlaylistsScreen({
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingBottom:
+                insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+            },
+          ]}
         >
           <View style={styles.createRow}>
             <TextInput
@@ -379,7 +386,10 @@ export function PlaylistsScreen({
         <Animated.ScrollView
           ref={scrollableRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
+          contentContainerStyle={{
+            paddingBottom:
+              insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+          }}
         >
           <View style={styles.detailTop}>
             <CollectionHeader

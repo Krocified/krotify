@@ -58,6 +58,16 @@ function locationExists(location: string): boolean {
   }
 }
 
+function errorText(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  if (typeof error === 'string' && error.trim()) return error.trim();
+  try {
+    const detail = JSON.stringify(error);
+    if (detail && detail !== '{}') return detail;
+  } catch {}
+  return 'Copy failed for an unknown reason.';
+}
+
 export async function pickAndImportTracks(): Promise<ImportResult> {
   const picked = await DocumentPicker.getDocumentAsync({
     type: 'audio/*',
@@ -76,13 +86,19 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
 
     try {
       if (asset.mimeType && !isAudioMime(asset.mimeType)) {
-        failures.push({ name, reason: 'unsupported' });
+        failures.push({
+          name,
+          reason: `Unsupported audio type: ${asset.mimeType}`,
+        });
         continue;
       }
 
       const sourceSize = sourceSizeOf(asset.uri);
       if (!copyIsUsable(sourceSize)) {
-        failures.push({ name, reason: 'no audio data' });
+        failures.push({
+          name,
+          reason: 'The selected file has no readable size.',
+        });
         continue;
       }
 
@@ -119,7 +135,10 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
       if (!copyIsUsable(copied.size)) {
         discard(copied);
         copied = null;
-        failures.push({ name, reason: 'no audio data' });
+        failures.push({
+          name,
+          reason: 'The copied file is empty. The provider returned no audio data.',
+        });
         continue;
       }
 
@@ -159,9 +178,9 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
         added.push(record);
       }
       copied = null;
-    } catch {
+    } catch (error) {
       discard(copied);
-      failures.push({ name, reason: 'copy failed' });
+      failures.push({ name, reason: errorText(error) });
     }
   }
 

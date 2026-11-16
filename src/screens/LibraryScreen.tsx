@@ -123,6 +123,11 @@ export function LibraryScreen({
               )}
               ListHeaderComponent={
                 <View>
+                  <TagFilterBar
+                    tags={tags}
+                    selectedId={selectedTagId}
+                    onSelect={onSelectTag}
+                  />
                   {onOpenLiked ? (
                     <Pressable
                       onPress={onOpenLiked}
@@ -142,11 +147,6 @@ export function LibraryScreen({
                       <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
                     </Pressable>
                   ) : null}
-                  <TagFilterBar
-                    tags={tags}
-                    selectedId={selectedTagId}
-                    onSelect={onSelectTag}
-                  />
                   {selectedTagId === null && recentTracks.length > 0 ? (
                     <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
                   ) : null}

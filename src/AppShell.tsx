@@ -875,8 +875,7 @@ export function AppShell() {
     }
   }
 
-  const fullScreenOverlay =
-    playlistsOpen || likedOpen || editTarget !== null;
+  const fullScreenOverlay = editTarget !== null;
   const showTabs =
     !fullScreenOverlay && (screen === 'library' || screen === 'import');
   const showTabBar =
@@ -906,6 +905,9 @@ export function AppShell() {
   }
 
   function selectTab(next: TabName) {
+    setPlaylistsOpen(false);
+    setOpenPlaylistId(null);
+    setLikedOpen(false);
     setTab(next);
     setScreen(next);
   }
@@ -1221,6 +1223,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 30,
   },
   miniPlayer: {
     zIndex: 2,

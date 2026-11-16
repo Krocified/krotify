@@ -1,8 +1,6 @@
 import type { TrackRecord } from '../tracks/types.ts';
 
-export type ImportFailureReason = 'unsupported' | 'no audio data' | 'copy failed';
-
-export type ImportFailure = { name: string; reason: ImportFailureReason };
+export type ImportFailure = { name: string; reason: string };
 
 export type ImportSkip = { name: string; reason: 'duplicate' | 'hidden' };
 

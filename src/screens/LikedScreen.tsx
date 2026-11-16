@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionHeader } from '../components/CollectionHeader';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { useFavorites } from '../library/FavoritesProvider';
 import { formatDuration } from '../lib/format';
@@ -76,7 +77,10 @@ export function LikedScreen({ tracks = [], onClose, onPlay, onSelect }: Props) {
           />
         )}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
+        contentContainerStyle={{
+          paddingBottom:
+            insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+        }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="heart-outline" size={34} color={colors.textDim} />

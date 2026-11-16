@@ -51,9 +51,9 @@ export function ImportScreen({
   const [linkNote, setLinkNote] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkProgress, setLinkProgress] = useState<LinkProgress | null>(null);
+  const [failuresOpen, setFailuresOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const canImport = Platform.OS !== 'web';
-  const showIdle = !importing && importFailures.length === 0;
   const canDownload =
     canImport && !linkBusy && linkUrl.trim() !== '' && serverReady !== false;
 
@@ -171,6 +171,9 @@ export function ImportScreen({
                   : 'Tap to copy audio files into the app'
                 : 'Available on device builds'}
             </Text>
+            <Text style={styles.formats}>
+              MP3 · M4A/AAC · FLAC · OGG/Opus · WAV · WebM
+            </Text>
           </Pressable>
 
           {error ? (
@@ -181,11 +184,48 @@ export function ImportScreen({
 
           {importFailures.length > 0 ? (
             <View style={styles.failure}>
-              <Text style={styles.failureText}>
-                {importFailures.length} file{importFailures.length === 1 ? '' : 's'} could
-                not be imported
-              </Text>
-              <Text style={styles.failureMeta}>{importFailures[0].reason}</Text>
+              <Pressable
+                onPress={() => setFailuresOpen((open) => !open)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  failuresOpen ? 'Hide import errors' : 'Show import errors'
+                }
+                accessibilityState={{ expanded: failuresOpen }}
+                style={({ pressed }) => [
+                  styles.failureHeader,
+                  pressed && styles.cardPressed,
+                ]}
+              >
+                <View style={styles.failureHeaderText}>
+                  <Text style={styles.failureText}>
+                    {importFailures.length} file
+                    {importFailures.length === 1 ? '' : 's'} could not be imported
+                  </Text>
+                  <Text style={styles.failureMeta}>
+                    {failuresOpen ? 'Tap to collapse' : 'Tap to see the full error'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={failuresOpen ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={colors.textDim}
+                />
+              </Pressable>
+              {failuresOpen
+                ? importFailures.map((failure, index) => (
+                    <View
+                      key={`${failure.name}-${index}`}
+                      style={styles.failureItem}
+                    >
+                      <Text style={styles.failureName} numberOfLines={1}>
+                        {failure.name}
+                      </Text>
+                      <Text style={styles.failureReason} selectable>
+                        {failure.reason}
+                      </Text>
+                    </View>
+                  ))
+                : null}
             </View>
           ) : null}
 
@@ -258,14 +298,6 @@ export function ImportScreen({
             </View>
           </View>
 
-          {showIdle ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Nothing imported yet</Text>
-              <Text style={styles.emptyMeta}>
-                Pick audio files or paste a link. Imports appear in the Library tab.
-              </Text>
-            </View>
-          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -305,6 +337,12 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
     textAlign: 'center',
+  },
+  formats: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
+    marginTop: space.xs,
   },
   cardDisabled: {
     opacity: 0.55,
@@ -397,6 +435,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#3A2E15',
     gap: space.xs,
   },
+  failureHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+  },
+  failureHeaderText: {
+    flex: 1,
+    gap: space.xs,
+  },
   failureText: {
     ...type.meta,
     color: '#FFD08A',
@@ -404,6 +452,21 @@ const styles = StyleSheet.create({
   failureMeta: {
     ...type.meta,
     color: colors.textDim,
+  },
+  failureItem: {
+    gap: space.xs,
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#ffffff14',
+  },
+  failureName: {
+    ...type.meta,
+    color: colors.text,
+  },
+  failureReason: {
+    ...type.meta,
+    color: colors.textDim,
+    lineHeight: 18,
   },
   empty: {
     alignItems: 'center',
