@@ -22,9 +22,11 @@ import {
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
 import { listPlaylists, listRecentTrackIds, recordPlay, type Playlist } from './db/repo';
+import { getScanSummary, type ScanSummary } from './db/settings';
 import { pickAndImportTracks, type ImportFailure } from './imports/local';
 import { DEMO_TRACKS } from './library/demo';
 import { useFavorites } from './library/FavoritesProvider';
+import { grantAudioPermission, readAudioPermissionState } from './library/permissions';
 import { resolvePlaybackUri } from './library/playbackSource';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
@@ -32,9 +34,22 @@ import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { importResultMessage } from './lib/importResult';
 import { parseResume, serializeResume } from './lib/resume';
-import { isMissingTrack } from './lib/settingsView';
+import {
+  formatBytes,
+  isMissingTrack,
+  type PermissionState,
+  type StorageView,
+} from './lib/settingsView';
 import { usePlayer } from './player/PlayerProvider';
-import { getStorageRoot } from './storage/root';
+import {
+  chooseStorageRoot,
+  cleanRemovedOwnedFiles,
+  getStorageRoot,
+  moveOwnedFiles,
+  setStorageRoot,
+  storageInfo,
+} from './storage/root';
+import type { StorageRoot } from './storage/types';
 import { filterTracksByTag, reconcileTagFilter } from './tags/filter';
 import { useTags } from './tags/TagProvider';
 import { clearTrack, deleteTrackEverywhere } from './tracks/actions';
@@ -60,6 +75,15 @@ const RESUME_KEY = 'krotify.resume.v1';
 const EXIT_WINDOW_MS = 2000;
 
 type EditTarget = { track: Track; mode: EditTrackMode };
+
+const toStorageView = (
+  info: Awaited<ReturnType<typeof storageInfo>>,
+): StorageView => ({
+  folderName: info.root.name,
+  fileCount: info.fileCount,
+  totalBytes: info.totalBytes,
+  reclaimableBytes: info.reclaimableBytes,
+});
 
 export function AppShell() {
   const {
@@ -90,6 +114,15 @@ export function AppShell() {
   const [scanEnabled, setScanEnabled] = useState<boolean | null>(null);
   const [scanPrefLoaded, setScanPrefLoaded] = useState(false);
   const [scanPrompt, setScanPrompt] = useState(false);
+  const [permission, setPermission] = useState<PermissionState | null>(null);
+  const [scanSummary, setScanSummary] = useState<ScanSummary | null>(null);
+  const [storage, setStorage] = useState<StorageView | null>(null);
+  const [storageBusy, setStorageBusy] = useState(false);
+  const [movePrompt, setMovePrompt] = useState<{
+    fileCount: number;
+    totalBytes: number;
+  } | null>(null);
+  const [cleanPrompt, setCleanPrompt] = useState(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
@@ -115,6 +148,8 @@ export function AppShell() {
   const returnScreenRef = useRef<ScreenName>('library');
   const settingsReturnRef = useRef<ScreenName>('library');
   const searchReturnRef = useRef<ScreenName>('library');
+  const pendingRootRef = useRef<StorageRoot | null>(null);
+  const previousRootRef = useRef<StorageRoot | null>(null);
   const resumedRef = useRef(false);
   const lastPositionRef = useRef<{ trackId: string; positionMs: number } | null>(null);
   const resumeSnapshotRef = useRef<{ trackId: string; positionMs: number } | null>(null);
@@ -183,6 +218,46 @@ export function AppShell() {
     setExcluded(hidden.map(toUiTrack));
     void refreshTags();
   }, [refreshTags]);
+
+  const refreshPermission = useCallback(() => {
+    void readAudioPermissionState()
+      .then((next) => setPermission(next))
+      .catch(() => {});
+  }, []);
+
+  const refreshStorage = useCallback(async () => {
+    try {
+      setStorage(toStorageView(await storageInfo()));
+    } catch {}
+  }, []);
+
+  const refreshScanSummary = useCallback(() => {
+    void getScanSummary()
+      .then((summary) => setScanSummary(summary))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshPermission();
+  }, [refreshPermission]);
+
+  useEffect(() => {
+    if (screen !== 'settings') return;
+    refreshPermission();
+    void refreshStorage();
+  }, [screen, refreshPermission, refreshStorage]);
+
+  useEffect(() => {
+    if (screen !== 'settings' || status === 'scanning') return;
+    refreshScanSummary();
+  }, [screen, status, refreshScanSummary]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshPermission();
+    });
+    return () => sub.remove();
+  }, [refreshPermission]);
 
   const recentTracks = useMemo(() => {
     const byId = new Map(tracks.map((track) => [track.id, track]));
@@ -632,6 +707,94 @@ export function AppShell() {
     await saveScanPref(true).catch(() => {});
   }
 
+  async function handleGrant() {
+    const next = await grantAudioPermission();
+    setPermission(next);
+  }
+
+  function handleRescan() {
+    setScanId((n) => n + 1);
+  }
+
+  async function handleChangeFolder() {
+    if (storageBusy) return;
+    setStorageBusy(true);
+    try {
+      const previous = await storageInfo().catch(() => null);
+      const root = await chooseStorageRoot();
+      if (!root) return;
+      pendingRootRef.current = root;
+      previousRootRef.current = previous?.root ?? null;
+      await refreshStorage();
+      if (previous && previous.fileCount > 0) {
+        setMovePrompt({
+          fileCount: previous.fileCount,
+          totalBytes: previous.totalBytes,
+        });
+      }
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  async function handleMoveFiles(target?: StorageRoot) {
+    if (storageBusy) return;
+    setStorageBusy(true);
+    try {
+      const to = target ?? (await getStorageRoot());
+      const from = previousRootRef.current;
+      let result: Awaited<ReturnType<typeof moveOwnedFiles>>;
+      if (from && from.uri !== to.uri) {
+        await setStorageRoot(from);
+        try {
+          result = await moveOwnedFiles(to);
+        } finally {
+          await setStorageRoot(to);
+        }
+      } else {
+        result = await moveOwnedFiles(to);
+      }
+      previousRootRef.current = null;
+      pendingRootRef.current = null;
+      const movedLabel = `${result.moved} file${result.moved === 1 ? '' : 's'}`;
+      await Promise.all([refreshStorage(), refreshLibraryFromDb()]);
+      showToast(
+        result.failures.length > 0
+          ? `Moved ${movedLabel}, ${result.failures.length} failed`
+          : `Moved ${movedLabel}`,
+      );
+    } catch {
+      showToast('Could not move files');
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  async function handleCleanStorage() {
+    if (storageBusy) return;
+    setStorageBusy(true);
+    try {
+      const { deleted, bytes } = await cleanRemovedOwnedFiles();
+      const deletedLabel = `${deleted} file${deleted === 1 ? '' : 's'}`;
+      await Promise.all([refreshStorage(), refreshLibraryFromDb()]);
+      showToast(
+        bytes > 0
+          ? `Deleted ${deletedLabel} (${formatBytes(bytes)})`
+          : `Deleted ${deletedLabel}`,
+      );
+    } catch {
+      showToast('Could not clean files');
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  function cancelMovePrompt() {
+    setMovePrompt(null);
+    pendingRootRef.current = null;
+    previousRootRef.current = null;
+  }
+
   async function handleImport() {
     if (Platform.OS === 'web') return;
     setImporting(true);
@@ -766,17 +929,22 @@ export function AppShell() {
       <SettingsScreen
         visible={screen === 'settings'}
         status={status}
-        onRescan={() => setScanId((n) => n + 1)}
-        onBack={() => setScreen(settingsReturnRef.current)}
-        onExcludeAll={() => setExcludeAllConfirm(true)}
-        excluded={excluded}
-        onRestore={(id) => void handleRestore(id)}
-        onRestoreAll={() => void handleRestoreAll()}
-        canExcludeAll={scanExcludeCount > 0}
         scanEnabled={scanEnabled === true}
-        onToggleScan={(enabled) => void handleScanToggle(enabled)}
+        permission={permission}
+        scanSummary={scanSummary}
         hiddenCount={excluded.length}
+        scanExcludeCount={scanExcludeCount}
+        storage={storage}
+        storageBusy={storageBusy}
+        onBack={() => setScreen(settingsReturnRef.current)}
+        onToggleScan={(enabled) => void handleScanToggle(enabled)}
+        onGrant={() => void handleGrant()}
+        onRescan={handleRescan}
         onOpenHiddenTracks={openHiddenTracks}
+        onExcludeAll={() => setExcludeAllConfirm(true)}
+        onChangeFolder={() => void handleChangeFolder()}
+        onMoveFiles={() => void handleMoveFiles()}
+        onCleanStorage={() => setCleanPrompt(true)}
       />
       <HiddenTracksScreen
         visible={screen === 'hiddenTracks'}
@@ -901,6 +1069,35 @@ export function AppShell() {
           void excludeAllTracks();
         }}
         onCancel={() => setExcludeAllConfirm(false)}
+      />
+      <ConfirmSheet
+        visible={movePrompt !== null}
+        title="Move files to the new folder?"
+        message={
+          movePrompt
+            ? `Move ${movePrompt.fileCount} files (${formatBytes(movePrompt.totalBytes)}) now. You can also leave them where they are.`
+            : ''
+        }
+        confirmLabel="Move files"
+        destructive
+        onConfirm={() => {
+          const target = pendingRootRef.current;
+          setMovePrompt(null);
+          void handleMoveFiles(target ?? undefined);
+        }}
+        onCancel={cancelMovePrompt}
+      />
+      <ConfirmSheet
+        visible={cleanPrompt}
+        title="Clean up removed files?"
+        message={`Delete ${formatBytes(storage?.reclaimableBytes ?? 0)} of removed files from this device. This cannot be undone.`}
+        confirmLabel="Clean"
+        destructive
+        onConfirm={() => {
+          setCleanPrompt(false);
+          void handleCleanStorage();
+        }}
+        onCancel={() => setCleanPrompt(false)}
       />
       <Sheet
         visible={scanPrompt}

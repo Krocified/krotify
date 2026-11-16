@@ -18,6 +18,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
 import { coverColors } from '../lib/cover';
+import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { useFavorites } from '../library/FavoritesProvider';
@@ -75,9 +76,10 @@ export function NowPlayingScreen({
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
-  const lyrics = useLyrics(track, lyricsMode);
+  const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
 
   useEffect(() => {
+    if (!LYRICS_ENABLED) return;
     if (!lyricsMode || (lyrics.state !== 'none' && lyrics.state !== 'error')) return;
     const timer = setTimeout(() => {
       setLyricsNote(lyrics.state === 'error' ? "Couldn't load lyrics" : 'Lyrics not found');
@@ -96,6 +98,7 @@ export function NowPlayingScreen({
   }, [slide]);
 
   useEffect(() => {
+    if (!LYRICS_ENABLED) return;
     Animated.timing(modeAnim, {
       toValue: lyricsMode ? 1 : 0,
       duration: CROSSFADE_MS,
@@ -211,22 +214,24 @@ export function NowPlayingScreen({
                 color={liked ? colors.accent : colors.textDim}
               />
             </Pressable>
-            <Pressable
-              onPress={() => {
-                setLyricsNote(null);
-                setLyricsMode((active) => !active);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Lyrics"
-              accessibilityState={{ selected: lyricsMode }}
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name="document-text-outline"
-                size={22}
-                color={lyricsMode ? colors.accent : colors.textDim}
-              />
-            </Pressable>
+            {LYRICS_ENABLED ? (
+              <Pressable
+                onPress={() => {
+                  setLyricsNote(null);
+                  setLyricsMode((active) => !active);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Lyrics"
+                accessibilityState={{ selected: lyricsMode }}
+                style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={22}
+                  color={lyricsMode ? colors.accent : colors.textDim}
+                />
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
@@ -440,7 +445,7 @@ export function NowPlayingScreen({
             </View>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
-          {lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
+          {LYRICS_ENABLED && lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
           {likeNote && likeNote.trackId === track.id ? (
             <Text style={styles.error}>{likeNote.message}</Text>
           ) : null}
