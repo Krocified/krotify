@@ -94,7 +94,8 @@ Pushing to `main` runs `.github/workflows/release.yml` on a GitHub-hosted
 Ubuntu runner. It reads Conventional Commits since the last tag (`feat` minor,
 `fix`/others patch, `BREAKING CHANGE` or `type!:` major), verifies the project,
 builds a signed **arm64** APK (about 24-25MB instead of the 76MB universal
-build), and publishes a GitHub release with the APK and a sha256. Release notes
+build), and publishes a GitHub release with `krotify-<version>.apk` and its
+sha256. Release notes
 name the ABI and record the APK size measured from the built artifact.
 
 Manual runs take a `bump` input (`auto`, `major`, `minor`, `patch`) so a major

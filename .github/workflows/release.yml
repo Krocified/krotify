@@ -124,10 +124,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build arm64 release APK
         run: cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+      - name: Rename APK with the version
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "android/app/build/outputs/apk/release/krotify-${VERSION}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: krotify-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/krotify-${{ needs.version.outputs.version }}.apk
           if-no-files-found: error
 
   release:
@@ -143,19 +149,25 @@ jobs:
           name: krotify-apk
           path: dist
       - name: Checksum
-        run: sha256sum dist/app-release.apk > dist/app-release.apk.sha256
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          APK="dist/krotify-${VERSION}.apk"
+          sha256sum "$APK" > "$APK.sha256"
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
+          APK="dist/krotify-${VERSION}.apk"
           LATEST="${{ needs.version.outputs.latest }}"
           if [ -n "$LATEST" ]; then RANGE="$LATEST..HEAD"; else RANGE="HEAD"; fi
           git log "$RANGE" --pretty=format:'- %s' > /tmp/notes.md
-          BYTES=$(stat -c%s dist/app-release.apk)
+          BYTES=$(stat -c%s "$APK")
           SIZE=$(awk -v bytes="$BYTES" 'BEGIN { printf "%.1f MB", bytes / 1048576 }')
           printf '\n\n**Artifact:** arm64-v8a APK, %s (%s bytes)\n' "$SIZE" "$BYTES" >> /tmp/notes.md
           gh release create "${{ needs.version.outputs.tag }}" \
-            dist/app-release.apk dist/app-release.apk.sha256 \
+            "$APK" "$APK.sha256" \
             --title "Krotify ${{ needs.version.outputs.version }}" \
             --notes-file /tmp/notes.md \
             --target "$GITHUB_SHA"
