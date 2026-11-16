@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -7,18 +7,30 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
+import {
+  DEFAULT_LINK_QUALITY,
+  importFromLink,
+  LINK_QUALITIES,
+  linkProgressLabel,
+  parseYoutubeInput,
+  type LinkProgress,
+  type LinkQuality,
+} from '../imports/link';
 import type { ImportFailure } from '../imports/local';
 import { colors, radius, space, type } from '../theme';
+import type { TrackRecord } from '../tracks/types';
 
 type Props = {
   importing: boolean;
   importFailures: ImportFailure[];
   onImport: () => Promise<void>;
+  onLinkImported: (record: TrackRecord) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
 };
@@ -27,13 +39,28 @@ export function ImportScreen({
   importing,
   importFailures,
   onImport,
+  onLinkImported,
   onOpenSearch,
   onOpenSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [quality, setQuality] = useState<LinkQuality>(DEFAULT_LINK_QUALITY);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkNote, setLinkNote] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkProgress, setLinkProgress] = useState<LinkProgress | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const canImport = Platform.OS !== 'web';
   const showIdle = !importing && importFailures.length === 0;
+  const canDownload = canImport && !linkBusy && linkUrl.trim() !== '';
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   async function startImport() {
     if (!canImport || importing) return;
@@ -43,6 +70,47 @@ export function ImportScreen({
     } catch {
       setError('Could not import those files. Try again.');
     }
+  }
+
+  async function downloadLink() {
+    if (!canDownload) return;
+    const url = linkUrl.trim();
+    setLinkNote(null);
+    setLinkError(null);
+    const target = parseYoutubeInput(url);
+    if (!target.ok) {
+      setLinkError(target.reason);
+      return;
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLinkBusy(true);
+    try {
+      const outcome = await importFromLink(url, quality, {
+        signal: controller.signal,
+        onProgress: setLinkProgress,
+      });
+      if (outcome.ok) {
+        setLinkUrl('');
+        setLinkNote(null);
+        setLinkError(null);
+        setLinkProgress(null);
+        onLinkImported(outcome.record);
+      } else if (outcome.cancelled) {
+        setLinkNote('Download cancelled.');
+        setLinkError(null);
+      } else {
+        setLinkError(outcome.error);
+      }
+    } finally {
+      abortRef.current = null;
+      setLinkProgress(null);
+      setLinkBusy(false);
+    }
+  }
+
+  function cancelLink() {
+    abortRef.current?.abort();
   }
 
   return (
@@ -107,6 +175,86 @@ export function ImportScreen({
             </View>
           ) : null}
 
+          <View style={[styles.card, styles.linkCard, !canImport && styles.cardDisabled]}>
+            <View style={styles.linkHeader}>
+              <Text style={styles.cardTitle}>From a link</Text>
+              {canImport ? null : (
+                <Text style={styles.cardMeta}>Available on device builds</Text>
+              )}
+            </View>
+            <TextInput
+              value={linkUrl}
+              onChangeText={setLinkUrl}
+              placeholder="https://youtube.com/watch?v=..."
+              placeholderTextColor={colors.textDim}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              editable={!linkBusy && canImport}
+              accessibilityLabel="YouTube link"
+              style={[styles.linkInput, !canImport && styles.controlDisabled]}
+            />
+            <View style={styles.qualityRow}>
+              {LINK_QUALITIES.map((value) => {
+                const selected = value === quality;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setQuality(value)}
+                    disabled={!canImport || linkBusy}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${value} kbps`}
+                    accessibilityState={{ selected, disabled: !canImport || linkBusy }}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      selected && styles.chipSelected,
+                      pressed && canImport && !linkBusy && styles.cardPressed,
+                    ]}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      {value} kbps
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {linkNote ? <Text style={styles.linkNote}>{linkNote}</Text> : null}
+            {linkError ? <Text style={styles.linkError}>{linkError}</Text> : null}
+            {linkProgress ? (
+              <Text style={styles.linkNote}>{linkProgressLabel(linkProgress)}</Text>
+            ) : null}
+            <View style={styles.linkActions}>
+              <Pressable
+                onPress={() => void downloadLink()}
+                disabled={!canDownload}
+                accessibilityRole="button"
+                accessibilityLabel="Download from link"
+                accessibilityState={{ disabled: !canDownload, busy: linkBusy }}
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  styles.linkButtonPrimary,
+                  !canDownload && styles.controlDisabled,
+                  pressed && canDownload && styles.controlPressed,
+                ]}
+              >
+                <Text style={styles.linkButtonText}>Download</Text>
+              </Pressable>
+              {linkBusy ? (
+                <Pressable
+                  onPress={cancelLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel download"
+                  style={({ pressed }) => [
+                    styles.linkButton,
+                    pressed && styles.controlPressed,
+                  ]}
+                >
+                  <Text style={styles.linkButtonText}>Cancel</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+
           {showIdle ? (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>Nothing imported yet</Text>
@@ -147,6 +295,76 @@ const styles = StyleSheet.create({
   cardText: {
     flex: 1,
     gap: space.xs,
+  },
+  linkCard: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: space.sm,
+  },
+  linkHeader: {
+    gap: space.xs,
+  },
+  linkInput: {
+    ...type.body,
+    color: colors.text,
+    backgroundColor: colors.surfaceHi,
+    borderRadius: radius.screen,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
+  qualityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  chip: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  chipSelected: {
+    backgroundColor: colors.accent,
+  },
+  chipText: {
+    ...type.meta,
+    color: colors.textDim,
+  },
+  chipTextSelected: {
+    color: colors.text,
+  },
+  linkNote: {
+    ...type.meta,
+    color: colors.textDim,
+  },
+  linkError: {
+    ...type.meta,
+    color: colors.danger,
+  },
+  linkActions: {
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  linkButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  linkButtonPrimary: {
+    backgroundColor: colors.accent,
+  },
+  linkButtonText: {
+    ...type.body,
+    color: colors.text,
+  },
+  controlDisabled: {
+    opacity: 0.55,
+  },
+  controlPressed: {
+    opacity: 0.75,
   },
   cardTitle: {
     ...type.body,
