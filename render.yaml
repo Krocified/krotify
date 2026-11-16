@@ -11,3 +11,5 @@ services:
         sync: false
       - key: MAX_JOBS
         value: "2"
+      - key: YTDLP_PLAYER_CLIENTS
+        value: android_vr,tv_embedded,default

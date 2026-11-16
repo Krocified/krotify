@@ -14,6 +14,7 @@ RUN npm install --omit=dev
 COPY . .
 
 ENV PORT=10000
+ENV YTDLP_PLAYER_CLIENTS=android_vr,tv_embedded,default
 EXPOSE 10000
 
 CMD ["node", "src/index.js"]

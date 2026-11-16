@@ -3,7 +3,7 @@ const cors = require('cors');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { fetchInfo, downloadMp3 } = require('./ytdlp');
+const { fetchInfo, downloadMp3, ytdlpVersion } = require('./ytdlp');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -60,6 +60,10 @@ function release() {
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, jobs: activeJobs, waiting: waiting.length });
+});
+
+app.get('/version', async (_req, res) => {
+  res.json({ ytDlp: await ytdlpVersion() });
 });
 
 app.get('/info/:id', requireToken, async (req, res) => {

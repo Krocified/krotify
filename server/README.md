@@ -7,10 +7,25 @@ in Settings.
 ## Endpoints
 
 - `GET /health`
+- `GET /version`
 - `GET /info/:videoId` -> `{ videoId, title, thumbnail, durationMs }`
 - `GET /video/:videoId` -> `audio/mpeg`
 
 If `API_TOKEN` is set, every request must send `x-api-key: <token>`.
+
+## YouTube blocking datacenter IPs
+
+The service tries `android_vr`, then `tv_embedded`, then the default client. If all
+three return `Failed to extract any player response`, YouTube is treating the host
+as a bot. Two ways forward:
+
+- Set `YTDLP_COOKIES_B64` to a base64-encoded Netscape `cookies.txt` from a
+  logged-in YouTube session. Cookies expire and need refreshing.
+- Run the service on a host with a residential IP, or route `yt-dlp` through a
+  residential proxy.
+
+`YTDLP_PLAYER_CLIENTS` overrides the fallback order. `YTDLP_TIMEOUT_MS` and
+`YTDLP_PATH` are also available.
 
 ## Run locally
 

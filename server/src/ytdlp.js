@@ -1,9 +1,27 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
-const fs = require('node:fs/promises');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 
 const YTDLP = process.env.YTDLP_PATH || 'yt-dlp';
 const TIMEOUT_MS = Number(process.env.YTDLP_TIMEOUT_MS || 240000);
+const CLIENTS = (process.env.YTDLP_PLAYER_CLIENTS || 'android_vr,tv_embedded,default')
+  .split(',')
+  .map((client) => client.trim())
+  .filter(Boolean);
+const COOKIES_PATH = process.env.YTDLP_COOKIES_PATH || '';
+const COOKIES_B64 = process.env.YTDLP_COOKIES_B64 || '';
+
+let cookiesFile = COOKIES_PATH;
+
+if (!cookiesFile && COOKIES_B64) {
+  try {
+    cookiesFile = path.join('/tmp', 'krotify-cookies.txt');
+    fs.writeFileSync(cookiesFile, Buffer.from(COOKIES_B64, 'base64'));
+  } catch {
+    cookiesFile = '';
+  }
+}
 
 function watchUrl(videoId) {
   return `https://www.youtube.com/watch?v=${videoId}`;
@@ -51,8 +69,28 @@ function run(args) {
   });
 }
 
+function commonArgs() {
+  return cookiesFile ? ['--cookies', cookiesFile] : [];
+}
+
+function clientArgs(client) {
+  return client === 'default' ? [] : ['--extractor-args', `youtube:player_client=${client}`];
+}
+
+async function withClientFallback(buildArgs) {
+  let lastError = null;
+  for (const client of CLIENTS) {
+    try {
+      return await run([...commonArgs(), ...clientArgs(client), ...buildArgs(client)]);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('yt-dlp failed');
+}
+
 async function fetchInfo(videoId) {
-  const raw = await run([
+  const raw = await withClientFallback((client) => [
     '--no-playlist',
     '--skip-download',
     '--dump-single-json',
@@ -69,23 +107,43 @@ async function fetchInfo(videoId) {
 }
 
 async function downloadMp3(videoId, workDir) {
-  const template = path.join(workDir, `${videoId}.%(ext)s`);
-  await run([
-    '--no-playlist',
-    '--no-warnings',
-    '-x',
-    '--audio-format',
-    'mp3',
-    '--audio-quality',
-    '0',
-    '-o',
-    template,
-    watchUrl(videoId),
-  ]);
-  const file = path.join(workDir, `${videoId}.mp3`);
-  const stat = await fs.stat(file);
-  if (!stat.size) throw new Error('yt-dlp produced an empty file');
-  return file;
+  let lastError = null;
+  for (const client of CLIENTS) {
+    const clientDir = path.join(workDir, client);
+    try {
+      await fsp.mkdir(clientDir, { recursive: true });
+      const template = path.join(clientDir, `${videoId}.%(ext)s`);
+      await run([
+        ...commonArgs(),
+        ...clientArgs(client),
+        '--no-playlist',
+        '--no-warnings',
+        '-x',
+        '--audio-format',
+        'mp3',
+        '--audio-quality',
+        '0',
+        '-o',
+        template,
+        watchUrl(videoId),
+      ]);
+      const file = path.join(clientDir, `${videoId}.mp3`);
+      const stat = await fsp.stat(file);
+      if (!stat.size) throw new Error('yt-dlp produced an empty file');
+      return file;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('yt-dlp could not produce a file');
 }
 
-module.exports = { fetchInfo, downloadMp3 };
+async function ytdlpVersion() {
+  try {
+    return (await run(['--version'])).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+module.exports = { fetchInfo, downloadMp3, ytdlpVersion };
