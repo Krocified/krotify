@@ -44,10 +44,25 @@ jobs:
           git log "$RANGE" --pretty=format:'%B%x00' > /tmp/commits.txt
       - id: version
         run: |
-          node scripts/next-version.mts \
-            --latest "${{ steps.latest.outputs.tag }}" \
-            --bump "${{ inputs.bump || 'auto' }}" \
-            --commits /tmp/commits.txt > /tmp/version.env
+          LATEST="${{ steps.latest.outputs.tag }}"
+          LATEST_VERSION="${LATEST#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          USE_PACKAGE=false
+          if [ -n "$LATEST_VERSION" ] && [ "$PKG_VERSION" != "$LATEST_VERSION" ]; then
+            if node -e "const p=process.argv[1].split('.').map(Number);const l=process.argv[2].split('.').map(Number);const gt=p[0]>l[0]||(p[0]===l[0]&&(p[1]>l[1]||(p[1]===l[1]&&p[2]>l[2])));process.exit(gt?0:1)" "$PKG_VERSION" "$LATEST_VERSION"; then
+              USE_PACKAGE=true
+            fi
+          fi
+          if [ "$USE_PACKAGE" = true ]; then
+            VERSION="$PKG_VERSION"
+            VERSION_CODE=$(node -e "const [a,b,c]=process.argv[1].split('.').map(Number);console.log(a*10000+b*100+c)" "$VERSION")
+            printf 'version=%s\nversionCode=%s\ntag=v%s\nbump=package\n' "$VERSION" "$VERSION_CODE" "$VERSION" > /tmp/version.env
+          else
+            node scripts/next-version.mts \
+              --latest "$LATEST" \
+              --bump "${{ inputs.bump || 'auto' }}" \
+              --commits /tmp/commits.txt > /tmp/version.env
+          fi
           cat /tmp/version.env >> "$GITHUB_OUTPUT"
           TAG=$(grep '^tag=' /tmp/version.env | cut -d= -f2)
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
