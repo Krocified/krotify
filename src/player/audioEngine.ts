@@ -104,9 +104,15 @@ export function createEngine(): PlaybackEngine {
     },
 
     stop() {
-      playlist.pause();
-      playlist.clearLockScreenControls();
-      playlist.clear();
+      try {
+        playlist.pause();
+      } catch {}
+      try {
+        playlist.clearLockScreenControls();
+      } catch {}
+      try {
+        playlist.clear();
+      } catch {}
       globalIndexes.length = 0;
     },
   };

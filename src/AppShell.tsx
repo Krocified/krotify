@@ -26,6 +26,7 @@ import { pickAndImportTracks } from './imports/local';
 import type { ImportFailure } from './imports/plan';
 import { DEMO_TRACKS } from './library/demo';
 import { useFavorites } from './library/FavoritesProvider';
+import { resolvePlaybackUri } from './library/playbackSource';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
 import { resolveBack } from './lib/backIntent';
@@ -424,12 +425,7 @@ export function AppShell() {
       }
       const restored = await restore(
         target,
-        async (track) => {
-          if (track.uri) return track.uri;
-          const asset = assetsRef.current.get(track.id);
-          if (!asset) throw new Error('missing asset');
-          return asset.getUri();
-        },
+        (track) => resolvePlaybackUri(track, assetsRef.current),
         saved.positionMs,
       );
       if (!restored) await AsyncStorage.removeItem(RESUME_KEY);
@@ -449,12 +445,7 @@ export function AppShell() {
     }
     const ok = await playTrack(
       track,
-      async (t) => {
-        if (t.uri) return t.uri;
-        const asset = assetsRef.current.get(t.id);
-        if (!asset) throw new Error('missing asset');
-        return asset.getUri();
-      },
+      (t) => resolvePlaybackUri(t, assetsRef.current),
       queue ?? tracks,
     );
     if (!ok) {

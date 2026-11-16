@@ -1,11 +1,14 @@
 import { useAudioPlaylistStatus } from 'expo-audio';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
+import { isMissingFileError } from '../library/playbackSource';
+import { buildPlayableWindow } from '../lib/playbackRecovery';
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import { restoreOrder, shuffleOrder } from '../lib/shuffle';
 import { tickSleep } from '../lib/sleepTimer';
 import type { Track } from '../types';
+import { setTrackMissing } from '../tracks/repo';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -39,6 +42,7 @@ export type PlayerContextValue = {
     resolveUri: (track: Track) => Promise<string>,
     positionMs: number,
   ) => Promise<boolean>;
+  advanceToNextPlayable: () => Promise<boolean>;
   toggle: () => void;
   seek: (positionMs: number) => Promise<void>;
   stop: () => void;
@@ -88,6 +92,27 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const windowRef = useRef<WindowState>({ globalIndexes: [] });
   const loadedQueueRef = useRef<Track[] | null>(null);
   const appendingRef = useRef(false);
+  const indexRef = useRef(-1);
+
+  const resetAudioWindow = useCallback(() => {
+    loadGenerationRef.current += 1;
+    engine.stop();
+    windowRef.current = { globalIndexes: [] };
+    loadedQueueRef.current = null;
+    appendingRef.current = false;
+  }, []);
+
+  const skipToLocal = useCallback(
+    (local: number) => {
+      try {
+        engine.skipTo(local);
+      } catch {
+        setLastError('Could not play this file');
+        resetAudioWindow();
+      }
+    },
+    [resetAudioWindow],
+  );
 
   const clearMockTimer = useCallback(() => {
     if (mockTimerRef.current) {
@@ -99,6 +124,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -211,39 +240,64 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const { start, end } = playlistWindow(targetIndex, nextQueue.length, DEFAULT_WINDOW_RADIUS);
       const indexes: number[] = [];
       for (let global = start; global <= end; global += 1) indexes.push(global);
-      const entries = await Promise.all(
-        indexes.map(async (global): Promise<ResolvedWindowTrack | null> => {
+      const resolved = await Promise.all(
+        indexes.map(async (global) => {
           const item = nextQueue[global];
-          if (!item) return null;
+          if (!item) return { global, uri: null, missing: false } as const;
           try {
-            return { uri: await resolveUri(item), track: item, global };
-          } catch {
-            return null;
+            return { global, uri: await resolveUri(item), missing: false } as const;
+          } catch (error) {
+            return { global, uri: null, missing: isMissingFileError(error) } as const;
           }
         }),
       );
       if (generation !== loadGenerationRef.current) return false;
 
-      const loaded = entries.filter((entry): entry is ResolvedWindowTrack => entry !== null);
-      const local = loaded.findIndex((entry) => entry.global === targetIndex);
+      const resolvedWindow = buildPlayableWindow(
+        resolved.map(({ global, uri }) => ({ global, uri })),
+        targetIndex,
+      );
+      for (const entry of resolved) {
+        const item = nextQueue[entry.global];
+        if (entry.missing && item) void setTrackMissing(item.id, true).catch(() => {});
+      }
+
       const currentTrack = nextQueue[targetIndex];
-      if (local < 0 || !currentTrack) {
+      if (!currentTrack) {
         setLastError('Could not play this file');
+        resetAudioWindow();
+        return false;
+      }
+      if (resolvedWindow.localIndex < 0) {
+        setLastError('File missing');
+        setTrack({ ...currentTrack, missing: 1 });
+        setQueueState(nextQueue);
+        setIndex(targetIndex);
+        setMode('audio');
+        resetAudioWindow();
         return false;
       }
 
-      engine.setVolume(1);
-      engine.load(
-        loaded.map(({ uri, track: item }) => ({ uri, track: item })),
-        local,
-        loaded.map((entry) => entry.global),
-        play,
-      );
+      const loaded = resolvedWindow.playable;
+      try {
+        engine.setVolume(1);
+        engine.load(
+          loaded.map(({ global, uri }) => ({ uri, track: nextQueue[global] })),
+          resolvedWindow.localIndex,
+          loaded.map((entry) => entry.global),
+          play,
+        );
+      } catch {
+        setLastError('Could not play this file');
+        resetAudioWindow();
+        return false;
+      }
       windowRef.current = { globalIndexes: loaded.map((entry) => entry.global) };
       loadedQueueRef.current = nextQueue;
       setMode('audio');
       setQueueState(nextQueue);
-      setTrack(currentTrack);
+      if (currentTrack.missing) void setTrackMissing(currentTrack.id, false).catch(() => {});
+      setTrack(currentTrack.missing ? { ...currentTrack, missing: 0 } : currentTrack);
       setIndex(targetIndex);
       setLastError(null);
       engine.updateLockScreenMetadata(currentTrack);
@@ -251,11 +305,12 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         try {
           await engine.playlist.seekTo(positionMs / 1000);
         } catch {
+          setLastError('Could not seek');
         }
       }
       return true;
     },
-    [],
+    [resetAudioWindow],
   );
 
   const appendAhead = useCallback((currentLocal: number) => {
@@ -297,17 +352,22 @@ export function PlayerProvider({ children }: PropsWithChildren) {
           loadedQueueRef.current === nextQueue &&
           windowRef.current === windowState;
         if (fresh && loaded.length > 0) {
-          engine.append(
-            loaded.map(({ uri, track: item }) => ({ uri, track: item })),
-            loaded.map((entry) => entry.global),
-          );
-          windowState.globalIndexes.push(...loaded.map((entry) => entry.global));
+          try {
+            engine.append(
+              loaded.map(({ uri, track: item }) => ({ uri, track: item })),
+              loaded.map((entry) => entry.global),
+            );
+            windowState.globalIndexes.push(...loaded.map((entry) => entry.global));
+          } catch {
+            setLastError('Could not play this file');
+            resetAudioWindow();
+          }
         }
       })
       .finally(() => {
         appendingRef.current = false;
       });
-  }, []);
+  }, [resetAudioWindow]);
 
   const handleTrackChanged = useCallback(
     (event: { previousIndex: number; currentIndex: number }) => {
@@ -327,7 +387,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         const target = wrapTarget(previousGlobal, nextQueue.length, 'forward');
         if (target >= 0) {
           const local = windowState.globalIndexes.indexOf(target);
-          if (local >= 0) engine.skipTo(local);
+          if (local >= 0) skipToLocal(local);
           else void loadWindow(target, nextQueue, resolveUri);
           return;
         }
@@ -343,7 +403,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         const target = wrapTarget(previousGlobal, nextQueue.length, 'backward');
         if (target >= 0) {
           const local = windowState.globalIndexes.indexOf(target);
-          if (local >= 0) engine.skipTo(local);
+          if (local >= 0) skipToLocal(local);
           else void loadWindow(target, nextQueue, resolveUri);
           return;
         }
@@ -358,7 +418,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       engine.setVolume(1);
       appendAhead(event.currentIndex);
     },
-    [appendAhead, loadWindow],
+    [appendAhead, loadWindow, skipToLocal],
   );
 
   useEffect(() => {
@@ -403,15 +463,15 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       try {
         const loaded = await loadWindow(target, playQueue, resolveUri);
         if (requestId !== requestRef.current) return false;
-        if (!loaded) setLastError('Could not play this file');
         return loaded;
       } catch {
         if (requestId !== requestRef.current) return false;
         setLastError('Could not play this file');
+        resetAudioWindow();
         return false;
       }
     },
-    [loadWindow],
+    [loadWindow, resetAudioWindow],
   );
 
   const restore = useCallback(
@@ -441,16 +501,40 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       try {
         const loaded = await loadWindow(0, [nextTrack], resolveUri, positionMs, false);
         if (requestId !== requestRef.current) return false;
-        if (!loaded) setLastError(null);
         return loaded;
       } catch {
         if (requestId !== requestRef.current) return false;
-        setLastError(null);
+        setLastError('Could not play this file');
+        resetAudioWindow();
         return false;
       }
     },
-    [loadWindow],
+    [loadWindow, resetAudioWindow],
   );
+
+  const advanceToNextPlayable = useCallback(async (): Promise<boolean> => {
+    const resolveUri = resolveUriRef.current;
+    const nextQueue = queueRef.current;
+    if (!resolveUri || nextQueue.length === 0) {
+      setLastError('No playable tracks');
+      return false;
+    }
+    const start = indexRef.current;
+    for (let offset = 1; offset <= nextQueue.length; offset += 1) {
+      const candidate = start < 0 ? offset - 1 : (start + offset) % nextQueue.length;
+      const item = nextQueue[candidate];
+      if (!item) continue;
+      try {
+        await resolveUri(item);
+      } catch (error) {
+        if (isMissingFileError(error)) void setTrackMissing(item.id, true).catch(() => {});
+        continue;
+      }
+      return loadWindow(candidate, nextQueue, resolveUri);
+    }
+    setLastError('No playable tracks');
+    return false;
+  }, [loadWindow]);
 
   const seek = useCallback(
     async (positionMs: number): Promise<void> => {
@@ -460,7 +544,11 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         setMockRunId((id) => id + 1);
         return;
       }
-      await engine.playlist.seekTo(positionMs / 1000);
+      try {
+        await engine.playlist.seekTo(positionMs / 1000);
+      } catch {
+        setLastError('Could not seek');
+      }
     },
     [mode],
   );
@@ -493,13 +581,23 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     }
     if (atEnd) {
       endHandledForRef.current = null;
-      void engine.playlist.seekTo(0);
-      engine.playlist.play();
+      void engine.playlist.seekTo(0).catch(() => setLastError('Could not seek'));
+      try {
+        engine.playlist.play();
+      } catch {
+        setLastError('Could not play this file');
+        resetAudioWindow();
+      }
       return;
     }
-    if (engine.playlist.playing) engine.playlist.pause();
-    else engine.playlist.play();
-  }, [mode, positionMs, durationMs]);
+    try {
+      if (engine.playlist.playing) engine.playlist.pause();
+      else engine.playlist.play();
+    } catch {
+      setLastError('Could not play this file');
+      resetAudioWindow();
+    }
+  }, [mode, positionMs, durationMs, resetAudioWindow]);
 
   const stop = useCallback(() => {
     requestRef.current += 1;
@@ -524,6 +622,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (mode !== 'audio' || !track) return;
+    if (track.missing === 1) return;
     if (loadedQueueRef.current === queue) return;
     if (queue.length === 0) return;
     const resolveUri = resolveUriRef.current;
@@ -619,15 +718,15 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       if (modeRef.current === 'audio') {
         const local = windowRef.current.globalIndexes.indexOf(target);
         if (local >= 0) {
+          skipToLocal(local);
           setIndex(target);
           setTrack(targetTrack);
-          engine.skipTo(local);
           return;
         }
       }
       void loadWindow(target, nextQueue, resolveUri);
     },
-    [loadWindow],
+    [loadWindow, skipToLocal],
   );
 
   const navigate = useCallback(
@@ -728,6 +827,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setSleep,
       playTrack,
       restore,
+      advanceToNextPlayable,
       toggle,
       seek,
       next,
@@ -755,6 +855,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setSleep,
       playTrack,
       restore,
+      advanceToNextPlayable,
       toggle,
       seek,
       next,
