@@ -19,63 +19,85 @@ import { ScrollBar } from '../components/ScrollBar';
 import { SleepTimerControls } from '../components/SleepTimerControls';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
-import { lyricsCacheCount } from '../library/lyrics';
-import { loadLyricsNetworkEnabled, saveLyricsNetworkEnabled } from '../library/lyricsPrefs';
-import { hiddenTracksLabel } from '../lib/settingsView';
+import type { ScanSummary } from '../db/settings';
+import {
+  excludeAllMeta,
+  hiddenTracksLabel,
+  moveFilesLabel,
+  permissionLabel,
+  reclaimableLabel,
+  scanResultLabel,
+  type PermissionState,
+  type StorageView,
+} from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
-import type { LibraryStatus, Track } from '../types';
+import type { LibraryStatus } from '../types';
 
 type Props = {
   visible: boolean;
   status: LibraryStatus;
-  onRescan: () => void;
-  onBack: () => void;
-  onExcludeAll: () => void;
-  excluded: Track[];
-  onRestore: (id: string) => void;
-  onRestoreAll: () => void;
-  canExcludeAll: boolean;
   scanEnabled: boolean;
-  onToggleScan: (enabled: boolean) => void;
+  permission: PermissionState | null;
+  scanSummary: ScanSummary | null;
   hiddenCount: number;
+  scanExcludeCount: number;
+  storage: StorageView | null;
+  storageBusy: boolean;
+  onBack: () => void;
+  onToggleScan: (enabled: boolean) => void;
+  onGrant: () => void;
+  onRescan: () => void;
   onOpenHiddenTracks: () => void;
-};
-
-const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
-  ready: 'Granted',
-  denied: 'Not granted',
+  onExcludeAll: () => void;
+  onChangeFolder: () => void;
+  onMoveFiles: () => void;
+  onCleanStorage: () => void;
 };
 
 const RELEASE_ABI = 'arm64-v8a';
 
 const SLIDE_MS = 280;
 
+function scanSummaryLabel(summary: ScanSummary): string {
+  const result = scanResultLabel(summary.found, summary.newTracks, summary.missing);
+  return `${result} · ${new Date(summary.lastScanAt).toLocaleString()}`;
+}
+
 export function SettingsScreen({
   visible,
   status,
-  onRescan,
-  onBack,
-  onExcludeAll,
-  excluded,
-  onRestore,
-  onRestoreAll,
-  canExcludeAll,
   scanEnabled,
-  onToggleScan,
+  permission,
+  scanSummary,
   hiddenCount,
+  scanExcludeCount,
+  storage,
+  storageBusy,
+  onBack,
+  onToggleScan,
+  onGrant,
+  onRescan,
   onOpenHiddenTracks,
+  onExcludeAll,
+  onChangeFolder,
+  onMoveFiles,
+  onCleanStorage,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { width } = useWindowDimensions();
   const { sleep, setSleep } = usePlayer();
   const [anim] = useState(() => new Animated.Value(0));
-  const [lyricsNetwork, setLyricsNetwork] = useState(true);
-  const [lyricsCount, setLyricsCount] = useState<number | null>(null);
   const scanning = status === 'scanning';
-  const permission = PERMISSION_LABEL[status] ?? 'Checking';
+  const canRescan = scanEnabled && !scanning;
+  const permissionText = permission === null ? 'Checking' : permissionLabel(permission);
+  const rescanMeta =
+    scanSummary === null ? 'No scan yet' : scanSummaryLabel(scanSummary);
+  const scanDisabledReason = scanEnabled ? null : 'Turn on scanning to rescan.';
+  const noFilesToMove = storage !== null && storage.fileCount === 0;
+  const nothingToClean = storage !== null && storage.reclaimableBytes === 0;
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
@@ -86,25 +108,6 @@ export function SettingsScreen({
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [anim, visible]);
-
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    void loadLyricsNetworkEnabled().then((enabled) => {
-      if (!cancelled) setLyricsNetwork(enabled);
-    });
-    void lyricsCacheCount().then((count) => {
-      if (!cancelled) setLyricsCount(count);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible]);
-
-  const toggleLyricsNetwork = useCallback((enabled: boolean) => {
-    setLyricsNetwork(enabled);
-    void saveLyricsNetworkEnabled(enabled);
-  }, []);
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {
@@ -144,24 +147,29 @@ export function SettingsScreen({
         >
           <Text style={styles.sectionTitle}>Library</Text>
           <View style={styles.card}>
-            <Pressable
-              onPress={onRescan}
-              disabled={scanning}
-              accessibilityRole="button"
-              accessibilityLabel="Rescan device audio"
-              accessibilityState={{ disabled: scanning }}
-              style={({ pressed }) => [styles.row, pressed && !scanning && styles.rowPressed]}
+            <View
+              style={styles.row}
+              accessible
+              accessibilityLabel={`Permission: ${permissionText}`}
             >
               <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Rescan device audio</Text>
-                <Text style={styles.rowMeta}>Scan this device for audio files</Text>
+                <Text style={styles.rowTitle}>Permission</Text>
+                <Text style={styles.rowMeta}>Needed to scan this device for audio</Text>
               </View>
-              {scanning ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
-              )}
-            </Pressable>
+              <View style={styles.rowActions}>
+                <Text style={styles.rowValue}>{permissionText}</Text>
+                {permission !== null && permission !== 'granted' ? (
+                  <Pressable
+                    onPress={onGrant}
+                    accessibilityRole="button"
+                    accessibilityLabel="Grant audio permission"
+                    style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                  >
+                    <Text style={styles.actionText}>Grant</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
 
             {Platform.OS !== 'web' ? (
               <View style={styles.row}>
@@ -185,6 +193,32 @@ export function SettingsScreen({
             ) : null}
 
             <Pressable
+              onPress={onRescan}
+              disabled={!canRescan}
+              accessibilityRole="button"
+              accessibilityLabel="Rescan device audio"
+              accessibilityState={{ disabled: !canRescan }}
+              style={({ pressed }) => [
+                styles.row,
+                !canRescan && !scanning && styles.rowDisabled,
+                pressed && canRescan && styles.rowPressed,
+              ]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Rescan device audio</Text>
+                <Text style={styles.rowMeta}>{rescanMeta}</Text>
+                {scanDisabledReason ? (
+                  <Text style={styles.rowMeta}>{scanDisabledReason}</Text>
+                ) : null}
+              </View>
+              {scanning ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+              )}
+            </Pressable>
+
+            <Pressable
               onPress={onOpenHiddenTracks}
               accessibilityRole="button"
               accessibilityLabel={hiddenTracksLabel(hiddenCount)}
@@ -199,27 +233,104 @@ export function SettingsScreen({
 
             <Pressable
               onPress={onExcludeAll}
-              disabled={!canExcludeAll}
+              disabled={scanExcludeCount === 0}
               accessibilityRole="button"
               accessibilityLabel="Exclude all scanned tracks"
-              accessibilityState={{ disabled: !canExcludeAll }}
+              accessibilityState={{ disabled: scanExcludeCount === 0 }}
               style={({ pressed }) => [
                 styles.row,
-                !canExcludeAll && styles.rowDisabled,
-                pressed && canExcludeAll && styles.rowPressed,
+                scanExcludeCount === 0 && styles.rowDisabled,
+                pressed && scanExcludeCount > 0 && styles.rowPressed,
               ]}
             >
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Exclude all scanned tracks</Text>
-                <Text style={styles.rowMeta}>Hide every scanned track from the library</Text>
+                <Text style={styles.rowMeta}>{excludeAllMeta(scanExcludeCount)}</Text>
               </View>
               <Ionicons name="eye-off-outline" size={22} color={colors.textDim} />
             </Pressable>
+          </View>
 
-            <View style={styles.row} accessible accessibilityLabel={`Permission: ${permission}`}>
-              <Text style={styles.rowTitle}>Permission</Text>
-              <Text style={styles.rowValue}>{permission}</Text>
+          <Text style={styles.sectionTitle}>Storage</Text>
+          <View style={styles.card}>
+            <View style={styles.row} accessible accessibilityLabel="Current storage folder">
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Current folder</Text>
+                <Text style={styles.rowMeta}>Where imported files are stored</Text>
+              </View>
+              <Text style={styles.rowValue}>
+                {storage === null ? 'Loading storage...' : storage.folderName}
+              </Text>
             </View>
+
+            <Pressable
+              onPress={onChangeFolder}
+              disabled={storageBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Change folder"
+              accessibilityState={{ disabled: storageBusy }}
+              style={({ pressed }) => [
+                styles.row,
+                storageBusy && styles.rowDisabled,
+                pressed && !storageBusy && styles.rowPressed,
+              ]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Change folder</Text>
+                <Text style={styles.rowMeta}>Choose a new folder for imported files</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+            </Pressable>
+
+            <Pressable
+              onPress={onMoveFiles}
+              disabled={storageBusy || noFilesToMove}
+              accessibilityRole="button"
+              accessibilityLabel="Move existing files"
+              accessibilityState={{ disabled: storageBusy || noFilesToMove }}
+              style={({ pressed }) => [
+                styles.row,
+                (storageBusy || noFilesToMove) && styles.rowDisabled,
+                pressed && !storageBusy && !noFilesToMove && styles.rowPressed,
+              ]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Move existing files</Text>
+                <Text style={styles.rowMeta}>
+                  {noFilesToMove
+                    ? 'No files to move.'
+                    : storage === null
+                      ? 'Loading storage...'
+                      : moveFilesLabel(storage.fileCount, storage.totalBytes)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+            </Pressable>
+
+            <Pressable
+              onPress={onCleanStorage}
+              disabled={storageBusy || nothingToClean}
+              accessibilityRole="button"
+              accessibilityLabel="Clean reclaimable space"
+              accessibilityState={{ disabled: storageBusy || nothingToClean }}
+              style={({ pressed }) => [
+                styles.row,
+                (storageBusy || nothingToClean) && styles.rowDisabled,
+                pressed && !storageBusy && !nothingToClean && styles.rowPressed,
+              ]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Reclaimable space</Text>
+                <Text style={styles.rowMeta}>
+                  {nothingToClean
+                    ? 'Nothing to clean.'
+                    : storage === null
+                      ? 'Loading storage...'
+                      : reclaimableLabel(storage.reclaimableBytes)}
+                </Text>
+              </View>
+              <Text style={styles.actionText}>Clean</Text>
+            </Pressable>
           </View>
 
           <Text style={styles.sectionTitle}>Playback</Text>
@@ -238,93 +349,12 @@ export function SettingsScreen({
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Lyrics</Text>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Network lyrics lookup</Text>
-                <Text style={styles.rowMeta}>Fetch missing lyrics from LRCLIB</Text>
-              </View>
-              <Switch
-                value={lyricsNetwork}
-                onValueChange={toggleLyricsNetwork}
-                accessibilityLabel="Network lyrics lookup"
-                trackColor={{ false: colors.surfaceHi, true: colors.accent }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-            <View style={styles.row} accessible accessibilityLabel={`Cached lyrics: ${lyricsCount ?? 0}`}>
-              <Text style={styles.rowTitle}>Cached lyrics</Text>
-              <Text style={styles.rowValue}>{lyricsCount === null ? '...' : lyricsCount}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Editing</Text>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Imported copies</Text>
-                <Text style={styles.rowMeta}>
-                  Files copied into Krotify can be edited in place, including artwork.
-                </Text>
-              </View>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Scanned tracks</Text>
-                <Text style={styles.rowMeta}>
-                  Editing needs write access. If it is denied, import a copy and edit that
-                  instead.
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {excluded.length > 0 ? (
-            <>
-              <Text style={styles.sectionTitle}>Hidden tracks</Text>
-              <View style={styles.card}>
-                <Pressable
-                  onPress={onRestoreAll}
-                  accessibilityRole="button"
-                  accessibilityLabel="Restore all hidden tracks"
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                >
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>Restore all hidden tracks</Text>
-                    <Text style={styles.rowMeta}>
-                      {excluded.length} hidden {excluded.length === 1 ? 'track' : 'tracks'}
-                    </Text>
-                  </View>
-                  <Ionicons name="refresh" size={22} color={colors.accent2} />
-                </Pressable>
-                {excluded.map((track) => (
-                  <View key={track.id} style={styles.row}>
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {track.title}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => onRestore(track.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Restore ${track.title}`}
-                      style={({ pressed }) => [styles.restore, pressed && styles.restorePressed]}
-                    >
-                      <Text style={styles.restoreText}>Restore</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
-
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
             <View style={styles.row}>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Krotify {appJson.expo.version}</Text>
-                <Text style={styles.rowMeta}>Local playback. Network lyrics are optional.</Text>
+                <Text style={styles.rowMeta}>Local playback.</Text>
               </View>
             </View>
             <View style={styles.row}>
@@ -403,6 +433,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: space.xs,
   },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
   rowTitle: {
     ...type.body,
     color: colors.text,
@@ -415,16 +450,16 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
   },
-  restore: {
+  action: {
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     borderRadius: radius.screen,
     backgroundColor: colors.surfaceHi,
   },
-  restorePressed: {
+  actionPressed: {
     opacity: 0.7,
   },
-  restoreText: {
+  actionText: {
     ...type.meta,
     color: colors.accent2,
   },
