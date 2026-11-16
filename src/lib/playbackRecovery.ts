@@ -40,3 +40,7 @@ export function nextPlayableIndex(
   }
   return -1;
 }
+
+export function shouldProbeDuration(durationMs: number, source: string): boolean {
+  return durationMs <= 0 && source !== 'demo';
+}

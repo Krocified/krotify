@@ -14,7 +14,8 @@ export type WindowTrack = { uri: string; track: Track };
 export type EngineLoopMode = 'none' | 'single' | 'all';
 
 export type PlaybackEngine = {
-  playlist: AudioPlaylist;
+  readonly playlist: AudioPlaylist;
+  recreate(): void;
   load(tracks: WindowTrack[], localIndex: number, globalIndexes?: number[], autoplay?: boolean): void;
   append(tracks: WindowTrack[], globalIndexes: number[]): void;
   skipTo(local: number): void;
@@ -58,11 +59,43 @@ function requestNotificationPermission(): void {
 }
 
 export function createEngine(): PlaybackEngine {
-  const playlist = createAudioPlaylist({ updateInterval: 500 });
+  let playlist = createAudioPlaylist({ updateInterval: 500 });
   const globalIndexes: number[] = [];
+  let loopMode: EngineLoopMode = 'none';
+  let volume = 1;
+  const lockScreen: { current: { metadata: AudioMetadata; options: AudioLockScreenOptions } | null } = {
+    current: null,
+  };
 
   return {
-    playlist,
+    get playlist() {
+      return playlist;
+    },
+
+    recreate() {
+      const previous = playlist;
+      try {
+        previous.pause();
+      } catch {}
+      try {
+        previous.clearLockScreenControls();
+      } catch {}
+      try {
+        previous.clear();
+      } catch {}
+      if (typeof previous.destroy === 'function') {
+        try {
+          previous.destroy();
+        } catch {}
+      }
+      playlist = createAudioPlaylist({ updateInterval: 500 });
+      playlist.loop = loopMode;
+      playlist.volume = volume;
+      if (lockScreen.current) {
+        playlist.setActiveForLockScreen(true, lockScreen.current.metadata, lockScreen.current.options);
+      }
+      globalIndexes.length = 0;
+    },
 
     load(tracks, localIndex, indexes, autoplay = true) {
       playlist.clear();
@@ -73,11 +106,9 @@ export function createEngine(): PlaybackEngine {
       if (!current) return;
       requestNotificationPermission();
       playlist.skipTo(localIndex);
-      playlist.setActiveForLockScreen(
-        true,
-        lockScreenMetadata(current.track),
-        LOCK_SCREEN_OPTIONS,
-      );
+      const metadata = lockScreenMetadata(current.track);
+      lockScreen.current = { metadata, options: LOCK_SCREEN_OPTIONS };
+      playlist.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
       if (autoplay) playlist.play();
       else playlist.pause();
     },
@@ -92,15 +123,19 @@ export function createEngine(): PlaybackEngine {
     },
 
     setVolume(value) {
+      volume = value;
       playlist.volume = value;
     },
 
     setLoop(mode) {
+      loopMode = mode;
       playlist.loop = mode;
     },
 
     updateLockScreenMetadata(track) {
-      playlist.updateLockScreenMetadata(lockScreenMetadata(track));
+      const metadata = lockScreenMetadata(track);
+      lockScreen.current = { metadata, options: LOCK_SCREEN_OPTIONS };
+      playlist.updateLockScreenMetadata(metadata);
     },
 
     stop() {
@@ -113,6 +148,7 @@ export function createEngine(): PlaybackEngine {
       try {
         playlist.clear();
       } catch {}
+      lockScreen.current = null;
       globalIndexes.length = 0;
     },
   };
