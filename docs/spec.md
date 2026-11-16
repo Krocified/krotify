@@ -262,7 +262,7 @@ local files offline, requests identify the client, rate limits are honored,
 responses are cached, and source attribution is visible. LRCLIB remains the only
 lyric source.
 
-### v5: File ownership (planned, not built)
+### v5: File ownership (built, device verification pending)
 
 Focus: stop treating the audio file as truth. SQLite owns the name, artist, album,
 artwork and tags; files are copied once into a user-chosen folder and never renamed
@@ -275,14 +275,36 @@ and Delete (remove the file). App-local tags get a filter bar above Recently pla
 Import gains ytmp3.ge link import and loses the recent-imports list. Lyrics UI is
 hidden behind a flag.
 
+Built:
+- Schema v4: `tracks`, `tags`, `track_tags` and `settings`; imports are migrated
+  before cached metadata is folded; legacy track ids are preserved. The
+  `track_metadata` table is kept unused for one release.
+- `src/tracks`: ID helpers, row builders, repository with injected DB for tests,
+  scan upsert that preserves overrides/status/tags, and a missing sweep that never
+  touches owned rows. Removed tombstones stop a rescan from re-adding a cleared track.
+- `src/storage`: chosen root via `Directory.pickDirectoryAsync`, flat names with
+  ` (2)` suffixes, move/flatten, reclaimable space, and direct or cache-then-copy
+  downloads. The SAF spike evidence is in `docs/research/v5-saf-spike.md`.
+- `src/imports`: local import with a non-zero copy check, best-effort duration
+  probe, dedupe/reactivation, shared probe module, and the ytmp3.ge converter.
+- `src/tags`: create, assign, unassign, active-track counts and filtering.
+- Player: files are resolved and validated before loading; dead entries are dropped;
+  a failed load stops the engine and clears the window so the next play works.
+- Screens: Settings (permission, scan summary, hidden row, exclude all, storage,
+  sleep, About), Hidden tracks page, tag filter bar, tag editor, missing-file
+  warnings with Clear/Delete, smaller Recently played, Import action surface, and
+  the link card. Lyrics UI is gated by `LYRICS_ENABLED = false`.
+- The local Kotlin `audio-tags` module and the tag-writer orchestration are removed.
+
+Device checks still pending: upgrade over a real v3 install, SAF create/copy/delete/
+move/download and persistence after relaunch, and a real ytmp3.ge download. These
+are recorded, not assumed, and are listed in the plan closeout tasks.
+
 Design: `docs/superpowers/specs/2026-11-16-krotify-v5-file-ownership-design.md`.
 Plans:
 - `docs/superpowers/plans/2026-11-16-v5-track-store-and-imports.md`
 - `docs/superpowers/plans/2026-11-16-v5-player-hidden-settings.md`
 - `docs/superpowers/plans/2026-11-16-v5-library-tags-and-link-import.md`
-
-Nothing in this milestone is built. Device evidence and the release notes follow the
-same rule as v4: a row is not a pass until it is run on a device and recorded.
 
 ## Library management
 

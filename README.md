@@ -7,38 +7,41 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 Current version: `0.4.0`.
 
-v0 through v4 core are built. The app is a local-first player with a real
-library, session controls and a working ownership flow:
+v0 through v5 are built. The app is a local-first player with a real library,
+a chosen storage folder, app-owned metadata and tags, and recovery from missing
+files:
 
 - One `AudioPlaylist` engine: background playback, gapless tracks, notification
   and lock-screen next/previous, and live play/pause state.
 - Library and Import tabs with a floating blur pill. Catalog is removed for
   now; its screen and grouping logic stay on disk for a later redesign.
-- Imports go through the system document picker, keep the provider's real
-  filename and MIME extension, dedupe by name and size when a size is reported,
-  report each failed file separately, and reject zero-byte copies.
-- Tag editing writes to imported files and to scanned files through a
-  MediaStore content URI. Writes are snapshot-backed and followed by a re-read;
-  a read-only scanned file offers an import-a-copy fallback.
-- Playlists have a name, description, and cover. A picked cover appears on the
-  playlist index, the Library rail, and the detail hero. The detail falls back
-  to the first track artwork, then a generated cover. Play and Shuffle actions
-  and drag reorder persist. Screen readers get Move up and Move down actions.
-- A heart in Now Playing sits next to the sleep timer and persists to Liked
-  Songs.
-- Back closes overlays and routes first. The app exits only after a double press
-  at the Library root.
-- Shuffle, repeat, sleep timer with fade-out, resume of the last track and
-  position, lyrics from `.lrc` or LRCLIB, scan opt-in, hidden-track restore, and
-  the system audio filters.
-- Playlist schema v3 migrates an existing install in place.
+- SQLite is the source of truth. Files are copied once into a folder chosen in
+  Settings (`Krotify` by default, or the legacy `imports` folder on upgrade) and
+  are never renamed or tag-written. Editing title, artist, album, artwork or
+  tags changes the app's record, not the file.
+- Imports use the system document picker, validate a non-zero copy without
+  trusting the provider-reported size, probe duration best-effort, dedupe, and
+  report each failure separately. A successful import returns to Library.
+- YouTube links import through the ytmp3.ge API into the chosen folder, with the
+  returned title and thumbnail. The Import tab is an action surface, not a list.
+- App-local tags: create and assign them in the track editor and filter the
+  Library with a chip bar above Recently played when tags exist.
+- Hidden tracks have their own page. Restore returns a track; Clear removes it
+  from the app and keeps the file; Delete removes both.
+- Missing files are detected before playback, marked in the UI with Clear and
+  Delete call to actions, and never wedge the next track.
+- Playlists have a name, description, and cover, with Play, Shuffle and drag
+  reorder. A heart in Now Playing persists to Liked Songs. Back closes overlays
+  and routes first. The app exits only after a double press at Library.
+- Shuffle, repeat, sleep timer with fade-out, resume, scan opt-in, and the system
+  audio filters. Lyrics code stays on disk but its UI is hidden behind
+  `LYRICS_ENABLED`.
+- Schema v4 migrates an existing install in place, keeping legacy track ids.
 
 Not shipped: v4 discovery is research-only. Genius, Radio Browser, and
-Audiometa.io are deferred pending credentials, terms, and a real-device radio
-playback gate. Link import is hidden until a licensed resolver exists; the app
-does not scrape YouTube and only supports content the user has the rights to
-download. Device verification for v4 is recorded in
-`docs/research/v4-device-check.md`.
+Audiometa.io are deferred. Device verification for v4 is recorded in
+`docs/research/v4-device-check.md`; v5 device checks (upgrade install, SAF
+folder, ytmp3 download) are still pending.
 
 ## Stack
 
@@ -46,8 +49,8 @@ Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
 `expo-document-picker`, `expo-media-library`, `expo-sqlite`, `expo-file-system`,
 `expo-blur`, `@missingcore/react-native-metadata-retriever`, Ionicons,
 `react-native-sortables` with `react-native-reanimated`,
-`react-native-worklets`, and `react-native-gesture-handler`, plus a local Kotlin
-Expo module backed by jaudiotagger.
+`react-native-worklets`, and `react-native-gesture-handler`. Link import calls
+the ytmp3.ge conversion API.
 
 ## Run it
 
@@ -101,24 +104,28 @@ debug keystore, which is installable but not upgrade-stable across runners.
 
 - `docs/intent.md`: why this exists
 - `docs/spec.md`: behaviour, design tokens, milestones, v4 verdicts
-- `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans and release
-  workflow plan
-- `docs/research/`: v4 API memos, link-import decision, batch edit, Android Auto
-  research, and the v4 device check matrix
+- `docs/superpowers/specs/`: v5 file-ownership design
+- `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans, v5 track
+  store, player/settings, and library/link plans, plus the release workflow plan
+- `docs/research/`: v4 API memos, batch edit, Android Auto research, the v4
+  device check matrix, and the v5 SAF spike evidence
 
 ## Layout
 
 ```
 src/
   AppShell.tsx        screen/overlay state, library load, sheets and wiring
-  player/             AudioPlaylist engine and player provider
-  library/            scan, metadata, imports, exclusions, lyrics, tag writer
-  db/                 SQLite schema, migrations and repository
-  screens/            Library, Import, Search, Now Playing, Settings, Playlists,
-                      Liked, Edit Track (CatalogScreen kept but unwired)
-  components/         headers, tabs, cover art, rows, sheets, mini-player
-  lib/                queue, shuffle, sleep, lyrics parser, groups, search (tested)
-modules/audio-tags/   local Expo module: jaudiotagger read/write
+  player/             AudioPlaylist engine, provider and missing-file recovery
+  tracks/             track records, repository, metadata seeding, scan sync
+  storage/            chosen storage root, owned files, downloads
+  imports/            local import, ytmp3 link conversion, duration probe
+  tags/               tag repository, provider, filter helpers
+  library/            scan, artwork, playback source, lyrics
+  db/                 SQLite schema, v4 migration and repository
+  screens/            Library, Import, Search, Now Playing, Settings, Hidden,
+                      Playlists, Liked, Edit Track (CatalogScreen unwired)
+  components/         headers, tabs, cover art, rows, sheets, tag filter/editor
+  lib/                queue, shuffle, sleep, lyrics, settings view (tested)
 scripts/              release version helper
 plugins/              Media3/R8 exclusions, notification icon, release signing
 .github/workflows/    release pipeline
