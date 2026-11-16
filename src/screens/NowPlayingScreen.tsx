@@ -18,14 +18,18 @@ import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
 import { coverColors } from '../lib/cover';
+import { isMissingTrack } from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { useFavorites } from '../library/FavoritesProvider';
 import { useLyrics } from '../library/useLyrics';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
+import type { Track } from '../types';
 
 type Props = {
   onClose: () => void;
+  onClearTrack?: (track: Track) => void;
+  onDeleteFile?: (track: Track) => void;
   registerClose?: (close: (() => void) | null) => void;
   registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
@@ -36,6 +40,8 @@ const LYRICS_COVER_SIZE = 180;
 
 export function NowPlayingScreen({
   onClose,
+  onClearTrack,
+  onDeleteFile,
   registerClose,
   registerBackInterceptor,
 }: Props) {
@@ -57,6 +63,7 @@ export function NowPlayingScreen({
     seek,
     next,
     previous,
+    advanceToNextPlayable,
   } = usePlayer();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { width, height } = useWindowDimensions();
@@ -136,6 +143,7 @@ export function NowPlayingScreen({
   if (!track) return null;
 
   const liked = favoriteIds.has(track.id);
+  const missing = isMissingTrack(track);
   const gradient = coverColors(track.artworkHue);
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
@@ -297,6 +305,52 @@ export function NowPlayingScreen({
         </View>
 
         <View>
+          {missing ? (
+            <View style={styles.missingCard}>
+              <View style={styles.missingHeader}>
+                <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
+                <Text style={styles.missingTitle}>File missing</Text>
+              </View>
+              <Text style={styles.missingHint}>
+                This track&apos;s audio file is missing or moved.
+              </Text>
+              <View style={styles.missingActions}>
+                <Pressable
+                  onPress={() => onClearTrack?.(track)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete from library"
+                  style={({ pressed }) => [styles.missingButton, pressed && styles.sidePressed]}
+                >
+                  <Text style={styles.missingButtonText}>Delete from library</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => onDeleteFile?.(track)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete file"
+                  style={({ pressed }) => [
+                    styles.missingButton,
+                    styles.missingButtonDanger,
+                    pressed && styles.sidePressed,
+                  ]}
+                >
+                  <Text style={[styles.missingButtonText, styles.missingButtonDangerText]}>
+                    Delete file
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={() => {
+                  void advanceToNextPlayable();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Play next available"
+                style={({ pressed }) => [styles.nextPlayable, pressed && styles.sidePressed]}
+              >
+                <Ionicons name="play-forward" size={16} color={colors.accent2} />
+                <Text style={styles.nextPlayableText}>Play next available</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <ProgressBar
             positionMs={positionMs}
             durationMs={durationMs}
@@ -497,6 +551,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: space.lg,
+  },
+  missingCard: {
+    gap: space.xs,
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surface,
+  },
+  missingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  missingTitle: {
+    ...type.body,
+    color: colors.danger,
+  },
+  missingHint: {
+    ...type.meta,
+    color: colors.textDim,
+  },
+  missingActions: {
+    flexDirection: 'row',
+    gap: space.sm,
+    marginTop: space.xs,
+  },
+  missingButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  missingButtonDanger: {
+    backgroundColor: '#3A1418',
+  },
+  missingButtonText: {
+    ...type.meta,
+    color: colors.text,
+  },
+  missingButtonDangerText: {
+    color: colors.danger,
+  },
+  nextPlayable: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    marginTop: space.xs,
+  },
+  nextPlayableText: {
+    ...type.meta,
+    color: colors.accent2,
   },
   centerGroup: {
     flexDirection: 'row',

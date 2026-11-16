@@ -16,12 +16,15 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 type Props = {
   track: Track | null;
   favorite?: boolean;
+  missing?: boolean;
   onClose: () => void;
   onDetails?: (track: Track) => void;
   onEdit?: (track: Track) => void;
   onRename?: (track: Track) => void;
   onExclude?: (track: Track) => void;
   onDelete?: (track: Track) => void;
+  onClear?: (track: Track) => void;
+  onDeleteFile?: (track: Track) => void;
   onFavorite?: (track: Track) => void;
   onAddToPlaylist?: (track: Track) => void;
 };
@@ -37,38 +40,62 @@ type Action = {
 export function TrackActionsSheet({
   track,
   favorite = false,
+  missing = false,
   onClose,
   onDetails,
   onEdit,
   onRename,
   onExclude,
   onDelete,
+  onClear,
+  onDeleteFile,
   onFavorite,
   onAddToPlaylist,
 }: Props) {
   const actions: Action[] = [];
-  if (onDetails) actions.push({ key: 'details', label: 'Details', icon: 'information-circle-outline', onPress: onDetails });
-  if (onEdit) actions.push({ key: 'edit', label: 'Edit metadata', icon: 'create-outline', onPress: onEdit });
-  if (onRename) actions.push({ key: 'rename', label: 'Rename', icon: 'pencil', onPress: onRename });
-  if (onFavorite) {
-    actions.push({
-      key: 'favorite',
-      label: favorite ? 'Remove from Liked Songs' : 'Add to Liked Songs',
-      icon: favorite ? 'heart' : 'heart-outline',
-      tone: 'accent',
-      onPress: onFavorite,
-    });
+  if (missing) {
+    if (onClear) {
+      actions.push({
+        key: 'clear',
+        label: 'Delete from library',
+        icon: 'remove-circle-outline',
+        tone: 'destructive',
+        onPress: onClear,
+      });
+    }
+    if (onDeleteFile) {
+      actions.push({
+        key: 'delete-file',
+        label: 'Delete file',
+        icon: 'trash-outline',
+        tone: 'destructive',
+        onPress: onDeleteFile,
+      });
+    }
+  } else {
+    if (onDetails) actions.push({ key: 'details', label: 'Details', icon: 'information-circle-outline', onPress: onDetails });
+    if (onEdit) actions.push({ key: 'edit', label: 'Edit metadata', icon: 'create-outline', onPress: onEdit });
+    if (onRename) actions.push({ key: 'rename', label: 'Rename', icon: 'pencil', onPress: onRename });
+    if (onFavorite) {
+      actions.push({
+        key: 'favorite',
+        label: favorite ? 'Remove from Liked Songs' : 'Add to Liked Songs',
+        icon: favorite ? 'heart' : 'heart-outline',
+        tone: 'accent',
+        onPress: onFavorite,
+      });
+    }
+    if (onAddToPlaylist) {
+      actions.push({
+        key: 'playlist',
+        label: 'Add to playlist',
+        icon: 'add-circle-outline',
+        onPress: onAddToPlaylist,
+      });
+    }
+    if (onExclude) actions.push({ key: 'exclude', label: 'Exclude from library', icon: 'eye-off-outline', onPress: onExclude });
+    if (onDelete) actions.push({ key: 'delete', label: 'Delete from device', icon: 'trash-outline', tone: 'destructive', onPress: onDelete });
   }
-  if (onAddToPlaylist) {
-    actions.push({
-      key: 'playlist',
-      label: 'Add to playlist',
-      icon: 'add-circle-outline',
-      onPress: onAddToPlaylist,
-    });
-  }
-  if (onExclude) actions.push({ key: 'exclude', label: 'Exclude from library', icon: 'eye-off-outline', onPress: onExclude });
-  if (onDelete) actions.push({ key: 'delete', label: 'Delete from device', icon: 'trash-outline', tone: 'destructive', onPress: onDelete });
 
   const choose = (action: Action) => {
     if (!track) return;
@@ -79,6 +106,12 @@ export function TrackActionsSheet({
   return (
     <Sheet visible={track !== null} title={track?.title} onClose={onClose}>
       <View style={styles.list}>
+        {missing ? (
+          <View style={styles.warning} accessible accessibilityLabel="File missing">
+            <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
+            <Text style={styles.warningText}>File missing</Text>
+          </View>
+        ) : null}
         {actions.map((action) => (
           <Pressable
             key={action.key}
@@ -215,6 +248,17 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
 const styles = StyleSheet.create({
   list: {
     gap: space.xs,
+  },
+  warning: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.sm,
+  },
+  warningText: {
+    ...type.body,
+    color: colors.danger,
   },
   row: {
     minHeight: 52,
