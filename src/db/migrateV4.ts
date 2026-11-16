@@ -97,7 +97,7 @@ async function foldMetadata(
   if (existing.some((item) => item.source === 'import')) {
     await db.run(
       `UPDATE tracks SET
-         album = COALESCE(NULLIF(album, ''), ?),
+         album = COALESCE(NULLIF(album, ''), ?, ''),
          albumArtist = COALESCE(albumArtist, ?),
          year = COALESCE(year, ?),
          trackNumber = COALESCE(trackNumber, ?),

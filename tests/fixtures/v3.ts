@@ -70,6 +70,8 @@ export function insertMetadata(
   id = '12345',
   seed: MetadataSeed = {},
 ): void {
+  const pick = <T>(value: T | null | undefined, fallback: T): T | null =>
+    value === undefined ? fallback : value;
   fixture.raw
     .prepare(
       `INSERT INTO track_metadata
@@ -78,16 +80,16 @@ export function insertMetadata(
     )
     .run(
       id,
-      seed.title ?? 'Cached Title',
-      seed.artist ?? 'Cached Artist',
-      seed.album ?? 'Cached Album',
-      seed.albumArtist ?? 'Cached Album Artist',
-      seed.year ?? 2001,
-      seed.trackNumber ?? 4,
-      seed.discNumber ?? 1,
-      seed.genre ?? 'Jazz',
-      seed.artworkUri ?? 'file:///art/cached.jpg',
-      seed.explicit ?? 0,
+      pick(seed.title, 'Cached Title'),
+      pick(seed.artist, 'Cached Artist'),
+      pick(seed.album, 'Cached Album'),
+      pick(seed.albumArtist, 'Cached Album Artist'),
+      pick(seed.year, 2001),
+      pick(seed.trackNumber, 4),
+      pick(seed.discNumber, 1),
+      pick(seed.genre, 'Jazz'),
+      pick(seed.artworkUri, 'file:///art/cached.jpg'),
+      pick(seed.explicit, 0),
     );
 }
 

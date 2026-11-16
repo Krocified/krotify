@@ -205,6 +205,40 @@ test('v4 migration folds cached metadata into the matching import row', async ()
   assert.equal(row.artist, 'Me');
 });
 
+test('v4 migration folds an artwork-only cache row with a null album', async () => {
+  const fixture = createV3Fixture();
+  insertMetadata(fixture, 'import:art', {
+    title: null,
+    artist: null,
+    album: null,
+    albumArtist: null,
+    year: null,
+    trackNumber: null,
+    discNumber: null,
+    genre: null,
+    explicit: null,
+    artworkUri: 'file:///art/cached.jpg',
+  });
+  await migrate(fixture, {
+    imports: [
+      { id: 'import:art', uri: 'file:///docs/imports/art.mp3', title: 'Song', artist: 'Me', durationMs: 9 },
+    ],
+  });
+
+  const row = trackRow(fixture, 'import:art');
+  assert.equal(row.source, 'import');
+  assert.equal(row.album, '');
+  assert.equal(row.albumArtist, null);
+  assert.equal(row.year, null);
+  assert.equal(row.trackNumber, null);
+  assert.equal(row.discNumber, null);
+  assert.equal(row.genre, null);
+  assert.equal(row.explicit, null);
+  assert.equal(row.artworkUri, 'file:///art/cached.jpg');
+  assert.equal(row.title, 'Song');
+  assert.equal(row.artist, 'Me');
+});
+
 test('v4 migration leaves unmatched metadata as an unresolved scan seed', async () => {
   const fixture = createV3Fixture();
   seedV3(fixture);
