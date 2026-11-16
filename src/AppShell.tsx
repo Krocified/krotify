@@ -22,8 +22,7 @@ import {
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
 import { listPlaylists, listRecentTrackIds, recordPlay, type Playlist } from './db/repo';
-import { pickAndImportTracks } from './imports/local';
-import type { ImportFailure } from './imports/plan';
+import { pickAndImportTracks, type ImportFailure } from './imports/local';
 import { DEMO_TRACKS } from './library/demo';
 import { useFavorites } from './library/FavoritesProvider';
 import { resolvePlaybackUri } from './library/playbackSource';
@@ -31,6 +30,7 @@ import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
 import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
+import { importResultMessage } from './lib/importResult';
 import { parseResume, serializeResume } from './lib/resume';
 import { usePlayer } from './player/PlayerProvider';
 import { deleteOwnedFile, getStorageRoot } from './storage/root';
@@ -100,7 +100,7 @@ export function AppShell() {
   const [excludeAllConfirm, setExcludeAllConfirm] = useState(false);
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
-  const [exitHint, setExitHint] = useState(false);
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const assetsRef = useRef(new Map<string, Asset>());
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
@@ -126,6 +126,10 @@ export function AppShell() {
     (handler: (() => boolean) | null) => {
       backInterceptorRef.current = handler;
     },
+    [],
+  );
+  const showToast = useCallback(
+    (message: string) => setToast({ id: Date.now(), message }),
     [],
   );
 
@@ -186,11 +190,6 @@ export function AppShell() {
       .map((id) => byId.get(id))
       .filter((track): track is Track => track !== undefined);
   }, [recentTrackIds, tracks]);
-  const importedTracks = useMemo(
-    () => tracks.filter((track) => track.source === 'import'),
-    [tracks],
-  );
-
   useEffect(() => {
     refreshPlaylists();
   }, [refreshPlaylists]);
@@ -364,13 +363,13 @@ export function AppShell() {
             return true;
           }
           exitArmedRef.current = now;
-          setExitHint(true);
+          showToast('Press back again to exit');
           return true;
         }
       }
     });
     return () => sub.remove();
-  }, [refreshPlaylists]);
+  }, [refreshPlaylists, showToast]);
 
   useEffect(() => {
     if (screen === 'library') refreshRecent();
@@ -639,8 +638,9 @@ export function AppShell() {
       );
       setStatus('ready');
       setStatusNote(skippedNote);
-      setScreen('library');
       void refreshTags();
+      selectTab('library');
+      showToast(importResultMessage(added.length, failures.length));
     } finally {
       setImporting(false);
     }
@@ -710,11 +710,9 @@ export function AppShell() {
           />
         ) : (
           <ImportScreen
-            imports={importedTracks}
             importing={importing}
             importFailures={importFailures}
             onImport={handleImport}
-            onSelect={handleSelect}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
           />
@@ -877,9 +875,10 @@ export function AppShell() {
         </View>
       </Sheet>
       <Toast
-        visible={exitHint}
-        message="Press back again to exit"
-        onHidden={() => setExitHint(false)}
+        key={toast?.id}
+        visible={toast !== null}
+        message={toast?.message ?? ''}
+        onHidden={() => setToast(null)}
       />
     </View>
   );
