@@ -40,6 +40,7 @@ import { useTags } from './tags/TagProvider';
 import { clearTrack, deleteTrackEverywhere } from './tracks/actions';
 import { listActiveTracks, listHiddenTracks, setTrackStatus } from './tracks/repo';
 import { syncScanResults } from './tracks/scanSync';
+import type { TrackRecord } from './tracks/types';
 import { toUiTrack } from './tracks/view';
 import {
   EditTrackScreen,
@@ -632,6 +633,22 @@ export function AppShell() {
     await saveScanPref(true).catch(() => {});
   }
 
+  function handleLinkImported(record: TrackRecord) {
+    const track = toUiTrack(record);
+    setLibraryTracks((prev) =>
+      mergeLibrary(
+        prev.filter((item) => item.source !== 'demo'),
+        [track],
+        new Set(),
+      ),
+    );
+    setStatus('ready');
+    setStatusNote(null);
+    void refreshTags();
+    selectTab('library');
+    showToast(`Added ${track.title}`);
+  }
+
   async function handleImport() {
     if (Platform.OS === 'web') return;
     setImporting(true);
@@ -743,6 +760,7 @@ export function AppShell() {
             importing={importing}
             importFailures={importFailures}
             onImport={handleImport}
+            onLinkImported={handleLinkImported}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
           />
