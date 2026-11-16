@@ -1,6 +1,51 @@
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
-export const SCHEMA_SQL = `
+export const V4_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS tracks (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL CHECK(source IN ('scan', 'import', 'download')),
+  location TEXT NOT NULL,
+  fileName TEXT NOT NULL,
+  sizeBytes INTEGER,
+  durationMs INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL DEFAULT '',
+  artist TEXT NOT NULL DEFAULT '',
+  album TEXT NOT NULL DEFAULT '',
+  albumArtist TEXT,
+  trackNumber INTEGER,
+  discNumber INTEGER,
+  year INTEGER,
+  genre TEXT,
+  explicit INTEGER,
+  artworkUri TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'hidden', 'removed')),
+  missing INTEGER NOT NULL DEFAULT 0,
+  addedAt INTEGER NOT NULL,
+  lastSeenAt INTEGER NOT NULL,
+  artworkHue INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS tracks_location_idx ON tracks(location);
+CREATE INDEX IF NOT EXISTS tracks_status_idx ON tracks(status);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  createdAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS track_tags (
+  trackId TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  tagId TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY(trackId, tagId)
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+`;
+
+const LEGACY_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS playlists (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -51,6 +96,8 @@ CREATE TABLE IF NOT EXISTS lyrics_cache (
   fetchedAt INTEGER NOT NULL
 );
 `;
+
+export const SCHEMA_SQL = `${V4_TABLE_SQL}${LEGACY_TABLE_SQL}`;
 
 export const MIGRATION_V2_COLUMNS = [
   { name: 'discNumber', sql: 'ALTER TABLE track_metadata ADD COLUMN discNumber INTEGER' },
