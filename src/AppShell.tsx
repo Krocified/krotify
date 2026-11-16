@@ -32,22 +32,20 @@ import { readScanPref, saveScanPref } from './library/scanPrefs';
 import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
+import { isMissingTrack } from './lib/settingsView';
 import { usePlayer } from './player/PlayerProvider';
-import { deleteOwnedFile, getStorageRoot } from './storage/root';
+import { getStorageRoot } from './storage/root';
 import { filterTracksByTag, reconcileTagFilter } from './tags/filter';
 import { useTags } from './tags/TagProvider';
-import {
-  deleteTrackRecord,
-  listActiveTracks,
-  listHiddenTracks,
-  setTrackStatus,
-} from './tracks/repo';
+import { clearTrack, deleteTrackEverywhere } from './tracks/actions';
+import { listActiveTracks, listHiddenTracks, setTrackStatus } from './tracks/repo';
 import { syncScanResults } from './tracks/scanSync';
 import { toUiTrack } from './tracks/view';
 import {
   EditTrackScreen,
   type EditTrackMode,
 } from './screens/EditTrackScreen';
+import { HiddenTracksScreen } from './screens/HiddenTracksScreen';
 import { ImportScreen } from './screens/ImportScreen';
 import { LibraryScreen } from './screens/LibraryScreen';
 import { LikedScreen } from './screens/LikedScreen';
@@ -68,6 +66,7 @@ export function AppShell() {
     track: currentTrack,
     isPlaying,
     positionMs,
+    lastError,
     playTrack,
     restore,
     stop,
@@ -96,6 +95,7 @@ export function AppShell() {
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
   const [actionTrack, setActionTrack] = useState<Track | null>(null);
+  const [clearTarget, setClearTarget] = useState<Track | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Track | null>(null);
   const [excludeAllConfirm, setExcludeAllConfirm] = useState(false);
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null);
@@ -347,6 +347,9 @@ export function AppShell() {
           if (closeNowPlayingRef.current) closeNowPlayingRef.current();
           else setScreen(returnScreenRef.current);
           return true;
+        case 'close-hidden-tracks':
+          setScreen('settings');
+          return true;
         case 'close-settings':
           setScreen(settingsReturnRef.current);
           return true;
@@ -375,6 +378,10 @@ export function AppShell() {
   useEffect(() => {
     if (screen === 'library') refreshRecent();
   }, [screen, refreshRecent]);
+
+  useEffect(() => {
+    if (lastError === 'File missing') setStatusNote('File missing');
+  }, [lastError]);
 
   useEffect(() => {
     resumeSnapshotRef.current = currentTrack
@@ -513,7 +520,11 @@ export function AppShell() {
 
   async function handleRestoreAll() {
     try {
-      await Promise.all(excluded.map((track) => setTrackStatus(track.id, 'active')));
+      const ids = excluded.map((track) => track.id);
+      for (let start = 0; start < ids.length; start += 50) {
+        const chunk = ids.slice(start, start + 50);
+        await Promise.all(chunk.map((id) => setTrackStatus(id, 'active')));
+      }
       await refreshLibraryFromDb();
     } catch {
       setStatusNote('Could not restore the hidden tracks');
@@ -538,14 +549,22 @@ export function AppShell() {
     setStatusNote(`${targets.length} scanned tracks hidden. Restore them in Settings.`);
   }
 
+  async function handleClear(track: Track) {
+    try {
+      await clearTrack(track.id);
+      await refreshLibraryFromDb();
+    } catch {
+      setStatusNote('Could not remove this track');
+      return;
+    }
+    removeFromQueue([track.id]);
+    if (currentTrack?.id === track.id) stop();
+    setStatusNote(null);
+  }
+
   async function deleteTrack(track: Track) {
     try {
-      if (track.source === 'scan') {
-        await assetsRef.current.get(track.id)?.delete();
-      } else if (track.source !== 'demo') {
-        await deleteOwnedFile(track.uri);
-      }
-      await deleteTrackRecord(track.id);
+      await deleteTrackEverywhere(track, assetsRef.current);
       await refreshLibraryFromDb();
     } catch {
       setStatusNote('Could not delete this file');
@@ -651,7 +670,10 @@ export function AppShell() {
   const showTabs =
     !fullScreenOverlay && (screen === 'library' || screen === 'import');
   const showTabBar =
-    screen !== 'nowPlaying' && screen !== 'search' && !fullScreenOverlay;
+    screen !== 'nowPlaying' &&
+    screen !== 'search' &&
+    screen !== 'hiddenTracks' &&
+    !fullScreenOverlay;
   const activeTab: TabName =
     screen === 'library' || screen === 'import' ? screen : tab;
 
@@ -662,6 +684,14 @@ export function AppShell() {
 
   function openSettings() {
     settingsReturnRef.current = activeTab;
+    setScreen('settings');
+  }
+
+  function openHiddenTracks() {
+    setScreen('hiddenTracks');
+  }
+
+  function closeHiddenTracks() {
     setScreen('settings');
   }
 
@@ -723,6 +753,8 @@ export function AppShell() {
       {screen === 'nowPlaying' && currentTrack ? (
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
+          onClearTrack={(track) => setClearTarget(track)}
+          onDeleteFile={(track) => setDeleteTarget(track)}
           registerClose={registerClose}
           registerBackInterceptor={registerBackInterceptor}
         />
@@ -745,6 +777,17 @@ export function AppShell() {
         canExcludeAll={scanExcludeCount > 0}
         scanEnabled={scanEnabled === true}
         onToggleScan={(enabled) => void handleScanToggle(enabled)}
+        hiddenCount={excluded.length}
+        onOpenHiddenTracks={openHiddenTracks}
+      />
+      <HiddenTracksScreen
+        visible={screen === 'hiddenTracks'}
+        tracks={excluded}
+        onBack={closeHiddenTracks}
+        onRestore={(id) => void handleRestore(id)}
+        onRestoreAll={() => void handleRestoreAll()}
+        onClear={(track) => setClearTarget(track)}
+        onDelete={(track) => setDeleteTarget(track)}
       />
       {playlistsOpen ? (
         <View style={styles.overlay}>
@@ -797,12 +840,15 @@ export function AppShell() {
       <TrackActionsSheet
         track={actionTrack}
         favorite={actionTrack ? favoriteIds.has(actionTrack.id) : false}
+        missing={actionTrack ? isMissingTrack(actionTrack) : false}
         onClose={() => setActionTrack(null)}
         onDetails={(track) => setEditTarget({ track, mode: 'details' })}
         onEdit={(track) => setEditTarget({ track, mode: 'edit' })}
         onRename={(track) => setEditTarget({ track, mode: 'rename' })}
         onExclude={(track) => void hideTrack(track)}
         onDelete={(track) => setDeleteTarget(track)}
+        onClear={(track) => setClearTarget(track)}
+        onDeleteFile={(track) => setDeleteTarget(track)}
         onFavorite={(track) => void handleFavorite(track)}
         onAddToPlaylist={(track) => setPickerTrack(track)}
       />
@@ -813,14 +859,31 @@ export function AppShell() {
         onAdded={() => refreshPlaylists()}
       />
       <ConfirmSheet
-        visible={deleteTarget !== null}
-        title="Delete track?"
+        visible={clearTarget !== null}
+        title="Remove from library?"
         message={
-          deleteTarget
-            ? `"${deleteTarget.title}" will be removed from this device. This cannot be undone.`
+          clearTarget
+            ? `"${clearTarget.title}" will be removed from the library. The audio file stays on this device.`
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => {
+          const track = clearTarget;
+          setClearTarget(null);
+          if (track) void handleClear(track);
+        }}
+        onCancel={() => setClearTarget(null)}
+      />
+      <ConfirmSheet
+        visible={deleteTarget !== null}
+        title="Delete file?"
+        message={
+          deleteTarget
+            ? `"${deleteTarget.title}" and its audio file will be deleted from this device. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete file"
         destructive
         onConfirm={() => {
           const track = deleteTarget;

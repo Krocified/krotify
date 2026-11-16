@@ -21,6 +21,7 @@ import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { lyricsCacheCount } from '../library/lyrics';
 import { loadLyricsNetworkEnabled, saveLyricsNetworkEnabled } from '../library/lyricsPrefs';
+import { hiddenTracksLabel } from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -38,6 +39,8 @@ type Props = {
   canExcludeAll: boolean;
   scanEnabled: boolean;
   onToggleScan: (enabled: boolean) => void;
+  hiddenCount: number;
+  onOpenHiddenTracks: () => void;
 };
 
 const PERMISSION_LABEL: Partial<Record<LibraryStatus, string>> = {
@@ -61,6 +64,8 @@ export function SettingsScreen({
   canExcludeAll,
   scanEnabled,
   onToggleScan,
+  hiddenCount,
+  onOpenHiddenTracks,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -178,6 +183,19 @@ export function SettingsScreen({
                 />
               </View>
             ) : null}
+
+            <Pressable
+              onPress={onOpenHiddenTracks}
+              accessibilityRole="button"
+              accessibilityLabel={hiddenTracksLabel(hiddenCount)}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{hiddenTracksLabel(hiddenCount)}</Text>
+                <Text style={styles.rowMeta}>Restore or remove hidden tracks</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+            </Pressable>
 
             <Pressable
               onPress={onExcludeAll}

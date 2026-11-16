@@ -28,3 +28,7 @@ test('closes full-screen routes before tab navigation', () => {
   assert.equal(resolveBack(state({ screen: 'settings' })), 'close-settings');
   assert.equal(resolveBack(state({ screen: 'search' })), 'close-search');
 });
+
+test('closes the hidden tracks page before Settings', () => {
+  assert.equal(resolveBack(state({ screen: 'hiddenTracks' })), 'close-hidden-tracks');
+});

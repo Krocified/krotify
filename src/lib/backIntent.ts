@@ -19,6 +19,7 @@ export type BackAction =
   | 'close-playlist-detail'
   | 'close-playlists'
   | 'close-now-playing'
+  | 'close-hidden-tracks'
   | 'close-settings'
   | 'close-search'
   | 'tab-to-library'
@@ -31,6 +32,7 @@ export function resolveBack(state: BackState): BackAction {
   if (state.playlistsOpen && state.openPlaylistId !== null) return 'close-playlist-detail';
   if (state.playlistsOpen) return 'close-playlists';
   if (state.screen === 'nowPlaying') return 'close-now-playing';
+  if (state.screen === 'hiddenTracks') return 'close-hidden-tracks';
   if (state.screen === 'settings') return 'close-settings';
   if (state.screen === 'search') return 'close-search';
   if (state.screen !== 'library' || state.tab !== 'library') return 'tab-to-library';

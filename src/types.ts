@@ -22,6 +22,7 @@ export type ScreenName =
   | 'import'
   | 'search'
   | 'nowPlaying'
-  | 'settings';
+  | 'settings'
+  | 'hiddenTracks';
 
 export type LibraryStatus = 'scanning' | 'ready' | 'denied' | 'empty' | 'error';
