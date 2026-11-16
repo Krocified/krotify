@@ -11,7 +11,7 @@ import {
   setTrackStatus,
   updateTrackFields,
 } from '../tracks/repo.ts';
-import { readTrackSeed } from '../tracks/seed.ts';
+import { readTrackSeed } from '../tracks/seed';
 import { seedToTrackPatch } from '../tracks/seedMap.ts';
 import type { TrackRecord } from '../tracks/types.ts';
 import {

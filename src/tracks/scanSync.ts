@@ -8,7 +8,7 @@ import {
   upsertScanTracks,
 } from './repo.ts';
 import { filterScanCandidates, ownedKeysOf } from './scanPlan.ts';
-import { readTrackSeed } from './seed.ts';
+import { readTrackSeed } from './seed';
 import { seedToTrackPatch } from './seedMap.ts';
 import type { ScanTrackInput } from './types.ts';
 
