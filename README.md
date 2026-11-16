@@ -75,8 +75,17 @@ Express app over `yt-dlp`:
 - `GET /info/:videoId` -> title, thumbnail, duration
 - `GET /video/:videoId` -> best-quality MP3
 
-Deploy it on Render with the root `render.yaml` (Docker), then set the service URL
-and optional token in Krotify: Settings > Storage > Link service. Details are in
+Run it on your PC:
+
+```bash
+./run-server.sh
+```
+
+It reads `server/.env`, finds `yt-dlp` (`~/.local/bin/yt-dlp` or `PATH`), prints the
+LAN URL, and serves on port 3000. Put that URL and token in Krotify: Settings >
+Storage > Link service.
+
+Or deploy it on Render with the root `render.yaml` (Docker). Details are in
 `server/README.md`.
 
 ## Check it
