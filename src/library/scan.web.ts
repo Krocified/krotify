@@ -1,10 +1,13 @@
 import type { Asset } from 'expo-media-library';
-import type { Track } from '../types';
+import type { ScanTrackInput } from '../tracks/types';
 
 export async function ensureAudioPermission(): Promise<boolean> {
   return false;
 }
 
-export async function scanLibrary(): Promise<{ tracks: Track[]; assets: Map<string, Asset> }> {
-  return { tracks: [], assets: new Map() };
+export async function scanLibrary(): Promise<{
+  candidates: ScanTrackInput[];
+  assets: Map<string, Asset>;
+}> {
+  return { candidates: [], assets: new Map() };
 }

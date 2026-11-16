@@ -32,13 +32,14 @@ import { resolveBack } from './lib/backIntent';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { parseResume, serializeResume } from './lib/resume';
 import { usePlayer } from './player/PlayerProvider';
-import { deleteOwnedFile } from './storage/root';
+import { deleteOwnedFile, getStorageRoot } from './storage/root';
 import {
   deleteTrackRecord,
   listActiveTracks,
   listHiddenTracks,
   setTrackStatus,
 } from './tracks/repo';
+import { syncScanResults } from './tracks/scanSync';
 import { toUiTrack } from './tracks/view';
 import {
   EditTrackScreen,
@@ -256,9 +257,17 @@ export function AppShell() {
         const result = await scanLibrary();
         if (cancelled) return;
         assetsRef.current = result.assets;
-        const merged = mergeLibrary(result.tracks, active, new Set());
-        setLibraryTracks(merged.length > 0 ? merged : DEMO_TRACKS);
-        setStatus(merged.length > 0 ? 'ready' : 'empty');
+        const root = await getStorageRoot();
+        await syncScanResults(result.candidates, { rootUri: root.uri });
+        const [activeRows, hiddenRows] = await Promise.all([
+          listActiveTracks(),
+          listHiddenTracks(),
+        ]);
+        if (cancelled) return;
+        active = activeRows.map(toUiTrack);
+        setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
+        setExcluded(hiddenRows.map(toUiTrack));
+        setStatus(active.length > 0 ? 'ready' : 'empty');
       } catch {
         if (cancelled) return;
         setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
