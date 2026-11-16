@@ -16,16 +16,21 @@ import { RecentlyPlayed } from '../components/RecentlyPlayed';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
+import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
 import type { Playlist } from '../db/repo';
 import { hueFromSeed } from '../lib/hash';
+import type { TagCount } from '../tags/filter';
 import { colors, radius, space, type } from '../theme';
 import type { LibraryStatus, Track } from '../types';
 
 type Props = {
   tracks: Track[];
   recentTracks: Track[];
+  tags: TagCount[];
+  selectedTagId: string | null;
+  onSelectTag: (id: string | null) => void;
   status: LibraryStatus;
   statusNote: string | null;
   onSelect: (track: Track, queue: Track[]) => void;
@@ -48,6 +53,9 @@ const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
 export function LibraryScreen({
   tracks,
   recentTracks,
+  tags,
+  selectedTagId,
+  onSelectTag,
   status,
   statusNote,
   onSelect,
@@ -114,91 +122,109 @@ export function LibraryScreen({
                 />
               )}
               ListHeaderComponent={
-                recentTracks.length > 0 ||
-                onOpenLiked !== undefined ||
-                onOpenPlaylists !== undefined ||
-                (playlists?.length ?? 0) > 0 ? (
-                  <View>
-                    {recentTracks.length > 0 ? (
-                      <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
-                    ) : null}
-                    {onOpenLiked ? (
-                      <Pressable
-                        onPress={onOpenLiked}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Liked Songs, ${likedCount} ${likedCount === 1 ? 'song' : 'songs'}`}
-                        style={({ pressed }) => [styles.likedRow, pressed && styles.rowPressed]}
-                      >
-                        <View style={styles.likedIcon}>
-                          <Ionicons name="heart" size={24} color={colors.text} />
-                        </View>
-                        <View style={styles.likedText}>
-                          <Text style={styles.likedTitle}>Liked Songs</Text>
-                          <Text style={styles.likedMeta}>
-                            {likedCount} {likedCount === 1 ? 'song' : 'songs'}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-                      </Pressable>
-                    ) : null}
-                    {onOpenPlaylists !== undefined || (playlists?.length ?? 0) > 0 ? (
-                      <View style={styles.rails}>
-                        <View style={styles.railHeader}>
-                          <Text style={styles.railTitle}>Playlists</Text>
-                          {onOpenPlaylists ? (
-                            <Pressable
-                              onPress={onOpenPlaylists}
-                              accessibilityRole="button"
-                              accessibilityLabel="See all playlists"
-                              hitSlop={space.sm}
-                            >
-                              <Text style={styles.seeAll}>See all</Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.railList}
-                        >
-                          {(playlists ?? []).map((playlist) => (
-                            <Pressable
-                              key={playlist.id}
-                              onPress={() => onOpenPlaylist?.(playlist.id)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Open playlist ${playlist.name}`}
-                              style={({ pressed }) => [styles.railItem, pressed && styles.rowPressed]}
-                            >
-                              <CoverArt
-                                hue={hueFromSeed(playlist.id + playlist.name)}
-                                title={playlist.name}
-                                size={96}
-                                radius={radius.coverLarge}
-                                uri={playlist.artworkUri}
-                              />
-                              <Text style={styles.railLabel} numberOfLines={1}>
-                                {playlist.name}
-                              </Text>
-                            </Pressable>
-                          ))}
-                          {onOpenPlaylists && (playlists?.length ?? 0) === 0 ? (
-                            <Pressable
-                              onPress={onOpenPlaylists}
-                              accessibilityRole="button"
-                              accessibilityLabel="Create a playlist"
-                              style={({ pressed }) => [styles.railItem, pressed && styles.rowPressed]}
-                            >
-                              <View style={styles.createCard}>
-                                <Ionicons name="add" size={30} color={colors.textDim} />
-                              </View>
-                              <Text style={styles.railLabel} numberOfLines={1}>
-                                Create playlist
-                              </Text>
-                            </Pressable>
-                          ) : null}
-                        </ScrollView>
+                <View>
+                  <TagFilterBar
+                    tags={tags}
+                    selectedId={selectedTagId}
+                    onSelect={onSelectTag}
+                  />
+                  {selectedTagId === null && recentTracks.length > 0 ? (
+                    <RecentlyPlayed tracks={recentTracks} onSelect={onSelect} />
+                  ) : null}
+                  {onOpenLiked ? (
+                    <Pressable
+                      onPress={onOpenLiked}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Liked Songs, ${likedCount} ${likedCount === 1 ? 'song' : 'songs'}`}
+                      style={({ pressed }) => [styles.likedRow, pressed && styles.rowPressed]}
+                    >
+                      <View style={styles.likedIcon}>
+                        <Ionicons name="heart" size={24} color={colors.text} />
                       </View>
-                    ) : null}
+                      <View style={styles.likedText}>
+                        <Text style={styles.likedTitle}>Liked Songs</Text>
+                        <Text style={styles.likedMeta}>
+                          {likedCount} {likedCount === 1 ? 'song' : 'songs'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
+                    </Pressable>
+                  ) : null}
+                  {onOpenPlaylists !== undefined || (playlists?.length ?? 0) > 0 ? (
+                    <View style={styles.rails}>
+                      <View style={styles.railHeader}>
+                        <Text style={styles.railTitle}>Playlists</Text>
+                        {onOpenPlaylists ? (
+                          <Pressable
+                            onPress={onOpenPlaylists}
+                            accessibilityRole="button"
+                            accessibilityLabel="See all playlists"
+                            hitSlop={space.sm}
+                          >
+                            <Text style={styles.seeAll}>See all</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.railList}
+                      >
+                        {(playlists ?? []).map((playlist) => (
+                          <Pressable
+                            key={playlist.id}
+                            onPress={() => onOpenPlaylist?.(playlist.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open playlist ${playlist.name}`}
+                            style={({ pressed }) => [styles.railItem, pressed && styles.rowPressed]}
+                          >
+                            <CoverArt
+                              hue={hueFromSeed(playlist.id + playlist.name)}
+                              title={playlist.name}
+                              size={96}
+                              radius={radius.coverLarge}
+                              uri={playlist.artworkUri}
+                            />
+                            <Text style={styles.railLabel} numberOfLines={1}>
+                              {playlist.name}
+                            </Text>
+                          </Pressable>
+                        ))}
+                        {onOpenPlaylists && (playlists?.length ?? 0) === 0 ? (
+                          <Pressable
+                            onPress={onOpenPlaylists}
+                            accessibilityRole="button"
+                            accessibilityLabel="Create a playlist"
+                            style={({ pressed }) => [styles.railItem, pressed && styles.rowPressed]}
+                          >
+                            <View style={styles.createCard}>
+                              <Ionicons name="add" size={30} color={colors.textDim} />
+                            </View>
+                            <Text style={styles.railLabel} numberOfLines={1}>
+                              Create playlist
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
+              }
+              ListEmptyComponent={
+                selectedTagId !== null && tracks.length === 0 ? (
+                  <View style={styles.filterEmpty}>
+                    <Text style={styles.filterEmptyText}>No tracks with this tag.</Text>
+                    <Pressable
+                      onPress={() => onSelectTag(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Show all tracks"
+                      style={({ pressed }) => [
+                        styles.filterEmptyButton,
+                        pressed && styles.rowPressed,
+                      ]}
+                    >
+                      <Text style={styles.filterEmptyButtonText}>Show all</Text>
+                    </Pressable>
                   </View>
                 ) : undefined
               }
@@ -257,6 +283,27 @@ const styles = StyleSheet.create({
   noteText: {
     ...type.meta,
     color: colors.textDim,
+  },
+  filterEmpty: {
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xl,
+  },
+  filterEmptyText: {
+    ...type.meta,
+    color: colors.textDim,
+  },
+  filterEmptyButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: 999,
+    paddingHorizontal: space.md,
+    backgroundColor: colors.surfaceHi,
+  },
+  filterEmptyButtonText: {
+    ...type.meta,
+    color: colors.text,
   },
   likedRow: {
     flexDirection: 'row',
