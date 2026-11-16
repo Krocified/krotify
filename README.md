@@ -7,7 +7,7 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 Current version: `0.5.0`.
 
-v0 through v5 are built. The app is a local-first player with a real library,
+v0 through v5.1 are built. The app is a local-first player with a real library,
 a chosen storage folder, app-owned metadata and tags, and recovery from missing
 files:
 
@@ -22,8 +22,9 @@ files:
 - Imports use the system document picker, validate a non-zero copy without
   trusting the provider-reported size, probe duration best-effort, dedupe, and
   report each failure separately. A successful import returns to Library.
-- YouTube links import through the ytmp3.ge API into the chosen folder, with the
-  returned title and thumbnail. The Import tab is an action surface, not a list.
+- YouTube links import through the companion service in `server/`, configured in
+  Settings. It extracts the best audio, verifies the file is playable, and never
+  adds an HTML or 0:00 track. The Import tab is an action surface, not a list.
 - App-local tags: create and assign them in the track editor and filter the
   Library with a chip bar above Recently played when tags exist.
 - Hidden tracks have their own page. Restore returns a track; Clear removes it
@@ -41,7 +42,7 @@ files:
 Not shipped: v4 discovery is research-only. Genius, Radio Browser, and
 Audiometa.io are deferred. Device verification for v4 is recorded in
 `docs/research/v4-device-check.md`; v5 device checks (upgrade install, SAF
-folder, ytmp3 download) are still pending.
+folder, link-service download) are still pending.
 
 ## Stack
 
@@ -49,8 +50,8 @@ Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
 `expo-document-picker`, `expo-media-library`, `expo-sqlite`, `expo-file-system`,
 `expo-blur`, `@missingcore/react-native-metadata-retriever`, Ionicons,
 `react-native-sortables` with `react-native-reanimated`,
-`react-native-worklets`, and `react-native-gesture-handler`. Link import calls
-the ytmp3.ge conversion API.
+`react-native-worklets`, and `react-native-gesture-handler`. Link import calls the
+companion `server/` service (Express + `yt-dlp`).
 
 ## Run it
 
@@ -65,6 +66,18 @@ debugging enabled.
 
 Web is demo-only: the demo library and mock player work; device scanning,
 background audio and notification controls are Android-only.
+
+## Link service
+
+YouTube link import needs the companion service in `server/`. It is a small
+Express app over `yt-dlp`:
+
+- `GET /info/:videoId` -> title, thumbnail, duration
+- `GET /video/:videoId` -> best-quality MP3
+
+Deploy it on Render with the root `render.yaml` (Docker), then set the service URL
+and optional token in Krotify: Settings > Storage > Link service. Details are in
+`server/README.md`.
 
 ## Check it
 
@@ -118,7 +131,7 @@ src/
   player/             AudioPlaylist engine, provider and missing-file recovery
   tracks/             track records, repository, metadata seeding, scan sync
   storage/            chosen storage root, owned files, downloads
-  imports/            local import, ytmp3 link conversion, duration probe
+  imports/            local import, link service client, duration probe
   tags/               tag repository, provider, filter helpers
   library/            scan, artwork, playback source, lyrics
   db/                 SQLite schema, v4 migration and repository
@@ -126,6 +139,7 @@ src/
                       Playlists, Liked, Edit Track (CatalogScreen unwired)
   components/         headers, tabs, cover art, rows, sheets, tag filter/editor
   lib/                queue, shuffle, sleep, lyrics, settings view (tested)
+server/               Render link service: Express + yt-dlp
 scripts/              release version helper
 plugins/              Media3/R8 exclusions, notification icon, release signing
 .github/workflows/    release pipeline
