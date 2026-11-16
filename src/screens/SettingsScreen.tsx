@@ -142,7 +142,7 @@ export function SettingsScreen({
 
   return (
     <View
-      style={styles.root}
+      style={[styles.root, !visible && styles.hidden]}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
@@ -460,6 +460,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     backgroundColor: colors.bg,
+  },
+  hidden: {
+    display: 'none',
   },
   header: {
     flexDirection: 'row',
