@@ -63,24 +63,42 @@ const UPDATE_FIELDS = [
   'artworkUri',
 ] as const;
 
-export function scanUpsertParams(row: TrackRecord): (string | number | null)[] {
+function trackParam(value: string | number | boolean | null | undefined): string | number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return value;
+}
+
+function fieldParams(row: TrackRecord): (string | number | null)[] {
   return [
     row.id,
     row.source,
     row.location,
     row.fileName,
-    row.sizeBytes ?? null,
+    trackParam(row.sizeBytes),
     row.durationMs,
     row.title,
     row.artist,
     row.album,
-    row.albumArtist ?? null,
-    row.trackNumber ?? null,
-    row.discNumber ?? null,
-    row.year ?? null,
-    row.genre ?? null,
-    row.explicit === undefined ? null : row.explicit ? 1 : 0,
-    row.artworkUri ?? null,
+    trackParam(row.albumArtist),
+    trackParam(row.trackNumber),
+    trackParam(row.discNumber),
+    trackParam(row.year),
+    trackParam(row.genre),
+    trackParam(row.explicit),
+    trackParam(row.artworkUri),
+  ];
+}
+
+export function scanUpsertParams(row: TrackRecord): (string | number | null)[] {
+  return [...fieldParams(row), row.addedAt, row.lastSeenAt, row.artworkHue];
+}
+
+export function ownedInsertParams(row: TrackRecord): (string | number | null)[] {
+  return [
+    ...fieldParams(row),
+    row.status,
+    row.missing,
     row.addedAt,
     row.lastSeenAt,
     row.artworkHue,

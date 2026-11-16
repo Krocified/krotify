@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { V4_TABLE_SQL } from '../src/db/schema.ts';
 import { titleFromFilename } from '../src/lib/format.ts';
+import { hueFromSeed } from '../src/lib/hash.ts';
+import { createTrackRepo, type TrackDb } from '../src/tracks/repo.ts';
 import { scanRow } from '../src/tracks/rows.ts';
 import {
   COUNT_ACTIVE_OWNED_SQL,
@@ -27,6 +29,13 @@ type StoredTrack = {
   title: string;
   artist: string;
   album: string;
+  albumArtist: string | null;
+  trackNumber: number | null;
+  discNumber: number | null;
+  year: number | null;
+  genre: string | null;
+  explicit: number | null;
+  artworkUri: string | null;
   status: string;
   missing: number;
   addedAt: number;
@@ -111,7 +120,8 @@ function insertOwned(
 }
 
 function stored(raw: DatabaseSync, id: string): StoredTrack | undefined {
-  return raw.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as StoredTrack | undefined;
+  const row = raw.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as StoredTrack | undefined;
+  return row ? { ...row } : undefined;
 }
 
 function count(raw: DatabaseSync, sql: string, ...params: (string | number)[]): number {
@@ -127,6 +137,39 @@ function tags(raw: DatabaseSync, id: string): string[] {
       )
       .all(id) as { tagId: string }[]
   ).map((row) => row.tagId);
+}
+
+function repoDb(raw: DatabaseSync): {
+  db: TrackDb;
+  transactions: () => number;
+  runs: () => string[];
+} {
+  let transactionCount = 0;
+  const runs: string[] = [];
+  const db: TrackDb = {
+    getAllAsync: async <T>(sql: string, ...params: (string | number | null)[]) =>
+      raw.prepare(sql).all(...params) as T[],
+    getFirstAsync: async <T>(sql: string, ...params: (string | number | null)[]) => {
+      const row = raw.prepare(sql).get(...params);
+      return row === undefined ? null : ({ ...row } as T);
+    },
+    runAsync: async (sql, ...params) => {
+      runs.push(sql);
+      return { changes: Number(raw.prepare(sql).run(...params).changes) };
+    },
+    withTransactionAsync: async (task) => {
+      transactionCount += 1;
+      raw.exec('BEGIN');
+      try {
+        await task();
+        raw.exec('COMMIT');
+      } catch (error) {
+        raw.exec('ROLLBACK');
+        throw error;
+      }
+    },
+  };
+  return { db, transactions: () => transactionCount, runs: () => runs };
 }
 
 test('scan upsert inserts a new row with a filename title', () => {
@@ -308,4 +351,200 @@ test('delete removes dependent rows and keeps other tracks', () => {
   );
   assert.deepEqual(tags(raw, '1'), []);
   assert.deepEqual(tags(raw, '2'), ['t1']);
+});
+
+test('repository chunks scan upserts at one hundred rows', async () => {
+  const raw = createDb();
+  const { db, transactions } = repoDb(raw);
+  const repo = createTrackRepo(db);
+  const tracks = Array.from({ length: 205 }, (_, index) =>
+    input(`asset-${index}`, `song-${index}.mp3`),
+  );
+
+  const first = await repo.upsertScanTracks(tracks, 500);
+  assert.equal(first.insertedIds.length, 205);
+  assert.equal(first.updated, 0);
+  assert.equal(first.missing, 0);
+  assert.equal(transactions(), 3);
+  assert.equal(count(raw, 'SELECT COUNT(*) AS count FROM tracks'), 205);
+
+  const second = await repo.upsertScanTracks(tracks, 500);
+  assert.equal(second.insertedIds.length, 0);
+  assert.equal(second.updated, 205);
+  assert.equal(second.missing, 0);
+  assert.equal(transactions(), 6);
+});
+
+test('repository reports inserted and updated ids and skips removed rows', async () => {
+  const raw = createDb();
+  const repo = createTrackRepo(repoDb(raw).db);
+  await repo.upsertScanTracks([input('keep', 'keep.mp3'), input('gone', 'gone.mp3')], 100);
+  raw
+    .prepare(
+      "UPDATE tracks SET status = 'removed', title = 'Gone', lastSeenAt = 100 WHERE id = 'gone'",
+    )
+    .run();
+
+  const result = await repo.upsertScanTracks(
+    [input('keep', 'keep-new.mp3'), input('gone', 'gone-new.mp3'), input('fresh', 'fresh.mp3')],
+    200,
+  );
+
+  assert.deepEqual(result.insertedIds, ['fresh']);
+  assert.equal(result.updated, 1);
+  assert.equal(result.missing, 0);
+  const gone = stored(raw, 'gone');
+  assert.equal(gone?.status, 'removed');
+  assert.equal(gone?.title, 'Gone');
+  assert.equal(gone?.fileName, 'gone.mp3');
+  assert.equal(gone?.lastSeenAt, 100);
+  assert.equal(stored(raw, 'keep')?.fileName, 'keep-new.mp3');
+  assert.ok(stored(raw, 'fresh'));
+});
+
+test('repository sweeps missing only for absent active scan rows', async () => {
+  const raw = createDb();
+  const repo = createTrackRepo(repoDb(raw).db);
+  await repo.upsertScanTracks(
+    [input('present', 'present.mp3'), input('absent', 'absent.mp3')],
+    100,
+  );
+  insertOwned(raw, 'import:1', 'import', 'owned.mp3', 100);
+
+  const result = await repo.upsertScanTracks([input('present', 'present.mp3')], 200);
+
+  assert.equal(result.missing, 1);
+  assert.equal(stored(raw, 'present')?.missing, 0);
+  assert.equal(stored(raw, 'absent')?.missing, 1);
+  assert.equal(stored(raw, 'import:1')?.missing, 0);
+});
+
+test('repository deletes dependents in order and cascades tags', async () => {
+  const raw = createDb();
+  const { db, transactions, runs } = repoDb(raw);
+  const repo = createTrackRepo(db);
+  await repo.upsertScanTracks([input('1', 'one.mp3'), input('2', 'two.mp3')], 100);
+  raw.prepare("INSERT INTO tags (id, name, createdAt) VALUES ('t1', 'Road', 1)").run();
+  raw.prepare("INSERT INTO track_tags (trackId, tagId) VALUES ('1', 't1'), ('2', 't1')").run();
+  raw.prepare("INSERT INTO playlists (id, name, createdAt) VALUES ('pl-1', 'Mix', 1)").run();
+  raw
+    .prepare(
+      "INSERT INTO playlist_tracks (playlistId, trackId, position) VALUES ('pl-1', '1', 1), ('pl-1', '2', 2)",
+    )
+    .run();
+  raw.prepare("INSERT INTO favorites (trackId, addedAt) VALUES ('1', 1), ('2', 2)").run();
+  raw.prepare("INSERT INTO play_history (trackId, playedAt) VALUES ('1', 1), ('2', 2)").run();
+  raw
+    .prepare(
+      "INSERT INTO lyrics_cache (trackId, kind, text, fetchedAt) VALUES ('1', 'plain', 'a', 1), ('2', 'plain', 'b', 2)",
+    )
+    .run();
+
+  const before = transactions();
+  await repo.deleteTrackRecord('1');
+
+  assert.equal(transactions() - before, 1);
+  assert.deepEqual(
+    runs()
+      .filter((sql) => sql.includes('DELETE FROM'))
+      .map((sql) => sql.replace(/\s+/g, ' ').trim()),
+    [
+      'DELETE FROM favorites WHERE trackId = ?',
+      'DELETE FROM play_history WHERE trackId = ?',
+      'DELETE FROM lyrics_cache WHERE trackId = ?',
+      'DELETE FROM playlist_tracks WHERE trackId = ?',
+      'DELETE FROM tracks WHERE id = ?',
+    ],
+  );
+  assert.equal(stored(raw, '1'), undefined);
+  assert.ok(stored(raw, '2'));
+  assert.deepEqual(
+    raw.prepare('SELECT trackId FROM favorites').all().map((row) => (row as { trackId: string }).trackId),
+    ['2'],
+  );
+  assert.deepEqual(
+    raw.prepare('SELECT trackId FROM play_history').all().map((row) => (row as { trackId: string }).trackId),
+    ['2'],
+  );
+  assert.deepEqual(
+    raw.prepare('SELECT trackId FROM lyrics_cache').all().map((row) => (row as { trackId: string }).trackId),
+    ['2'],
+  );
+  assert.deepEqual(
+    raw
+      .prepare('SELECT trackId FROM playlist_tracks')
+      .all()
+      .map((row) => (row as { trackId: string }).trackId),
+    ['2'],
+  );
+  assert.deepEqual(tags(raw, '1'), []);
+  assert.deepEqual(tags(raw, '2'), ['t1']);
+});
+
+test('repository inserts every owned column and reads it back', async () => {
+  const raw = createDb();
+  const repo = createTrackRepo(repoDb(raw).db);
+
+  const inserted = await repo.insertOwnedTrack({
+    source: 'import',
+    location: 'file:///owned/song.mp3',
+    fileName: 'song.mp3',
+    sizeBytes: 4_096,
+    durationMs: 12_345,
+    title: '',
+    artist: 'Artist',
+    album: 'Album',
+    albumArtist: 'Album Artist',
+    trackNumber: 3,
+    discNumber: 2,
+    year: 1999,
+    genre: 'Rock',
+    explicit: true,
+    artworkUri: 'file:///art/cover.jpg',
+    artworkHue: 123,
+  });
+
+  assert.match(inserted.id, /^own:/);
+  assert.equal(inserted.title, titleFromFilename('song.mp3'));
+  assert.equal(inserted.status, 'active');
+  assert.equal(inserted.missing, 0);
+  assert.equal(inserted.artworkHue, 123);
+
+  assert.deepEqual(stored(raw, inserted.id), {
+    id: inserted.id,
+    source: 'import',
+    location: 'file:///owned/song.mp3',
+    fileName: 'song.mp3',
+    sizeBytes: 4_096,
+    durationMs: 12_345,
+    title: 'song',
+    artist: 'Artist',
+    album: 'Album',
+    albumArtist: 'Album Artist',
+    trackNumber: 3,
+    discNumber: 2,
+    year: 1999,
+    genre: 'Rock',
+    explicit: 1,
+    artworkUri: 'file:///art/cover.jpg',
+    status: 'active',
+    missing: 0,
+    addedAt: inserted.addedAt,
+    lastSeenAt: inserted.lastSeenAt,
+    artworkHue: 123,
+  });
+
+  const defaulted = await repo.insertOwnedTrack({
+    source: 'download',
+    location: 'file:///owned/02 - Other.mp3',
+    fileName: '02 - Other.mp3',
+    durationMs: 0,
+    title: '',
+    artist: '',
+    album: '',
+  });
+  assert.equal(defaulted.title, titleFromFilename('02 - Other.mp3'));
+  assert.equal(defaulted.artworkHue, hueFromSeed('02 - Other.mp3'));
+  assert.equal(defaulted.explicit, undefined);
+  assert.equal(stored(raw, defaulted.id)?.sizeBytes, null);
 });
