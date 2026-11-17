@@ -32,7 +32,6 @@ type Props = {
   onOpenSettings: () => void;
   onOpenLiked?: () => void;
   onOpenPlaylists?: () => void;
-  onOpenCollections?: () => void;
 };
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
@@ -52,7 +51,6 @@ export function LibraryScreen({
   onManage,
   onOpenSearch,
   onOpenSettings,
-  onOpenCollections,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -74,11 +72,7 @@ export function LibraryScreen({
           </>
         }
         trailing={
-          <HeaderActions
-            onOpenSearch={onOpenSearch}
-            onOpenSettings={onOpenSettings}
-            onOpenCollections={onOpenCollections}
-          />
+          <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
         }
       />
 

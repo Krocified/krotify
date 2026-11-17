@@ -30,7 +30,6 @@
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
@@ -42,9 +41,7 @@
     "android": "expo run:android",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "lint": "expo lint"
   },
   "private": true
 }

@@ -1,6 +1,6 @@
 import type { ScreenName } from '../types';
 
-export type BackTab = 'library' | 'import';
+export type BackTab = 'library' | 'import' | 'collections';
 
 export type BackState = {
   sleepOpen: boolean;

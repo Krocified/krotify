@@ -20,6 +20,7 @@ export type Track = {
 export type ScreenName =
   | 'library'
   | 'import'
+  | 'collections'
   | 'search'
   | 'nowPlaying'
   | 'settings'

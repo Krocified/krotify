@@ -67,9 +67,8 @@ Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
 `expo-blur`, `expo-image-manipulator`, `@missingcore/react-native-metadata-retriever`,
 Ionicons, `react-native-sortables` with `react-native-reanimated`,
 `react-native-worklets`, and `react-native-gesture-handler`. A local Expo module
-in `modules/ambient-palette/` wraps AndroidX Palette for cover colors. Playwright
-drives the web regression suite. Link import calls the companion `server/`
-service (Express + `yt-dlp`).
+in `modules/ambient-palette/` wraps AndroidX Palette for cover colors. Link
+import calls the companion `server/` service (Express + `yt-dlp`).
 
 ## Run it
 
@@ -126,7 +125,6 @@ npm test          # pure logic, node --test
 npx tsc --noEmit
 npx expo lint
 npx expo export --platform web
-npm run e2e       # Playwright against the web export
 ```
 
 ## Releases
@@ -162,7 +160,7 @@ debug keystore, which is installable but not upgrade-stable across runners.
 - `docs/superpowers/specs/`: v5 file-ownership design
 - `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans, v5 track
   store, player/settings, library/link plans, the release workflow plan, and the
-  v7 UX, playlists, artwork, lyrics and E2E plans
+  v7 UX, playlists, artwork and lyrics plans
 - `docs/research/`: v4 API memos, batch edit, Android Auto research, the v4/v7
   device check matrices, the v5 SAF spike, and the v7 LRCLIB exploration
 
@@ -184,8 +182,7 @@ src/
   lib/                queue, shuffle, sleep, lyrics, crop, layer target (tested)
 server/               Render link service: Express + yt-dlp
 modules/              local Expo modules (AndroidX Palette)
-e2e/                  Playwright config, fixtures, specs and static server
 scripts/              release version helper and E2E server
 plugins/              Media3/R8 exclusions, notification icon, release signing
-.github/workflows/    release and E2E pipelines
+.github/workflows/    release pipeline
 ```

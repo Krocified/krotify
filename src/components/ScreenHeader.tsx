@@ -13,7 +13,6 @@ type Props = {
 type ActionsProps = {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
-  onOpenCollections?: () => void;
 };
 
 export function ScreenHeader({ leading, title, trailing }: Props) {
@@ -35,24 +34,9 @@ export function ScreenHeader({ leading, title, trailing }: Props) {
   );
 }
 
-export function HeaderActions({
-  onOpenSearch,
-  onOpenSettings,
-  onOpenCollections,
-}: ActionsProps) {
+export function HeaderActions({ onOpenSearch, onOpenSettings }: ActionsProps) {
   return (
     <>
-      {onOpenCollections ? (
-        <Pressable
-          onPress={onOpenCollections}
-          accessibilityRole="button"
-          accessibilityLabel="Collections"
-          hitSlop={space.sm}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-        >
-          <Ionicons name="library-outline" size={22} color={colors.textDim} />
-        </Pressable>
-      ) : null}
       <Pressable
         onPress={onOpenSearch}
         accessibilityRole="button"

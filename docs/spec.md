@@ -345,8 +345,7 @@ AndroidX Palette module for the ambient backdrop; a square cropper on track and
 playlist art; a Library reduced to songs and tag pills with a Collections header
 section for Liked Songs, Playlists, Artists and Albums; the playlist cover grid,
 inline create and per-card menu; Settings tag management; hidden link import; the
-About Tech stack page and credit; per-layer tab-bar blur targets; and the
-Playwright regression suite. LRCLIB is not shipped.
+About Tech stack page and credit; per-layer tab-bar blur targets. LRCLIB is not shipped.
 
 - **Lyrics, local first.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics
   mode and an Import .lrc action. Picking a local `.lrc` reads and parses it, then

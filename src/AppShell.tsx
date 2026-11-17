@@ -125,7 +125,6 @@ export function AppShell() {
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
-  const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [techStackOpen, setTechStackOpen] = useState(false);
   const [actionTrack, setActionTrack] = useState<Track | null>(null);
   const [clearTarget, setClearTarget] = useState<Track | null>(null);
@@ -144,7 +143,6 @@ export function AppShell() {
   const likedBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const detailsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
-  const collectionsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
   const exitArmedRef = useRef<number | null>(null);
@@ -388,10 +386,6 @@ export function AppShell() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (collectionsOpen) {
-        setCollectionsOpen(false);
-        return true;
-      }
       if (techStackOpen) {
         setTechStackOpen(false);
         return true;
@@ -455,7 +449,7 @@ export function AppShell() {
       }
     });
     return () => sub.remove();
-  }, [showToast, techStackOpen, collectionsOpen]);
+  }, [showToast, techStackOpen]);
 
 
 
@@ -864,15 +858,15 @@ export function AppShell() {
 
   const fullScreenOverlay = editTarget !== null;
   const showTabs =
-    !fullScreenOverlay && (screen === 'library' || screen === 'import');
+    !fullScreenOverlay &&
+    (screen === 'library' || screen === 'import' || screen === 'collections');
   const showTabBar = screen !== 'nowPlaying';
   const activeTab: TabName =
-    screen === 'library' || screen === 'import' ? screen : tab;
+    screen === 'library' || screen === 'import' || screen === 'collections' ? screen : tab;
   const blurLayer = resolveBlurLayer({
     details: editTarget !== null,
     liked: likedOpen,
     playlists: playlistsOpen,
-    collections: collectionsOpen,
     techStack: techStackOpen,
     hidden: screen === 'hiddenTracks',
     settings: screen === 'settings' || screen === 'hiddenTracks',
@@ -882,7 +876,6 @@ export function AppShell() {
     details: detailsBlurRef,
     liked: likedBlurRef,
     playlists: playlistsBlurRef,
-    collections: collectionsBlurRef,
     techStack: techStackBlurRef,
     hidden: hiddenBlurRef,
     settings: settingsBlurRef,
@@ -914,7 +907,6 @@ export function AppShell() {
     setLikedOpen(false);
     setEditTarget(null);
     setTechStackOpen(false);
-    setCollectionsOpen(false);
     setTab(next);
     setScreen(next);
   }
@@ -953,9 +945,8 @@ export function AppShell() {
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
-            onOpenCollections={() => setCollectionsOpen(true)}
           />
-        ) : (
+        ) : activeTab === 'import' ? (
           <ImportScreen
             active={screen === 'import'}
             importing={importing}
@@ -964,6 +955,18 @@ export function AppShell() {
             onLinkImported={handleLinkImported}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
+          />
+        ) : (
+          <CollectionsScreen
+            visible={screen === 'collections'}
+            tracks={tracks}
+            likedCount={favoriteIds.size}
+            onOpenSearch={openSearch}
+            onOpenSettings={openSettings}
+            onOpenLiked={() => setLikedOpen(true)}
+            onOpenPlaylists={() => openPlaylists(null)}
+            onPlay={playQueue}
+            onSelect={selectFromOverlay}
           />
         )}
       </BlurTargetView>
@@ -1044,22 +1047,6 @@ export function AppShell() {
         pointerEvents={techStackOpen ? 'auto' : 'none'}
       >
         <TechStackScreen visible={techStackOpen} onBack={() => setTechStackOpen(false)} />
-      </BlurTargetView>
-      <BlurTargetView
-        ref={collectionsBlurRef}
-        style={[styles.overlay, !collectionsOpen && styles.layerHidden]}
-        pointerEvents={collectionsOpen ? 'auto' : 'none'}
-      >
-        <CollectionsScreen
-          visible={collectionsOpen}
-          tracks={tracks}
-          likedCount={favoriteIds.size}
-          onBack={() => setCollectionsOpen(false)}
-          onOpenLiked={() => setLikedOpen(true)}
-          onOpenPlaylists={() => openPlaylists(null)}
-          onPlay={playQueue}
-          onSelect={selectFromOverlay}
-        />
       </BlurTargetView>
       {playlistsOpen ? (
         <BlurTargetView ref={playlistsBlurRef} style={styles.overlay}>

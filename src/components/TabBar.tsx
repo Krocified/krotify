@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, space, type } from '../theme';
 
-export type TabName = 'library' | 'import';
+export type TabName = 'library' | 'import' | 'collections';
 
 export const TAB_BAR_HEIGHT = 64;
 export const TAB_BAR_BOTTOM_GAP = 12;
@@ -21,6 +21,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 const TABS: { name: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
   { name: 'library', label: 'Library', icon: 'library-outline', iconActive: 'library' },
   { name: 'import', label: 'Import', icon: 'download-outline', iconActive: 'download' },
+  { name: 'collections', label: 'Collections', icon: 'albums-outline', iconActive: 'albums' },
 ];
 
 export function TabBar({ active, onSelect, blurTarget }: Props) {

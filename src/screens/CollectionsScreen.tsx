@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionHeader } from '../components/CollectionHeader';
 import { CoverArt } from '../components/CoverArt';
-import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
 import { buildAlbums, buildArtists, type Artist } from '../lib/groups';
@@ -15,7 +15,8 @@ type Props = {
   visible: boolean;
   tracks: Track[];
   likedCount: number;
-  onBack: () => void;
+  onOpenSearch: () => void;
+  onOpenSettings: () => void;
   onOpenLiked: () => void;
   onOpenPlaylists: () => void;
   onPlay: (queue: Track[]) => void;
@@ -36,7 +37,8 @@ export function CollectionsScreen({
   visible,
   tracks,
   likedCount,
-  onBack,
+  onOpenSearch,
+  onOpenSettings,
   onOpenLiked,
   onOpenPlaylists,
   onPlay,
@@ -64,14 +66,6 @@ export function CollectionsScreen({
   const detailTracks = artist ? artist.tracks : album ? album.tracks : [];
   const detailHue = album ? album.artworkHue : artist?.tracks[0]?.artworkHue ?? 0;
 
-  const close = () => {
-    if (selection) {
-      setSelection(null);
-      return;
-    }
-    onBack();
-  };
-
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl;
 
   return (
@@ -82,8 +76,19 @@ export function CollectionsScreen({
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
       <ScreenHeader
-        leading={<BackPill onPress={close} label={selection ? 'Back to collections' : 'Back'} />}
+        leading={
+          selection ? (
+            <BackPill onPress={() => setSelection(null)} label="Back to collections" />
+          ) : (
+            <Ionicons name="albums-outline" size={26} color={colors.text} />
+          )
+        }
         title={detail ? detailTitle : 'Collections'}
+        trailing={
+          selection ? undefined : (
+            <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
+          )
+        }
       />
 
       {detail ? (
