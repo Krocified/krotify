@@ -334,11 +334,19 @@ Focus: make the v5 surfaces usable and make a bad download harmless.
   obscured by the keyboard.
 - Tag pills sit above the Liked Songs row, with a margin between them.
 
-### v7: Local lyrics, artwork and UX polish (planned)
+### v7: Local lyrics, artwork and UX polish (built, device verification pending)
 
 Focus: bring lyrics back without the network, make real artwork drive color, and
 tighten the surfaces a daily user touches. The UX review items below are part of
 v7, not a later cleanup.
+
+Built: local `.lrc` import and timed panel behind `LYRICS_ENABLED`; a local
+AndroidX Palette module for the ambient backdrop; a square cropper on track and
+playlist art; a Library reduced to songs and tag pills with a Collections header
+entry; the playlist cover grid, inline create and per-card menu; Settings tag
+management; hidden link import; the About Tech stack page and credit; per-layer
+tab-bar blur targets; and the Playwright regression suite. LRCLIB, Artists and
+the Home-style section are not shipped.
 
 - **Lyrics, local first.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics
   mode and an Import .lrc action. Picking a local `.lrc` reads and parses it, then

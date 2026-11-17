@@ -5,11 +5,12 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-Current version: `0.6.3`.
+Current version: `0.7.0`.
 
-v0 through v5.1 are built. The app is a local-first player with a real library,
-a chosen storage folder, app-owned metadata and tags, and recovery from missing
-files:
+v0 through v7 are built. The app is a local-first player with a real library,
+a chosen storage folder, app-owned metadata and tags, local lyrics, and recovery
+from missing files. Device verification for v7 (blur, cropper, palette and
+lyrics) is still pending.
 
 - One `AudioPlaylist` engine: background playback, gapless tracks, notification
   and lock-screen next/previous, and live play/pause state.
@@ -25,8 +26,8 @@ files:
 - YouTube links import through the companion service in `server/`, configured in
   Settings. It extracts the best audio, verifies the file is playable, and never
   adds an HTML or 0:00 track. The Import tab is an action surface, not a list.
-- App-local tags: create and assign them in the track editor and filter the
-  Library with a chip bar above Recently played when tags exist.
+- App-local tags: create and assign them in the track editor or in Settings,
+  delete them from Settings, and filter the Library with a chip bar.
 - Hidden tracks have their own page. Restore returns a track; Clear removes it
   from the app and keeps the file; Delete removes both.
 - Missing files are detected before playback, marked in the UI with Clear and
@@ -35,23 +36,40 @@ files:
   reorder. A heart in Now Playing persists to Liked Songs. Back closes overlays
   and routes first. The app exits only after a double press at Library.
 - Shuffle, repeat, sleep timer with fade-out, resume, scan opt-in, and the system
-  audio filters. Lyrics code stays on disk but its UI is hidden behind
-  `LYRICS_ENABLED`.
+  audio filters.
+- Local lyrics: import a `.lrc` from Now Playing, cached per track in SQLite,
+  with timed highlight, auto-scroll and tap-to-seek. LRCLIB stays a gated
+  exploration; v7 makes no lyrics network call.
+- Library is only the song list plus tag pills. A Collections control in the
+  header keeps Liked Songs and Playlists reachable until a later Home section.
+- Playlists are a two-column cover grid with inline create, per-card edit/delete
+  and track counts. Detail keeps Play, Shuffle and drag reorder.
+- Artwork: the real cover tints Now Playing through a local AndroidX Palette
+  module, with the generated hue as fallback. Track and playlist covers can be
+  cropped square with pinch, pan and `expo-image-manipulator`.
+- About shows the version as a button into a Tech stack page and carries a
+  "Created by Krocified" credit. The Hidden tracks row no longer shows a count.
+- YouTube link import is hidden in v7 behind `LINK_IMPORT_ENABLED = false`; the
+  client, Settings fields and `server/` stay on disk for later.
 - Schema v4 migrates an existing install in place, keeping legacy track ids.
 
-Not shipped: v4 discovery is research-only. Genius, Radio Browser, and
-Audiometa.io are deferred. Device verification for v4 is recorded in
-`docs/research/v4-device-check.md`; v5 device checks (upgrade install, SAF
-folder, link-service download) are still pending.
+Not shipped: v4 discovery is research-only. Genius, Radio Browser, Audiometa.io
+and LRCLIB are deferred. Artists and the Home-style collection section are
+deferred to the version after v7. Device verification for v4 is recorded in
+`docs/research/v4-device-check.md`; v5 and v7 device checks (upgrade install, SAF
+folder, link-service download, blur, cropper, palette, lyrics) are still
+pending.
 
 ## Stack
 
 Expo SDK 58, React Native 0.88, TypeScript, `expo-audio` (`AudioPlaylist`),
 `expo-document-picker`, `expo-media-library`, `expo-sqlite`, `expo-file-system`,
-`expo-blur`, `@missingcore/react-native-metadata-retriever`, Ionicons,
-`react-native-sortables` with `react-native-reanimated`,
-`react-native-worklets`, and `react-native-gesture-handler`. Link import calls the
-companion `server/` service (Express + `yt-dlp`).
+`expo-blur`, `expo-image-manipulator`, `@missingcore/react-native-metadata-retriever`,
+Ionicons, `react-native-sortables` with `react-native-reanimated`,
+`react-native-worklets`, and `react-native-gesture-handler`. A local Expo module
+in `modules/ambient-palette/` wraps AndroidX Palette for cover colors. Playwright
+drives the web regression suite. Link import calls the companion `server/`
+service (Express + `yt-dlp`).
 
 ## Run it
 
@@ -108,6 +126,7 @@ npm test          # pure logic, node --test
 npx tsc --noEmit
 npx expo lint
 npx expo export --platform web
+npm run e2e       # Playwright against the web export
 ```
 
 ## Releases
@@ -142,9 +161,10 @@ debug keystore, which is installable but not upgrade-stable across runners.
 - `docs/spec.md`: behaviour, design tokens, milestones, v4 verdicts
 - `docs/superpowers/specs/`: v5 file-ownership design
 - `docs/superpowers/plans/`: v0 plan, v2 catalog record, v3/v4 plans, v5 track
-  store, player/settings, and library/link plans, plus the release workflow plan
-- `docs/research/`: v4 API memos, batch edit, Android Auto research, the v4
-  device check matrix, and the v5 SAF spike evidence
+  store, player/settings, library/link plans, the release workflow plan, and the
+  v7 UX, playlists, artwork, lyrics and E2E plans
+- `docs/research/`: v4 API memos, batch edit, Android Auto research, the v4/v7
+  device check matrices, the v5 SAF spike, and the v7 LRCLIB exploration
 
 ## Layout
 
@@ -156,14 +176,16 @@ src/
   storage/            chosen storage root, owned files, downloads
   imports/            local import, link service client, duration probe
   tags/               tag repository, provider, filter helpers
-  library/            scan, artwork, playback source, lyrics
+  library/            scan, artwork/palette, playback source, lyrics, cropper
   db/                 SQLite schema, v4 migration and repository
   screens/            Library, Import, Search, Now Playing, Settings, Hidden,
-                      Playlists, Liked, Edit Track (CatalogScreen unwired)
-  components/         headers, tabs, cover art, rows, sheets, tag filter/editor
-  lib/                queue, shuffle, sleep, lyrics, settings view (tested)
+                      Playlists, Liked, Edit Track, Tech stack
+  components/         headers, tabs, cover art/rows, sheets, cropper, collections
+  lib/                queue, shuffle, sleep, lyrics, crop, layer target (tested)
 server/               Render link service: Express + yt-dlp
-scripts/              release version helper
+modules/              local Expo modules (AndroidX Palette)
+e2e/                  Playwright config, fixtures, specs and static server
+scripts/              release version helper and E2E server
 plugins/              Media3/R8 exclusions, notification icon, release signing
-.github/workflows/    release pipeline
+.github/workflows/    release and E2E pipelines
 ```
