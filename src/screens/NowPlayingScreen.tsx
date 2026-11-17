@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { LyricsPanel } from '../components/LyricsPanel';
+import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
@@ -80,6 +81,7 @@ export function NowPlayingScreen({
   const [lyricsMode, setLyricsMode] = useState(false);
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
   const [importingLyrics, setImportingLyrics] = useState(false);
+  const [pasteLyricsOpen, setPasteLyricsOpen] = useState(false);
   const [coverColorState, setCoverColorState] = useState<{ uri?: string; color: string | null }>({
     color: null,
   });
@@ -90,6 +92,16 @@ export function NowPlayingScreen({
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
   const reloadLyrics = lyrics.reload;
+
+  const importPastedLyrics = useCallback(
+    async (text: string): Promise<void> => {
+      if (!track) throw new Error('No track selected.');
+      await importLyricsText(track.id, text);
+      reloadLyrics();
+      setLyricsNote('Lyrics added.');
+    },
+    [track, reloadLyrics],
+  );
 
   const artworkUri = track?.artworkUri;
 
@@ -381,6 +393,9 @@ export function NowPlayingScreen({
                         void importLyrics();
                       }
                 }
+                onPaste={
+                  Platform.OS === 'web' ? undefined : () => setPasteLyricsOpen(true)
+                }
                 importing={importingLyrics}
               />
             </View>
@@ -533,6 +548,11 @@ export function NowPlayingScreen({
         visible={tagOpen}
         track={track}
         onClose={() => setTagOpen(false)}
+      />
+      <PasteLyricsSheet
+        visible={pasteLyricsOpen}
+        onClose={() => setPasteLyricsOpen(false)}
+        onSubmit={importPastedLyrics}
       />
       <PlaylistPickerSheet
         visible={playlistOpen}

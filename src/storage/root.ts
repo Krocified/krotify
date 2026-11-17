@@ -37,7 +37,7 @@ async function persistRoot(root: StorageRoot): Promise<void> {
 
 function ensureDirectory(uri: string): Directory {
   const directory = new Directory(uri);
-  if (!directory.exists) {
+  if (!uri.startsWith('content://') && !directory.exists) {
     directory.create({ idempotent: true, intermediates: true });
   }
   return directory;
@@ -106,7 +106,7 @@ export async function getStorageRoot(): Promise<StorageRoot> {
 
   const folder = kind === 'legacy' ? LEGACY_ROOT_NAME : DEFAULT_ROOT_NAME;
   const directory = new Directory(Paths.document, folder);
-  directory.create({ idempotent: true, intermediates: true });
+  if (!directory.exists) directory.create({ idempotent: true, intermediates: true });
   const root: StorageRoot = {
     uri: directory.uri,
     name: directory.name,

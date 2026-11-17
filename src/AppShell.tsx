@@ -116,12 +116,14 @@ export function AppShell() {
   const [scanSummary, setScanSummary] = useState<ScanSummary | null>(null);
   const [storage, setStorage] = useState<StorageView | null>(null);
   const [storageBusy, setStorageBusy] = useState(false);
+  const [moveFailures, setMoveFailures] = useState<{ name: string; reason: string }[]>([]);
   const [movePrompt, setMovePrompt] = useState<{
     fileCount: number;
     totalBytes: number;
   } | null>(null);
   const [cleanPrompt, setCleanPrompt] = useState(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const [resumeAttempt, setResumeAttempt] = useState(0);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
@@ -508,6 +510,10 @@ export function AppShell() {
 
   useEffect(() => {
     if (!libraryLoaded || resumedRef.current) return;
+    if (tracks.length === 0 && resumeAttempt < 20) {
+      const timer = setTimeout(() => setResumeAttempt((attempt) => attempt + 1), 300);
+      return () => clearTimeout(timer);
+    }
     resumedRef.current = true;
     void (async () => {
       const raw = await AsyncStorage.getItem(RESUME_KEY);
@@ -515,7 +521,8 @@ export function AppShell() {
       if (!saved) return;
       const target = tracks.find((track) => track.id === saved.trackId);
       if (!target) {
-        await AsyncStorage.removeItem(RESUME_KEY);
+        if (tracks.length === 0) resumedRef.current = false;
+        else await AsyncStorage.removeItem(RESUME_KEY);
         return;
       }
       const restored = await restore(
@@ -523,9 +530,14 @@ export function AppShell() {
         (track) => resolvePlaybackUri(track, assetsRef.current),
         saved.positionMs,
       );
-      if (!restored) await AsyncStorage.removeItem(RESUME_KEY);
-    })().catch(() => {});
-  }, [libraryLoaded, restore, tracks]);
+      if (!restored) {
+        if (target.missing) await AsyncStorage.removeItem(RESUME_KEY);
+        else resumedRef.current = false;
+      }
+    })().catch(() => {
+      resumedRef.current = false;
+    });
+  }, [libraryLoaded, restore, tracks, resumeAttempt]);
 
   function rememberReturnScreen() {
     returnScreenRef.current = screen === 'search' ? tab : screen;
@@ -752,6 +764,7 @@ export function AppShell() {
   async function handleMoveFiles(target?: StorageRoot) {
     if (storageBusy) return;
     setStorageBusy(true);
+    setMoveFailures([]);
     try {
       const to = target ?? (await getStorageRoot());
       const from = previousRootRef.current;
@@ -769,13 +782,17 @@ export function AppShell() {
       previousRootRef.current = null;
       pendingRootRef.current = null;
       const movedLabel = `${result.moved} file${result.moved === 1 ? '' : 's'}`;
+      setMoveFailures(result.failures);
       await Promise.all([refreshStorage(), refreshLibraryFromDb()]);
       showToast(
         result.failures.length > 0
           ? `Moved ${movedLabel}, ${result.failures.length} failed`
           : `Moved ${movedLabel}`,
       );
-    } catch {
+    } catch (error) {
+      setMoveFailures([
+        { name: 'Move files', reason: error instanceof Error ? error.message : String(error) },
+      ]);
       showToast('Could not move files');
     } finally {
       setStorageBusy(false);
@@ -1021,6 +1038,7 @@ export function AppShell() {
         onExcludeAll={() => setExcludeAllConfirm(true)}
         onChangeFolder={() => void handleChangeFolder()}
         onMoveFiles={() => void handleMoveFiles()}
+        moveFailures={moveFailures}
         onCleanStorage={() => setCleanPrompt(true)}
         onTagsChanged={refreshTags}
         onOpenTechStack={() => setTechStackOpen(true)}

@@ -20,6 +20,7 @@ type Props = {
   positionMs: number;
   onSeek: (positionMs: number) => void;
   onImport?: () => void;
+  onPaste?: () => void;
   importing?: boolean;
 };
 
@@ -30,6 +31,7 @@ export function LyricsPanel({
   positionMs,
   onSeek,
   onImport,
+  onPaste,
   importing = false,
 }: Props) {
   const scrollRef = useRef<ScrollViewInstance>(null);
@@ -73,6 +75,7 @@ export function LyricsPanel({
     return (
       <View style={styles.centered}>
         <Text style={styles.message}>Lyrics not found</Text>
+        <View style={styles.pasteActions}>
         {onImport ? (
           <Pressable
             onPress={onImport}
@@ -93,25 +96,43 @@ export function LyricsPanel({
             )}
           </Pressable>
         ) : null}
+        {onPaste ? (
+          <Pressable
+            onPress={onPaste}
+            accessibilityRole="button"
+            accessibilityLabel="Paste lyrics"
+            style={({ pressed }) => [
+              styles.importButton,
+              pressed && styles.importButtonPressed,
+            ]}
+          >
+            <Text style={styles.importButtonText}>Paste lyrics</Text>
+          </Pressable>
+        ) : null}
+        </View>
       </View>
     );
   }
 
   if (plain) {
     return (
-      <ScrollView
-        ref={scrollRef}
-        style={styles.root}
-        contentContainerStyle={styles.plainContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.plain}>{plain}</Text>
-      </ScrollView>
+      <View style={styles.root}>
+        <PasteRow onPaste={onPaste} />
+        <ScrollView
+          ref={scrollRef}
+          style={styles.root}
+          contentContainerStyle={styles.plainContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.plain}>{plain}</Text>
+        </ScrollView>
+      </View>
     );
   }
 
   return (
     <View style={styles.root} onLayout={handleLayout}>
+      <PasteRow onPaste={onPaste} />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingVertical: viewportHeight / 2 }]}
@@ -138,6 +159,22 @@ export function LyricsPanel({
           );
         })}
       </ScrollView>
+    </View>
+  );
+}
+
+function PasteRow({ onPaste }: { onPaste?: () => void }) {
+  if (!onPaste) return null;
+  return (
+    <View style={styles.pasteRow}>
+      <Pressable
+        onPress={onPaste}
+        accessibilityRole="button"
+        accessibilityLabel="Paste lyrics"
+        style={({ pressed }) => [styles.pasteButton, pressed && styles.importButtonPressed]}
+      >
+        <Text style={styles.importButtonText}>Paste</Text>
+      </Pressable>
     </View>
   );
 }
@@ -174,6 +211,25 @@ const styles = StyleSheet.create({
   },
   importButtonDisabled: {
     opacity: 0.6,
+  },
+  pasteRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: space.sm,
+  },
+  pasteButton: {
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  pasteActions: {
+    flexDirection: 'row',
+    gap: space.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   importButtonText: {
     ...type.meta,

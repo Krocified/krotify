@@ -153,6 +153,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     trackRef.current = track;
   }, [track]);
 
+
   useEffect(() => {
     engine.setLoop(repeat === 'off' ? 'none' : repeat === 'one' ? 'single' : 'all');
   }, [repeat]);
@@ -449,6 +450,17 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, [playlist, handleTrackChanged]);
 
+  const retryPlayback = useCallback(() => {
+    const current = trackRef.current;
+    const resolveUri = resolveUriRef.current;
+    const nextQueue = queueRef.current;
+    if (!current || !resolveUri || modeRef.current !== 'audio' || nextQueue.length === 0) return;
+    const target = indexRef.current >= 0 && indexRef.current < nextQueue.length ? indexRef.current : 0;
+    const position = Math.round(engine.playlist.currentTime * 1000);
+    resetAudioWindow();
+    void loadWindow(target, nextQueue, resolveUri, position, true);
+  }, [loadWindow, resetAudioWindow]);
+
   const playTrack = useCallback(
     async (
       nextTrack: Track,
@@ -486,6 +498,18 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       try {
         const loaded = await loadWindow(target, playQueue, resolveUri);
         if (requestId !== requestRef.current) return false;
+        if (loaded) {
+          const id = nextTrack.id;
+          setTimeout(() => {
+            if (
+              modeRef.current === 'audio' &&
+              trackRef.current?.id === id &&
+              !engine.playlist.playing
+            ) {
+              retryPlayback();
+            }
+          }, 500);
+        }
         return loaded;
       } catch {
         if (requestId !== requestRef.current) return false;
@@ -494,7 +518,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [loadWindow, resetAudioWindow],
+    [loadWindow, resetAudioWindow, retryPlayback],
   );
 
   const restore = useCallback(
@@ -589,6 +613,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     return () => clearTimeout(timer);
   }, [sleep.mode, mode, status.didJustFinish, finishSleep]);
 
+
   const toggle = useCallback(() => {
     const atEnd = isAtEnd(positionMs, durationMs);
     if (mode === 'mock') {
@@ -614,13 +639,26 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       return;
     }
     try {
-      if (engine.playlist.playing) engine.playlist.pause();
-      else engine.playlist.play();
+      if (engine.playlist.playing) {
+        engine.playlist.pause();
+      } else {
+        engine.playlist.play();
+        const id = trackRef.current?.id;
+        setTimeout(() => {
+          if (
+            modeRef.current === 'audio' &&
+            trackRef.current?.id === id &&
+            !engine.playlist.playing
+          ) {
+            retryPlayback();
+          }
+        }, 400);
+      }
     } catch {
       setLastError('Could not play this file');
       resetAudioWindow();
     }
-  }, [mode, positionMs, durationMs, resetAudioWindow]);
+  }, [mode, positionMs, durationMs, resetAudioWindow, retryPlayback]);
 
   const stop = useCallback(() => {
     requestRef.current += 1;

@@ -3,6 +3,11 @@ import { uniqueFileName } from './names.ts';
 import { getStorageRoot } from './root.ts';
 import type { StorageRoot } from './types.ts';
 
+function ensureDirectory(directory: Directory): void {
+  if (directory.uri.startsWith('content://')) return;
+  if (!directory.exists) directory.create({ idempotent: true, intermediates: true });
+}
+
 function takenNames(directory: Directory): Set<string> {
   try {
     return new Set(directory.list().map((entry) => entry.name));
@@ -24,9 +29,7 @@ export async function storeOwnedFile(
 ): Promise<File> {
   const targetRoot = root ?? (await getStorageRoot());
   const directory = new Directory(targetRoot.uri);
-  if (!directory.exists) {
-    directory.create({ idempotent: true, intermediates: true });
-  }
+  ensureDirectory(directory);
 
   const name = uniqueFileName(fileName, takenNames(directory));
   const destination = new File(directory, name);
@@ -41,9 +44,7 @@ export async function downloadOwnedFile(
 ): Promise<File> {
   const root = await getStorageRoot();
   const directory = new Directory(root.uri);
-  if (!directory.exists) {
-    directory.create({ idempotent: true, intermediates: true });
-  }
+  ensureDirectory(directory);
 
   const name = uniqueFileName(fileName, takenNames(directory));
   const destination = new File(directory, name);

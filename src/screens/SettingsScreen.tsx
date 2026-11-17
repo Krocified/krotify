@@ -57,6 +57,7 @@ type Props = {
   onExcludeAll: () => void;
   onChangeFolder: () => void;
   onMoveFiles: () => void;
+  moveFailures?: { name: string; reason: string }[];
   onCleanStorage: () => void;
   onTagsChanged?: () => void;
   onOpenTechStack?: () => void;
@@ -86,6 +87,7 @@ export function SettingsScreen({
   onExcludeAll,
   onChangeFolder,
   onMoveFiles,
+  moveFailures = [],
   onCleanStorage,
   onTagsChanged,
   onOpenTechStack,
@@ -275,6 +277,17 @@ export function SettingsScreen({
               <Ionicons name="eye-off-outline" size={22} color={colors.textDim} />
             </Pressable>
           </View>
+
+          {moveFailures.length > 0 ? (
+            <View style={styles.moveFailures}>
+              <Text style={styles.moveFailuresTitle}>Move failed</Text>
+              {moveFailures.map((item) => (
+                <Text key={`${item.name}-${item.reason}`} style={styles.moveFailuresText}>
+                  {item.name}: {item.reason}
+                </Text>
+              ))}
+            </View>
+          ) : null}
 
           <Text style={styles.sectionTitle}>Tags</Text>
           <TagsSection onTagsChanged={onTagsChanged} />
@@ -600,6 +613,23 @@ const styles = StyleSheet.create({
   saveNote: {
     ...type.meta,
     color: colors.accent2,
+  },
+  moveFailures: {
+    backgroundColor: '#2A1418',
+    borderRadius: radius.screen,
+    padding: space.md,
+    gap: space.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#FF6B6B66',
+  },
+  moveFailuresTitle: {
+    ...type.meta,
+    color: colors.danger,
+    fontWeight: '700',
+  },
+  moveFailuresText: {
+    ...type.meta,
+    color: colors.textDim,
   },
   saveError: {
     ...type.meta,

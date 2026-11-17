@@ -111,6 +111,9 @@ export function createEngine(): PlaybackEngine {
       playlist.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
       if (autoplay) playlist.play();
       else playlist.pause();
+      try {
+        playlist.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
+      } catch {}
     },
 
     append(tracks, indexes) {
@@ -135,7 +138,11 @@ export function createEngine(): PlaybackEngine {
     updateLockScreenMetadata(track) {
       const metadata = lockScreenMetadata(track);
       lockScreen.current = { metadata, options: LOCK_SCREEN_OPTIONS };
-      playlist.updateLockScreenMetadata(metadata);
+      try {
+        playlist.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
+      } catch {
+        playlist.updateLockScreenMetadata(metadata);
+      }
     },
 
     stop() {

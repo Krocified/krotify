@@ -1,4 +1,4 @@
-import { parseLrc } from '../lib/lrc.ts';
+import { parseLyricsInput } from '../lib/lyricsInput.ts';
 import type { LyricsKind } from '../db/repo.ts';
 
 export type LyricsImportResult = { kind: LyricsKind; lineCount: number };
@@ -16,24 +16,16 @@ async function defaultWriter(
   await putCachedLyrics(trackId, lyrics);
 }
 
-function hasLyricContent(rawText: string): boolean {
-  return rawText
-    .split(/\r?\n|\r/)
-    .map((line) => line.trim())
-    .some((line) => line.length > 0 && !/^\[[^\]]+:[^\]]*\]$/.test(line));
-}
 
 export async function importLyricsText(
   trackId: string,
   rawText: string,
   write: LyricsCacheWriter = defaultWriter,
 ): Promise<LyricsImportResult> {
-  const parsed = parseLrc(rawText);
-  if (!hasLyricContent(rawText)) throw new Error('That file has no lyrics.');
-
-  const kind: LyricsKind = parsed.lines.length > 0 ? 'synced' : 'plain';
-  await write(trackId, { kind, text: rawText });
-  return { kind, lineCount: parsed.lines.length };
+  const parsed = parseLyricsInput(rawText);
+  const kind: LyricsKind = parsed.kind;
+  await write(trackId, { kind, text: parsed.text });
+  return { kind, lineCount: parsed.lineCount };
 }
 
 export async function pickLyricsFile(): Promise<{ text: string; name: string } | null> {
