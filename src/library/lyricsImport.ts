@@ -30,19 +30,25 @@ export async function importLyricsText(
 ): Promise<LyricsImportResult> {
   const parsed = parseLrc(rawText);
   if (!hasLyricContent(rawText)) throw new Error('That file has no lyrics.');
+
   const kind: LyricsKind = parsed.lines.length > 0 ? 'synced' : 'plain';
   await write(trackId, { kind, text: rawText });
   return { kind, lineCount: parsed.lines.length };
 }
 
 export async function pickLyricsFile(): Promise<{ text: string; name: string } | null> {
+  const DocumentPicker = await import('expo-document-picker');
   const { File } = await import('expo-file-system');
-  const picked = await File.pickFileAsync({
-    mimeTypes: ['text/plain', 'application/octet-stream'],
+  const picked = await DocumentPicker.getDocumentAsync({
+    type: '*/*',
+    multiple: false,
+    copyToCacheDirectory: true,
   });
   if (picked.canceled) return null;
 
-  const file = picked.result;
-  if (!file.name.toLowerCase().endsWith('.lrc')) throw new Error('Pick a .lrc file.');
-  return { text: await file.text(), name: file.name };
+  const asset = picked.assets?.[0];
+  if (!asset) return null;
+
+  const text = await new File(asset.uri).text();
+  return { text, name: asset.name ?? 'lyrics.lrc' };
 }
