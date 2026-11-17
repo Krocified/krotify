@@ -41,7 +41,8 @@ lyrics) is still pending.
   with timed highlight, auto-scroll and tap-to-seek. LRCLIB stays a gated
   exploration; v7 makes no lyrics network call.
 - Library is only the song list plus tag pills. A Collections control in the
-  header keeps Liked Songs and Playlists reachable until a later Home section.
+  header opens a section with Liked Songs, Playlists, Artists and Albums, each
+  with its own searchable list and Play/Shuffle detail.
 - Playlists are a two-column cover grid with inline create, per-card edit/delete
   and track counts. Detail keeps Play, Shuffle and drag reorder.
 - Artwork: the real cover tints Now Playing through a local AndroidX Palette
@@ -54,8 +55,7 @@ lyrics) is still pending.
 - Schema v4 migrates an existing install in place, keeping legacy track ids.
 
 Not shipped: v4 discovery is research-only. Genius, Radio Browser, Audiometa.io
-and LRCLIB are deferred. Artists and the Home-style collection section are
-deferred to the version after v7. Device verification for v4 is recorded in
+and LRCLIB are deferred. Device verification for v4 is recorded in
 `docs/research/v4-device-check.md`; v5 and v7 device checks (upgrade install, SAF
 folder, link-service download, blur, cropper, palette, lyrics) are still
 pending.
@@ -179,7 +179,7 @@ src/
   library/            scan, artwork/palette, playback source, lyrics, cropper
   db/                 SQLite schema, v4 migration and repository
   screens/            Library, Import, Search, Now Playing, Settings, Hidden,
-                      Playlists, Liked, Edit Track, Tech stack
+                      Collections, Playlists, Liked, Edit Track, Tech stack
   components/         headers, tabs, cover art/rows, sheets, cropper, collections
   lib/                queue, shuffle, sleep, lyrics, crop, layer target (tested)
 server/               Render link service: Express + yt-dlp

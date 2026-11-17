@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import type { Asset } from 'expo-media-library';
-import { CollectionsSheet } from './components/CollectionsSheet';
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
 import { Sheet } from './components/Sheet';
@@ -60,6 +59,7 @@ import { listActiveTracks, listHiddenTracks, setTrackStatus } from './tracks/rep
 import { syncScanResults } from './tracks/scanSync';
 import type { TrackRecord } from './tracks/types';
 import { toUiTrack } from './tracks/view';
+import { CollectionsScreen } from './screens/CollectionsScreen';
 import { EditTrackScreen } from './screens/EditTrackScreen';
 import { HiddenTracksScreen } from './screens/HiddenTracksScreen';
 import { ImportScreen } from './screens/ImportScreen';
@@ -144,6 +144,7 @@ export function AppShell() {
   const likedBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const detailsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const collectionsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
   const exitArmedRef = useRef<number | null>(null);
@@ -387,6 +388,10 @@ export function AppShell() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (collectionsOpen) {
+        setCollectionsOpen(false);
+        return true;
+      }
       if (techStackOpen) {
         setTechStackOpen(false);
         return true;
@@ -450,7 +455,7 @@ export function AppShell() {
       }
     });
     return () => sub.remove();
-  }, [showToast, techStackOpen]);
+  }, [showToast, techStackOpen, collectionsOpen]);
 
 
 
@@ -867,6 +872,7 @@ export function AppShell() {
     details: editTarget !== null,
     liked: likedOpen,
     playlists: playlistsOpen,
+    collections: collectionsOpen,
     techStack: techStackOpen,
     hidden: screen === 'hiddenTracks',
     settings: screen === 'settings' || screen === 'hiddenTracks',
@@ -876,6 +882,7 @@ export function AppShell() {
     details: detailsBlurRef,
     liked: likedBlurRef,
     playlists: playlistsBlurRef,
+    collections: collectionsBlurRef,
     techStack: techStackBlurRef,
     hidden: hiddenBlurRef,
     settings: settingsBlurRef,
@@ -907,6 +914,7 @@ export function AppShell() {
     setLikedOpen(false);
     setEditTarget(null);
     setTechStackOpen(false);
+    setCollectionsOpen(false);
     setTab(next);
     setScreen(next);
   }
@@ -971,7 +979,7 @@ export function AppShell() {
       ) : null}
       <BlurTargetView
         ref={searchBlurRef}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, screen !== 'search' && styles.layerHidden]}
         pointerEvents={screen === 'search' ? 'auto' : 'none'}
       >
         <SearchScreen
@@ -983,7 +991,10 @@ export function AppShell() {
       </BlurTargetView>
       <BlurTargetView
         ref={settingsBlurRef}
-        style={StyleSheet.absoluteFill}
+        style={[
+          StyleSheet.absoluteFill,
+          screen !== 'settings' && screen !== 'hiddenTracks' && styles.layerHidden,
+        ]}
         pointerEvents={screen === 'settings' ? 'auto' : 'none'}
       >
       <SettingsScreen
@@ -1014,7 +1025,7 @@ export function AppShell() {
       </BlurTargetView>
       <BlurTargetView
         ref={hiddenBlurRef}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, screen !== 'hiddenTracks' && styles.layerHidden]}
         pointerEvents={screen === 'hiddenTracks' ? 'auto' : 'none'}
       >
         <HiddenTracksScreen
@@ -1029,10 +1040,26 @@ export function AppShell() {
       </BlurTargetView>
       <BlurTargetView
         ref={techStackBlurRef}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, !techStackOpen && styles.layerHidden]}
         pointerEvents={techStackOpen ? 'auto' : 'none'}
       >
         <TechStackScreen visible={techStackOpen} onBack={() => setTechStackOpen(false)} />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={collectionsBlurRef}
+        style={[styles.overlay, !collectionsOpen && styles.layerHidden]}
+        pointerEvents={collectionsOpen ? 'auto' : 'none'}
+      >
+        <CollectionsScreen
+          visible={collectionsOpen}
+          tracks={tracks}
+          likedCount={favoriteIds.size}
+          onBack={() => setCollectionsOpen(false)}
+          onOpenLiked={() => setLikedOpen(true)}
+          onOpenPlaylists={() => openPlaylists(null)}
+          onPlay={playQueue}
+          onSelect={selectFromOverlay}
+        />
       </BlurTargetView>
       {playlistsOpen ? (
         <BlurTargetView ref={playlistsBlurRef} style={styles.overlay}>
@@ -1099,12 +1126,6 @@ export function AppShell() {
         visible={pickerTrack !== null}
         track={pickerTrack}
         onClose={() => setPickerTrack(null)}
-      />
-      <CollectionsSheet
-        visible={collectionsOpen}
-        onClose={() => setCollectionsOpen(false)}
-        onOpenLiked={() => setLikedOpen(true)}
-        onOpenPlaylists={() => openPlaylists(null)}
       />
       <TagAssignSheet
         visible={tagTrack !== null}
@@ -1239,6 +1260,9 @@ const styles = StyleSheet.create({
   },
   library: {
     flex: 1,
+  },
+  layerHidden: {
+    display: 'none',
   },
   overlay: {
     position: 'absolute',

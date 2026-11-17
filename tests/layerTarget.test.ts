@@ -6,6 +6,7 @@ const none = {
   details: false,
   liked: false,
   playlists: false,
+  collections: false,
   techStack: false,
   hidden: false,
   settings: false,
@@ -35,6 +36,7 @@ test('each layer resolves on its own', () => {
   assert.equal(resolveBlurLayer({ ...none, details: true }), 'details');
   assert.equal(resolveBlurLayer({ ...none, liked: true }), 'liked');
   assert.equal(resolveBlurLayer({ ...none, playlists: true }), 'playlists');
+  assert.equal(resolveBlurLayer({ ...none, collections: true }), 'collections');
   assert.equal(resolveBlurLayer({ ...none, techStack: true }), 'techStack');
   assert.equal(resolveBlurLayer({ ...none, hidden: true }), 'hidden');
   assert.equal(resolveBlurLayer({ ...none, settings: true }), 'settings');
@@ -47,6 +49,7 @@ test('every layer set resolves to the top of the stack', () => {
       details: true,
       liked: true,
       playlists: true,
+      collections: true,
       techStack: true,
       hidden: true,
       settings: true,

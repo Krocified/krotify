@@ -343,10 +343,10 @@ v7, not a later cleanup.
 Built: local `.lrc` import and timed panel behind `LYRICS_ENABLED`; a local
 AndroidX Palette module for the ambient backdrop; a square cropper on track and
 playlist art; a Library reduced to songs and tag pills with a Collections header
-entry; the playlist cover grid, inline create and per-card menu; Settings tag
-management; hidden link import; the About Tech stack page and credit; per-layer
-tab-bar blur targets; and the Playwright regression suite. LRCLIB, Artists and
-the Home-style section are not shipped.
+section for Liked Songs, Playlists, Artists and Albums; the playlist cover grid,
+inline create and per-card menu; Settings tag management; hidden link import; the
+About Tech stack page and credit; per-layer tab-bar blur targets; and the
+Playwright regression suite. LRCLIB is not shipped.
 
 - **Lyrics, local first.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics
   mode and an Import .lrc action. Picking a local `.lrc` reads and parses it, then
@@ -368,10 +368,10 @@ the Home-style section are not shipped.
   when there is no real art or extraction fails.
 - **Library is the song list.** The Library lists every song plus the tag pills,
   nothing else. The Recently played rail, the Liked Songs row and the Playlists
-  rail leave the Library in v7. A compact Collections control in the header keeps
-  Liked Songs and Playlists reachable until they return with Artists in a
-  dedicated Home-style section, which is out of scope here. No Artists rail in
-  v7. Screens and routes stay on disk for that section.
+  rail leave the Library in v7. A Collections control in the header opens a
+  section with Liked Songs, Playlists, Artists and Albums; artist and album
+  detail use the existing grouping helpers. No artists rail inside the Library
+  body.
 - **Library song rows.** Each row shows cover, title and `artist · duration` on the
   second line. An ellipsis button on the right opens the same action sheet as a
   long press. Duration leaves the far right.
