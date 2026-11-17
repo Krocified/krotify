@@ -49,8 +49,8 @@ export function formatBytes(bytes: number): string {
   return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${BYTE_UNITS[unit]}`;
 }
 
-export function hiddenTracksLabel(count: number): string {
-  return `Hidden tracks, ${count}`;
+export function hiddenTracksLabel(): string {
+  return 'Hidden tracks';
 }
 
 export function moveFilesLabel(fileCount: number, bytes: number): string {

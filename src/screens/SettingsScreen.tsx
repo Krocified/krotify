@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appJson from '../../app.json';
+import { CreatedByKrocified } from '../components/CreatedByKrocified';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
+import { TagsSection } from '../components/TagsSection';
 import { SleepTimerControls } from '../components/SleepTimerControls';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
@@ -31,6 +33,7 @@ import {
   type StorageView,
 } from '../lib/settingsView';
 import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverConfig';
+import { LINK_IMPORT_ENABLED } from '../lib/features';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -55,6 +58,8 @@ type Props = {
   onChangeFolder: () => void;
   onMoveFiles: () => void;
   onCleanStorage: () => void;
+  onTagsChanged?: () => void;
+  onOpenTechStack?: () => void;
 };
 
 const RELEASE_ABI = 'arm64-v8a';
@@ -70,7 +75,6 @@ export function SettingsScreen({
   scanEnabled,
   permission,
   scanSummary,
-  hiddenCount,
   scanExcludeCount,
   storage,
   storageBusy,
@@ -83,6 +87,8 @@ export function SettingsScreen({
   onChangeFolder,
   onMoveFiles,
   onCleanStorage,
+  onTagsChanged,
+  onOpenTechStack,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -103,7 +109,7 @@ export function SettingsScreen({
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !LINK_IMPORT_ENABLED) return;
     let cancelled = false;
     void loadLinkServerConfig()
       .then((config) => {
@@ -240,11 +246,11 @@ export function SettingsScreen({
             <Pressable
               onPress={onOpenHiddenTracks}
               accessibilityRole="button"
-              accessibilityLabel={hiddenTracksLabel(hiddenCount)}
+              accessibilityLabel={hiddenTracksLabel()}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{hiddenTracksLabel(hiddenCount)}</Text>
+                <Text style={styles.rowTitle}>{hiddenTracksLabel()}</Text>
                 <Text style={styles.rowMeta}>Restore or remove hidden tracks</Text>
               </View>
               <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
@@ -269,6 +275,9 @@ export function SettingsScreen({
               <Ionicons name="eye-off-outline" size={22} color={colors.textDim} />
             </Pressable>
           </View>
+
+          <Text style={styles.sectionTitle}>Tags</Text>
+          <TagsSection onTagsChanged={onTagsChanged} />
 
           <Text style={styles.sectionTitle}>Storage</Text>
           <View style={styles.card}>
@@ -351,64 +360,66 @@ export function SettingsScreen({
               <Text style={styles.actionText}>Clean</Text>
             </Pressable>
 
-            <View style={styles.linkFields}>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Link service URL</Text>
-                <TextInput
-                  value={linkUrl}
-                  onChangeText={(value) => {
-                    setLinkUrl(value);
-                    setLinkNote(null);
-                    setLinkError(null);
-                  }}
-                  placeholder="https://links.example.com"
-                  placeholderTextColor={colors.textDim}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  accessibilityLabel="Link service URL"
-                  style={styles.input}
-                />
+            {LINK_IMPORT_ENABLED ? (
+              <View style={styles.linkFields}>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Link service URL</Text>
+                  <TextInput
+                    value={linkUrl}
+                    onChangeText={(value) => {
+                      setLinkUrl(value);
+                      setLinkNote(null);
+                      setLinkError(null);
+                    }}
+                    placeholder="https://links.example.com"
+                    placeholderTextColor={colors.textDim}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    accessibilityLabel="Link service URL"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Link service token</Text>
+                  <TextInput
+                    value={linkToken}
+                    onChangeText={(value) => {
+                      setLinkToken(value);
+                      setLinkNote(null);
+                      setLinkError(null);
+                    }}
+                    placeholder="Optional access token"
+                    placeholderTextColor={colors.textDim}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    accessibilityLabel="Link service token"
+                    style={styles.input}
+                  />
+                </View>
+                <Pressable
+                  onPress={() => void saveLinkConfig()}
+                  disabled={linkBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save link service settings"
+                  accessibilityState={{ disabled: linkBusy, busy: linkBusy }}
+                  style={({ pressed }) => [
+                    styles.saveButton,
+                    linkBusy && styles.rowDisabled,
+                    pressed && !linkBusy && styles.actionPressed,
+                  ]}
+                >
+                  {linkBusy ? (
+                    <ActivityIndicator color={colors.text} />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  )}
+                </Pressable>
+                {linkNote ? <Text style={styles.saveNote}>{linkNote}</Text> : null}
+                {linkError ? <Text style={styles.saveError}>{linkError}</Text> : null}
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Link service token</Text>
-                <TextInput
-                  value={linkToken}
-                  onChangeText={(value) => {
-                    setLinkToken(value);
-                    setLinkNote(null);
-                    setLinkError(null);
-                  }}
-                  placeholder="Optional access token"
-                  placeholderTextColor={colors.textDim}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  accessibilityLabel="Link service token"
-                  style={styles.input}
-                />
-              </View>
-              <Pressable
-                onPress={() => void saveLinkConfig()}
-                disabled={linkBusy}
-                accessibilityRole="button"
-                accessibilityLabel="Save link service settings"
-                accessibilityState={{ disabled: linkBusy, busy: linkBusy }}
-                style={({ pressed }) => [
-                  styles.saveButton,
-                  linkBusy && styles.rowDisabled,
-                  pressed && !linkBusy && styles.actionPressed,
-                ]}
-              >
-                {linkBusy ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </Pressable>
-              {linkNote ? <Text style={styles.saveNote}>{linkNote}</Text> : null}
-              {linkError ? <Text style={styles.saveError}>{linkError}</Text> : null}
-            </View>
+            ) : null}
           </View>
 
           <Text style={styles.sectionTitle}>Playback</Text>
@@ -429,16 +440,23 @@ export function SettingsScreen({
 
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
-            <View style={styles.row}>
+            <Pressable
+              onPress={onOpenTechStack}
+              accessibilityRole="button"
+              accessibilityLabel={`Krotify ${appJson.expo.version}, view tech stack`}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Krotify {appJson.expo.version}</Text>
                 <Text style={styles.rowMeta}>Local playback.</Text>
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+            </Pressable>
             <View style={styles.row}>
               <Text style={styles.rowTitle}>Release ABI</Text>
               <Text style={styles.rowValue}>{RELEASE_ABI}</Text>
             </View>
+            <CreatedByKrocified />
           </View>
         </Animated.ScrollView>
         <ScrollBar

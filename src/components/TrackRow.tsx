@@ -10,61 +10,81 @@ type Props = {
   track: Track;
   onPress: (track: Track) => void;
   onLongPress?: () => void;
+  onMore?: () => void;
 };
 
-export function TrackRow({ track, onPress, onLongPress }: Props) {
+export function TrackRow({ track, onPress, onLongPress, onMore }: Props) {
   const duration = formatDuration(track.durationMs);
   const missing = isMissingTrack(track);
-  const label = track.artist
-    ? `${track.title} by ${track.artist}, ${duration}`
-    : `${track.title}, ${duration}`;
+  const detail = missing ? 'File missing' : track.artist ? `${track.artist} · ${duration}` : duration;
+  const label = `${track.title}, ${detail}`;
+  const meta = track.artist ? `${track.artist} · ${duration}` : duration;
+
   return (
-    <Pressable
-      onPress={() => onPress(track)}
-      onLongPress={onLongPress}
-      accessibilityRole="button"
-      accessibilityLabel={missing ? `${label}, file missing` : label}
-      accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-    >
-      <CoverArt
-        hue={track.artworkHue}
-        title={track.title}
-        size={56}
-        radius={4}
-        uri={track.artworkUri}
-      />
-      <View style={styles.text}>
-        <Text style={styles.title} numberOfLines={1}>
-          {track.title}
-        </Text>
-        {missing ? (
-          <View style={styles.missing}>
-            <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-            <Text style={styles.missingText} numberOfLines={1}>
-              File missing
-            </Text>
-          </View>
-        ) : track.artist ? (
-          <Text style={styles.artist} numberOfLines={1}>
-            {track.artist}
+    <View style={styles.row}>
+      <Pressable
+        onPress={() => onPress(track)}
+        onLongPress={onLongPress}
+        accessibilityRole="button"
+        accessibilityLabel={missing ? `${label}, file missing` : label}
+        accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
+        style={({ pressed }) => [styles.main, pressed && styles.pressed]}
+      >
+        <CoverArt
+          hue={track.artworkHue}
+          title={track.title}
+          size={56}
+          radius={4}
+          uri={track.artworkUri}
+        />
+        <View style={styles.text}>
+          <Text style={styles.title} numberOfLines={1}>
+            {track.title}
           </Text>
-        ) : null}
-      </View>
-      <Text style={styles.duration}>{duration}</Text>
-    </Pressable>
+          {missing ? (
+            <View style={styles.missing}>
+              <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
+              <Text style={styles.missingText} numberOfLines={1}>
+                File missing
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.meta} numberOfLines={1}>
+              {meta}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+      {onMore ? (
+        <Pressable
+          onPress={onMore}
+          accessibilityRole="button"
+          accessibilityLabel={`More options for ${track.title}`}
+          hitSlop={space.sm}
+          style={({ pressed }) => [styles.more, pressed && styles.morePressed]}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color={colors.textDim} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
-    height: 72,
+    minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
     paddingHorizontal: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ffffff10',
+  },
+  main: {
+    flex: 1,
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
   },
   pressed: {
     transform: [{ scale: 0.985 }],
@@ -78,7 +98,7 @@ const styles = StyleSheet.create({
     ...type.body,
     color: colors.text,
   },
-  artist: {
+  meta: {
     ...type.meta,
     color: colors.textDim,
   },
@@ -91,9 +111,14 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.danger,
   },
-  duration: {
-    ...type.meta,
-    color: colors.textDim,
-    fontVariant: ['tabular-nums'],
+  more: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  morePressed: {
+    backgroundColor: colors.surfaceHi,
   },
 });

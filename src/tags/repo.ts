@@ -47,6 +47,12 @@ export async function createTag(rawName: string): Promise<Tag | null> {
   return db.getFirstAsync<Tag>('SELECT id, name FROM tags WHERE name = ? COLLATE NOCASE', name);
 }
 
+export async function deleteTag(id: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.runAsync('DELETE FROM tags WHERE id = ?', id);
+}
+
 export async function assignTag(trackId: string, tagId: string): Promise<void> {
   const db = await getDb();
   if (!db) return;

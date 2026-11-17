@@ -37,6 +37,30 @@ function deleteCoverFiles(directory: Directory, playlistId: string, keepName?: s
   }
 }
 
+export type PlaylistCoverSource = {
+  uri: string;
+  name: string;
+};
+
+export async function stagePlaylistCoverFrom(
+  playlistId: string,
+  source: PlaylistCoverSource,
+): Promise<string | null> {
+  const file = new File(source.uri);
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_ARTWORK_BYTES) {
+    return null;
+  }
+
+  const mime = mediaType(file.type);
+  if (mime && !mime.startsWith('image/')) return null;
+
+  const extension = extensionForMime(mime) ?? extensionOfName(source.name) ?? 'jpg';
+  const directory = stagingDirectory();
+  const destination = new File(directory, `stage-${playlistId}-${Date.now()}.${extension}`);
+  await file.copy(destination, { overwrite: true });
+  return destination.uri;
+}
+
 export async function stagePlaylistCover(playlistId: string): Promise<string | null> {
   const picked = await DocumentPicker.getDocumentAsync({
     type: 'image/*',
@@ -45,21 +69,9 @@ export async function stagePlaylistCover(playlistId: string): Promise<string | n
   if (picked.canceled) return null;
   const asset = picked.assets[0];
   if (!asset) return null;
-
-  const mime = mediaType(asset.mimeType);
-  if (!mime.startsWith('image/')) return null;
   if (typeof asset.size === 'number' && asset.size > MAX_ARTWORK_BYTES) return null;
 
-  const source = new File(asset.uri);
-  if (!Number.isFinite(source.size) || source.size <= 0 || source.size > MAX_ARTWORK_BYTES) {
-    return null;
-  }
-
-  const extension = extensionForMime(mime) ?? extensionOfName(asset.name) ?? 'jpg';
-  const directory = stagingDirectory();
-  const destination = new File(directory, `stage-${playlistId}-${Date.now()}.${extension}`);
-  await source.copy(destination, { overwrite: true });
-  return destination.uri;
+  return stagePlaylistCoverFrom(playlistId, { uri: asset.uri, name: asset.name });
 }
 
 export async function commitPlaylistCover(
@@ -74,8 +86,8 @@ export async function commitPlaylistCover(
 
   const extension = extensionOfName(stagedUri) ?? 'jpg';
   const directory = coverDirectory();
-  const destination = new File(directory, `${playlistId}.${extension}`);
-  await source.copy(destination, { overwrite: true });
+  const destination = new File(directory, `${playlistId}-${Date.now()}.${extension}`);
+  await source.copy(destination);
   deleteCoverFiles(directory, playlistId, destination.name);
   return destination.uri;
 }

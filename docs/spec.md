@@ -334,10 +334,11 @@ Focus: make the v5 surfaces usable and make a bad download harmless.
   obscured by the keyboard.
 - Tag pills sit above the Liked Songs row, with a margin between them.
 
-### v7: Local lyrics, artists, artwork and list polish (planned)
+### v7: Local lyrics, artwork and UX polish (planned)
 
 Focus: bring lyrics back without the network, make real artwork drive color, and
-finish the library and playlist surfaces.
+tighten the surfaces a daily user touches. The UX review items below are part of
+v7, not a later cleanup.
 
 - **Lyrics, local first.** `LYRICS_ENABLED` returns. Now Playing gets a lyrics
   mode and an Import .lrc action. Picking a local `.lrc` reads and parses it, then
@@ -357,13 +358,19 @@ finish the library and playlist surfaces.
 - **Ambient color from the art.** The Now Playing backdrop uses the dominant color
   of the real cover, cached per artwork URI. The generated hue is only a fallback
   when there is no real art or extraction fails.
-- **Artists in Library.** An Artists section or rail shows circular covers and
-  `N albums · M tracks`, hidden when there are no artists. Tapping opens artist
-  detail with a circular hero and the artist's track list. No Albums tab.
+- **Library is the song list.** The Library lists every song plus the tag pills,
+  nothing else. The Recently played rail, the Liked Songs row and the Playlists
+  rail leave the Library in v7. A compact Collections control in the header keeps
+  Liked Songs and Playlists reachable until they return with Artists in a
+  dedicated Home-style section, which is out of scope here. No Artists rail in
+  v7. Screens and routes stay on disk for that section.
+- **Library song rows.** Each row shows cover, title and `artist · duration` on the
+  second line. An ellipsis button on the right opens the same action sheet as a
+  long press. Duration leaves the far right.
 - **Square art cropper.** A reusable cropper with pinch zoom, pan, resize and a
-  square selection applies to track, playlist and artist art. The result is saved
-  as a new square image in the app artwork folder and its URI is stored in the DB.
-  Audio files are never touched.
+  square selection applies to track and playlist art. The result is saved as a new
+  square image in the app artwork folder and its URI is stored in the DB. Audio
+  files are never touched. Artist art joins when the artists surface lands.
 - **Active-page navbar blur.** The tab bar blurs the active page. Settings,
   Hidden tracks, Search, Playlists, Liked Songs and Details each provide their own
   blur target, so Settings no longer shows the blurred Library underneath.
@@ -371,12 +378,26 @@ finish the library and playlist surfaces.
   Create action, per-card overflow (edit, delete), a track count and an empty
   state. Detail keeps the hero, cover editing through the cropper, Play, Shuffle,
   drag reorder and the persistent bottom nav/player.
-- **Create playlist from the picker.** The playlist picker sheet used by the hold
-  menu and the Now Playing bookmark gains a New playlist row with a name field. It
-  creates the playlist and adds the current track in one step.
-- **Library song rows.** Each row shows cover, title and `artist · duration` on the
-  second line. An ellipsis button on the right opens the same action sheet as a
-  long press. Duration leaves the far right.
+- **Playlist picker revamp.** The picker used by the hold menu and the Now Playing
+  bookmark gains two things:
+  - a New playlist row with a name field; pressing Add creates the playlist and
+    adds the current track in one step;
+  - multi-select checkboxes, so one Add press adds the track to every checked
+    playlist and reports "Added to N playlists". Partial failures are named, not
+    silent.
+- **Tags in Settings.** A Tags section lists every tag with its active track
+  count, creates a tag with the same validation as the editor, and deletes a tag
+  after confirmation. Deleting removes its `track_tags` rows so it disappears from
+  every song. Audio files are never touched. The track editor keeps its own
+  create-and-assign flow.
+- **Import surface trimmed.** The YouTube link card is hidden from Import and the
+  link-service section is hidden from Settings. Keep the code behind
+  `LINK_IMPORT_ENABLED = false`; no route, no dead fields, no broken import path.
+- **About: tech stack and credit.** The version string in About is tappable and
+  opens a Tech stack page listing the stack from the table above. About and the
+  Tech stack page both carry a "Created by Krocified" watermark.
+- **Hidden tracks row.** The Settings row drops its trailing track count; the
+  Hidden tracks page keeps the count.
 
 ## Library management
 

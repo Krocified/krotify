@@ -21,6 +21,7 @@ import {
 } from '../imports/link';
 import { loadLinkServerConfig } from '../imports/serverConfig';
 import type { ImportFailure } from '../imports/local';
+import { LINK_IMPORT_ENABLED } from '../lib/features';
 import { colors, radius, space, type } from '../theme';
 import type { TrackRecord } from '../tracks/types';
 
@@ -64,7 +65,7 @@ export function ImportScreen({
   }, []);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !LINK_IMPORT_ENABLED) return;
     let cancelled = false;
     void loadLinkServerConfig()
       .then((config) => {
@@ -229,75 +230,76 @@ export function ImportScreen({
             </View>
           ) : null}
 
-          <View style={[styles.card, styles.linkCard, !canImport && styles.cardDisabled]}>
-            <View style={styles.linkHeader}>
-              <Text style={styles.cardTitle}>From a link</Text>
-              {canImport ? null : (
-                <Text style={styles.cardMeta}>Available on device builds</Text>
-              )}
-            </View>
-            {serverReady === false ? (
-              <Pressable
-                onPress={onOpenSettings}
-                accessibilityRole="button"
-                accessibilityLabel="Open Settings to set the link service URL"
-                style={({ pressed }) => [styles.serverNote, pressed && styles.cardPressed]}
-              >
-                <Ionicons name="link-outline" size={18} color={colors.accent2} />
-                <Text style={styles.serverNoteText}>
-                  Set the link service URL in Settings to download from a link.
-                </Text>
-              </Pressable>
-            ) : null}
-            <TextInput
-              value={linkUrl}
-              onChangeText={setLinkUrl}
-              placeholder="https://youtube.com/watch?v=..."
-              placeholderTextColor={colors.textDim}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              editable={!linkBusy && canImport}
-              accessibilityLabel="YouTube link"
-              style={[styles.linkInput, !canImport && styles.controlDisabled]}
-            />
-            {linkNote ? <Text style={styles.linkNote}>{linkNote}</Text> : null}
-            {linkError ? <Text style={styles.linkError}>{linkError}</Text> : null}
-            {linkProgress ? (
-              <Text style={styles.linkNote}>{linkProgressLabel(linkProgress)}</Text>
-            ) : null}
-            <View style={styles.linkActions}>
-              <Pressable
-                onPress={() => void downloadLink()}
-                disabled={!canDownload}
-                accessibilityRole="button"
-                accessibilityLabel="Download from link"
-                accessibilityState={{ disabled: !canDownload, busy: linkBusy }}
-                style={({ pressed }) => [
-                  styles.linkButton,
-                  styles.linkButtonPrimary,
-                  !canDownload && styles.controlDisabled,
-                  pressed && canDownload && styles.controlPressed,
-                ]}
-              >
-                <Text style={styles.linkButtonText}>Download</Text>
-              </Pressable>
-              {linkBusy ? (
+          {LINK_IMPORT_ENABLED ? (
+            <View style={[styles.card, styles.linkCard, !canImport && styles.cardDisabled]}>
+              <View style={styles.linkHeader}>
+                <Text style={styles.cardTitle}>From a link</Text>
+                {canImport ? null : (
+                  <Text style={styles.cardMeta}>Available on device builds</Text>
+                )}
+              </View>
+              {serverReady === false ? (
                 <Pressable
-                  onPress={cancelLink}
+                  onPress={onOpenSettings}
                   accessibilityRole="button"
-                  accessibilityLabel="Cancel download"
-                  style={({ pressed }) => [
-                    styles.linkButton,
-                    pressed && styles.controlPressed,
-                  ]}
+                  accessibilityLabel="Open Settings to set the link service URL"
+                  style={({ pressed }) => [styles.serverNote, pressed && styles.cardPressed]}
                 >
-                  <Text style={styles.linkButtonText}>Cancel</Text>
+                  <Ionicons name="link-outline" size={18} color={colors.accent2} />
+                  <Text style={styles.serverNoteText}>
+                    Set the link service URL in Settings to download from a link.
+                  </Text>
                 </Pressable>
               ) : null}
+              <TextInput
+                value={linkUrl}
+                onChangeText={setLinkUrl}
+                placeholder="https://youtube.com/watch?v=..."
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                editable={!linkBusy && canImport}
+                accessibilityLabel="YouTube link"
+                style={[styles.linkInput, !canImport && styles.controlDisabled]}
+              />
+              {linkNote ? <Text style={styles.linkNote}>{linkNote}</Text> : null}
+              {linkError ? <Text style={styles.linkError}>{linkError}</Text> : null}
+              {linkProgress ? (
+                <Text style={styles.linkNote}>{linkProgressLabel(linkProgress)}</Text>
+              ) : null}
+              <View style={styles.linkActions}>
+                <Pressable
+                  onPress={() => void downloadLink()}
+                  disabled={!canDownload}
+                  accessibilityRole="button"
+                  accessibilityLabel="Download from link"
+                  accessibilityState={{ disabled: !canDownload, busy: linkBusy }}
+                  style={({ pressed }) => [
+                    styles.linkButton,
+                    styles.linkButtonPrimary,
+                    !canDownload && styles.controlDisabled,
+                    pressed && canDownload && styles.controlPressed,
+                  ]}
+                >
+                  <Text style={styles.linkButtonText}>Download</Text>
+                </Pressable>
+                {linkBusy ? (
+                  <Pressable
+                    onPress={cancelLink}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel download"
+                    style={({ pressed }) => [
+                      styles.linkButton,
+                      pressed && styles.controlPressed,
+                    ]}
+                  >
+                    <Text style={styles.linkButtonText}>Cancel</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
-          </View>
-
+          ) : null}
         </View>
       </ScrollView>
     </View>

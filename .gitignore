@@ -26,6 +26,10 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# playwright
+playwright-report/
+test-results/
+
 # macOS
 .DS_Store
 *.pem

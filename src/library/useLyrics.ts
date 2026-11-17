@@ -1,25 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { LrcLine } from '../lib/lrc';
 import type { Track } from '../types';
 import { loadLyrics } from './lyrics';
-import { loadLyricsNetworkEnabled } from './lyricsPrefs';
 
 export type LyricsState = 'idle' | 'loading' | 'ready' | 'none' | 'error';
 
-export type LyricsResult = {
+type LyricsData = {
   state: LyricsState;
   lines: LrcLine[];
   plain?: string;
 };
 
-const IDLE: LyricsResult = { state: 'idle', lines: [] };
-const LOADING: LyricsResult = { state: 'loading', lines: [] };
+export type LyricsResult = LyricsData & {
+  reload: () => void;
+};
 
-type StoredLyrics = LyricsResult & { trackId: string | null };
+const IDLE: LyricsData = { state: 'idle', lines: [] };
+const LOADING: LyricsData = { state: 'loading', lines: [] };
+
+type StoredLyrics = LyricsData & { trackId: string | null };
 
 export function useLyrics(track: Track | null, request = true): LyricsResult {
   const [stored, setStored] = useState<StoredLyrics>({ trackId: null, ...IDLE });
+  const [version, setVersion] = useState(0);
   const trackId = request && track ? track.id : null;
+  const reload = useCallback(() => setVersion((value) => value + 1), []);
 
   useEffect(() => {
     if (!track || !request) return;
@@ -27,9 +32,7 @@ export function useLyrics(track: Track | null, request = true): LyricsResult {
     let cancelled = false;
     void (async () => {
       try {
-        const allowNetwork = await loadLyricsNetworkEnabled();
-        if (cancelled) return;
-        const loaded = await loadLyrics(track, { allowNetwork });
+        const loaded = await loadLyrics(track, { allowNetwork: false });
         if (cancelled) return;
         if (loaded.kind === 'synced') {
           setStored({ trackId: track.id, state: 'ready', lines: loaded.lines });
@@ -46,9 +49,9 @@ export function useLyrics(track: Track | null, request = true): LyricsResult {
     return () => {
       cancelled = true;
     };
-  }, [track, request]);
+  }, [track, request, version]);
 
-  if (trackId === null) return IDLE;
-  if (stored.trackId !== trackId) return LOADING;
-  return { state: stored.state, lines: stored.lines, plain: stored.plain };
+  if (trackId === null) return { ...IDLE, reload };
+  if (stored.trackId !== trackId) return { ...LOADING, reload };
+  return { state: stored.state, lines: stored.lines, plain: stored.plain, reload };
 }

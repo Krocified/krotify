@@ -1,4 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,13 +15,14 @@ import {
   commitPlaylistCover,
   deletePlaylistCoverFile,
   discardStagedCover,
-  stagePlaylistCover,
+  stagePlaylistCoverFrom,
 } from '../library/playlistArtwork';
 import { playlistArtwork } from '../lib/playlistView';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
 import { Sheet } from './Sheet';
+import { SquareImageCropper } from './SquareImageCropper';
 
 type Props = {
   visible: boolean;
@@ -41,6 +44,7 @@ export function PlaylistEditSheet({
   const [coverUri, setCoverUri] = useState<string | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
   const [stagedUri, setStagedUri] = useState<string | null>(null);
+  const [cropUri, setCropUri] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,7 @@ export function PlaylistEditSheet({
     setCoverRemoved(false);
     stagedRef.current = null;
     setStagedUri(null);
+    setCropUri(null);
     setPicking(false);
     setBusy(false);
     setError(null);
@@ -91,6 +96,7 @@ export function PlaylistEditSheet({
     const uri = stagedRef.current;
     stagedRef.current = null;
     setStagedUri(null);
+    setCropUri(null);
     if (uri) void discardStagedCover(uri);
     onClose();
   }
@@ -100,12 +106,42 @@ export function PlaylistEditSheet({
     setPicking(true);
     setError(null);
     try {
-      const uri = await stagePlaylistCover(playlist.id);
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled) return;
+      const asset = picked.assets[0];
+      if (!asset) return;
+      setCropUri(asset.uri);
+    } catch {
+      setError('Could not open the cover picker.');
+    } finally {
+      setPicking(false);
+    }
+  }
+
+  async function handleCropDone(file: File) {
+    if (!playlist) return;
+    setCropUri(null);
+    setPicking(true);
+    setError(null);
+    try {
+      const uri = await stagePlaylistCoverFrom(playlist.id, {
+        uri: file.uri,
+        name: file.name,
+      });
+      try {
+        new File(file.uri).delete();
+      } catch {}
       if (!mountedRef.current) {
         if (uri) void discardStagedCover(uri);
         return;
       }
-      if (!uri) return;
+      if (!uri) {
+        setError('Could not use that image.');
+        return;
+      }
       const previous = stagedRef.current;
       stagedRef.current = uri;
       setStagedUri(uri);
@@ -113,7 +149,7 @@ export function PlaylistEditSheet({
       setCoverRemoved(false);
       if (previous) void discardStagedCover(previous);
     } catch {
-      setError('Could not open the cover picker.');
+      setError('Could not use that image.');
     } finally {
       setPicking(false);
     }
@@ -176,7 +212,8 @@ export function PlaylistEditSheet({
   }
 
   return (
-    <Sheet visible={visible} title="Edit playlist" onClose={handleClose}>
+    <>
+      <Sheet visible={visible} title="Edit playlist" onClose={handleClose}>
       <View style={styles.coverRow}>
         <CoverArt
           hue={artwork.hue}
@@ -285,7 +322,14 @@ export function PlaylistEditSheet({
           )}
         </Pressable>
       </View>
-    </Sheet>
+      </Sheet>
+      <SquareImageCropper
+        visible={cropUri !== null}
+        uri={cropUri}
+        onCancel={() => setCropUri(null)}
+        onDone={(file) => void handleCropDone(file)}
+      />
+    </>
   );
 }
 

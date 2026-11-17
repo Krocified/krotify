@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import type { Asset } from 'expo-media-library';
+import { CollectionsSheet } from './components/CollectionsSheet';
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
 import { Sheet } from './components/Sheet';
@@ -22,7 +23,7 @@ import {
   PlaylistPickerSheet,
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
-import { listPlaylists, listRecentTrackIds, recordPlay, type Playlist } from './db/repo';
+import { recordPlay } from './db/repo';
 import { getScanSummary, type ScanSummary } from './db/settings';
 import { pickAndImportTracks, type ImportFailure } from './imports/local';
 import { DEMO_TRACKS } from './library/demo';
@@ -32,6 +33,7 @@ import { resolvePlaybackUri } from './library/playbackSource';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
 import { resolveBack } from './lib/backIntent';
+import { resolveBlurLayer } from './lib/layerTarget';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { importResultMessage } from './lib/importResult';
 import { parseResume, serializeResume } from './lib/resume';
@@ -67,6 +69,7 @@ import { NowPlayingScreen } from './screens/NowPlayingScreen';
 import { PlaylistsScreen } from './screens/PlaylistsScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { TechStackScreen } from './components/TechStackScreen';
 import { colors, radius, space, type } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
@@ -100,9 +103,7 @@ export function AppShell() {
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
   const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
-  const [recentTrackIds, setRecentTrackIds] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<Track[]>([]);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<ImportFailure[]>([]);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
@@ -124,6 +125,8 @@ export function AppShell() {
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [techStackOpen, setTechStackOpen] = useState(false);
   const [actionTrack, setActionTrack] = useState<Track | null>(null);
   const [clearTarget, setClearTarget] = useState<Track | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Track | null>(null);
@@ -134,6 +137,13 @@ export function AppShell() {
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const assetsRef = useRef(new Map<string, Asset>());
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
+  const searchBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const settingsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const hiddenBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const playlistsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const likedBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const detailsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
   const exitArmedRef = useRef<number | null>(null);
@@ -185,10 +195,6 @@ export function AppShell() {
     hiddenScannedCount > 0
       ? `${hiddenScannedCount} scanned track${hiddenScannedCount === 1 ? '' : 's'} hidden. Restore them in Settings.`
       : null;
-  const favoriteCount = useMemo(
-    () => tracks.filter((track) => favoriteIds.has(track.id)).length,
-    [favoriteIds, tracks],
-  );
   const scanExcludeCount = useMemo(
     () =>
       libraryTracks.filter(
@@ -197,17 +203,7 @@ export function AppShell() {
     [excludedIds, libraryTracks],
   );
 
-  const refreshPlaylists = useCallback(() => {
-    void listPlaylists()
-      .then((items) => setPlaylists(items))
-      .catch(() => {});
-  }, []);
 
-  const refreshRecent = useCallback(() => {
-    void listRecentTrackIds(20)
-      .then((ids) => setRecentTrackIds(ids))
-      .catch(() => {});
-  }, []);
 
   const refreshLibraryFromDb = useCallback(async () => {
     const [active, hidden] = await Promise.all([listActiveTracks(), listHiddenTracks()]);
@@ -277,15 +273,6 @@ export function AppShell() {
     return () => sub.remove();
   }, [refreshPermission]);
 
-  const recentTracks = useMemo(() => {
-    const byId = new Map(tracks.map((track) => [track.id, track]));
-    return recentTrackIds
-      .map((id) => byId.get(id))
-      .filter((track): track is Track => track !== undefined);
-  }, [recentTrackIds, tracks]);
-  useEffect(() => {
-    refreshPlaylists();
-  }, [refreshPlaylists]);
 
   useEffect(() => {
     let cancelled = false;
@@ -313,11 +300,6 @@ export function AppShell() {
     async function loadLibrary() {
       setStatus('scanning');
       setStatusNote(null);
-      void listRecentTrackIds()
-        .then((recent) => {
-          if (!cancelled) setRecentTrackIds(recent);
-        })
-        .catch(() => {});
 
       let active: Track[] = [];
       try {
@@ -405,6 +387,10 @@ export function AppShell() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (techStackOpen) {
+        setTechStackOpen(false);
+        return true;
+      }
       if (backInterceptorRef.current?.()) {
         exitArmedRef.current = null;
         return true;
@@ -433,7 +419,6 @@ export function AppShell() {
           return true;
         case 'close-playlists':
           setPlaylistsOpen(false);
-          refreshPlaylists();
           return true;
         case 'close-now-playing':
           if (closeNowPlayingRef.current) closeNowPlayingRef.current();
@@ -465,11 +450,8 @@ export function AppShell() {
       }
     });
     return () => sub.remove();
-  }, [refreshPlaylists, showToast]);
+  }, [showToast, techStackOpen]);
 
-  useEffect(() => {
-    if (screen === 'library') refreshRecent();
-  }, [screen, refreshRecent]);
 
 
 
@@ -575,7 +557,7 @@ export function AppShell() {
       setStatusNote('File missing');
     } else {
       setStatusNote(null);
-      void recordPlay(track.id).then(refreshRecent).catch(() => {});
+      void recordPlay(track.id).catch(() => {});
       rememberReturnScreen();
       setScreen('nowPlaying');
     }
@@ -881,6 +863,25 @@ export function AppShell() {
   const showTabBar = screen !== 'nowPlaying';
   const activeTab: TabName =
     screen === 'library' || screen === 'import' ? screen : tab;
+  const blurLayer = resolveBlurLayer({
+    details: editTarget !== null,
+    liked: likedOpen,
+    playlists: playlistsOpen,
+    techStack: techStackOpen,
+    hidden: screen === 'hiddenTracks',
+    settings: screen === 'settings' || screen === 'hiddenTracks',
+    search: screen === 'search',
+  });
+  const activeBlurTarget = {
+    details: detailsBlurRef,
+    liked: likedBlurRef,
+    playlists: playlistsBlurRef,
+    techStack: techStackBlurRef,
+    hidden: hiddenBlurRef,
+    settings: settingsBlurRef,
+    search: searchBlurRef,
+    base: blurTargetRef,
+  }[blurLayer];
 
   function openSearch() {
     searchReturnRef.current = activeTab;
@@ -905,6 +906,7 @@ export function AppShell() {
     setOpenPlaylistId(null);
     setLikedOpen(false);
     setEditTarget(null);
+    setTechStackOpen(false);
     setTab(next);
     setScreen(next);
   }
@@ -917,7 +919,6 @@ export function AppShell() {
   function closePlaylists() {
     setPlaylistsOpen(false);
     setOpenPlaylistId(null);
-    refreshPlaylists();
   }
 
   return (
@@ -931,7 +932,6 @@ export function AppShell() {
         {activeTab === 'library' ? (
           <LibraryScreen
             tracks={filteredTracks}
-            recentTracks={recentTracks}
             tags={tags}
             selectedTagId={effectiveTagId}
             onSelectTag={setSelectedTagId}
@@ -943,11 +943,9 @@ export function AppShell() {
             onManage={handleManage}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
-            playlists={playlists}
-            likedCount={favoriteCount}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
-            onOpenPlaylist={(id) => openPlaylists(id)}
+            onOpenCollections={() => setCollectionsOpen(true)}
           />
         ) : (
           <ImportScreen
@@ -971,12 +969,23 @@ export function AppShell() {
           registerBackInterceptor={registerBackInterceptor}
         />
       ) : null}
-      <SearchScreen
-        visible={screen === 'search'}
-        tracks={tracks}
-        onSelect={handleSelect}
-        onBack={() => setScreen(searchReturnRef.current)}
-      />
+      <BlurTargetView
+        ref={searchBlurRef}
+        style={StyleSheet.absoluteFill}
+        pointerEvents={screen === 'search' ? 'auto' : 'none'}
+      >
+        <SearchScreen
+          visible={screen === 'search'}
+          tracks={tracks}
+          onSelect={handleSelect}
+          onBack={() => setScreen(searchReturnRef.current)}
+        />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={settingsBlurRef}
+        style={StyleSheet.absoluteFill}
+        pointerEvents={screen === 'settings' ? 'auto' : 'none'}
+      >
       <SettingsScreen
         visible={screen === 'settings' || screen === 'hiddenTracks'}
         status={status}
@@ -987,7 +996,10 @@ export function AppShell() {
         scanExcludeCount={scanExcludeCount}
         storage={storage}
         storageBusy={storageBusy}
-        onBack={() => setScreen(settingsReturnRef.current)}
+        onBack={() => {
+          setTechStackOpen(false);
+          setScreen(settingsReturnRef.current);
+        }}
         onToggleScan={(enabled) => void handleScanToggle(enabled)}
         onGrant={() => void handleGrant()}
         onRescan={handleRescan}
@@ -996,47 +1008,62 @@ export function AppShell() {
         onChangeFolder={() => void handleChangeFolder()}
         onMoveFiles={() => void handleMoveFiles()}
         onCleanStorage={() => setCleanPrompt(true)}
+        onTagsChanged={refreshTags}
+        onOpenTechStack={() => setTechStackOpen(true)}
       />
-      <HiddenTracksScreen
-        visible={screen === 'hiddenTracks'}
-        tracks={excluded}
-        onBack={closeHiddenTracks}
-        onRestore={(id) => void handleRestore(id)}
-        onRestoreAll={() => void handleRestoreAll()}
-        onClear={(track) => setClearTarget(track)}
-        onDelete={(track) => setDeleteTarget(track)}
-      />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={hiddenBlurRef}
+        style={StyleSheet.absoluteFill}
+        pointerEvents={screen === 'hiddenTracks' ? 'auto' : 'none'}
+      >
+        <HiddenTracksScreen
+          visible={screen === 'hiddenTracks'}
+          tracks={excluded}
+          onBack={closeHiddenTracks}
+          onRestore={(id) => void handleRestore(id)}
+          onRestoreAll={() => void handleRestoreAll()}
+          onClear={(track) => setClearTarget(track)}
+          onDelete={(track) => setDeleteTarget(track)}
+        />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={techStackBlurRef}
+        style={StyleSheet.absoluteFill}
+        pointerEvents={techStackOpen ? 'auto' : 'none'}
+      >
+        <TechStackScreen visible={techStackOpen} onBack={() => setTechStackOpen(false)} />
+      </BlurTargetView>
       {playlistsOpen ? (
-        <View style={styles.overlay}>
+        <BlurTargetView ref={playlistsBlurRef} style={styles.overlay}>
           <PlaylistsScreen
             tracks={tracks}
             playlistId={openPlaylistId}
             onOpenPlaylist={setOpenPlaylistId}
             onClose={closePlaylists}
-            onPlaylistsChanged={refreshPlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
           />
-        </View>
+        </BlurTargetView>
       ) : null}
       {likedOpen ? (
-        <View style={styles.overlay}>
+        <BlurTargetView ref={likedBlurRef} style={styles.overlay}>
           <LikedScreen
             tracks={tracks}
             onClose={() => setLikedOpen(false)}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
           />
-        </View>
+        </BlurTargetView>
       ) : null}
       {editTarget ? (
-        <View style={styles.overlay}>
+        <BlurTargetView ref={detailsBlurRef} style={styles.overlay}>
           <EditTrackScreen
             track={editTarget}
             onSaved={handleTrackSaved}
             onClose={() => setEditTarget(null)}
           />
-        </View>
+        </BlurTargetView>
       ) : null}
       {showTabBar ? (
         <View style={styles.bottom}>
@@ -1044,12 +1071,13 @@ export function AppShell() {
             <MiniPlayer
               onExpand={() => {
                 rememberReturnScreen();
+                setTechStackOpen(false);
                 setScreen('nowPlaying');
               }}
             />
           </View>
           <View style={styles.tabBar}>
-            <TabBar active={activeTab} onSelect={selectTab} blurTarget={blurTargetRef} />
+            <TabBar active={activeTab} onSelect={selectTab} blurTarget={activeBlurTarget} />
           </View>
         </View>
       ) : null}
@@ -1071,7 +1099,12 @@ export function AppShell() {
         visible={pickerTrack !== null}
         track={pickerTrack}
         onClose={() => setPickerTrack(null)}
-        onAdded={() => refreshPlaylists()}
+      />
+      <CollectionsSheet
+        visible={collectionsOpen}
+        onClose={() => setCollectionsOpen(false)}
+        onOpenLiked={() => setLikedOpen(true)}
+        onOpenPlaylists={() => openPlaylists(null)}
       />
       <TagAssignSheet
         visible={tagTrack !== null}

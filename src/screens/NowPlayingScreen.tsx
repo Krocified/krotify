@@ -24,6 +24,8 @@ import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { useFavorites } from '../library/FavoritesProvider';
+import { importLyricsText, pickLyricsFile } from '../library/lyricsImport';
+import { getCoverColor } from '../library/palette';
 import { useLyrics } from '../library/useLyrics';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
@@ -77,22 +79,30 @@ export function NowPlayingScreen({
   const [resetToken, setResetToken] = useState(0);
   const [lyricsMode, setLyricsMode] = useState(false);
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
+  const [importingLyrics, setImportingLyrics] = useState(false);
+  const [coverColorState, setCoverColorState] = useState<{ uri?: string; color: string | null }>({
+    color: null,
+  });
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
+  const reloadLyrics = lyrics.reload;
+
+  const artworkUri = track?.artworkUri;
 
   useEffect(() => {
-    if (!LYRICS_ENABLED) return;
-    if (!lyricsMode || (lyrics.state !== 'none' && lyrics.state !== 'error')) return;
-    const timer = setTimeout(() => {
-      setLyricsNote(lyrics.state === 'error' ? "Couldn't load lyrics" : 'Lyrics not found');
-      setLyricsMode(false);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [lyricsMode, lyrics.state]);
+    if (!artworkUri) return;
+    let cancelled = false;
+    void getCoverColor(artworkUri).then((color) => {
+      if (!cancelled) setCoverColorState({ uri: artworkUri, color });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [artworkUri]);
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -149,11 +159,33 @@ export function NowPlayingScreen({
     setSleepOpen(false);
   }, [setSleep]);
 
+  const importLyrics = useCallback(async () => {
+    if (!track || Platform.OS === 'web') return;
+    setImportingLyrics(true);
+    setLyricsNote(null);
+    try {
+      const picked = await pickLyricsFile();
+      if (!picked) return;
+      const result = await importLyricsText(track.id, picked.text);
+      reloadLyrics();
+      setLyricsNote(
+        result.kind === 'synced'
+          ? `Added ${result.lineCount} timed lines.`
+          : 'Added untimed lyrics.',
+      );
+    } catch (error) {
+      setLyricsNote(error instanceof Error ? error.message : 'Could not read that file.');
+    } finally {
+      setImportingLyrics(false);
+    }
+  }, [track, reloadLyrics]);
+
   if (!track) return null;
 
   const liked = favoriteIds.has(track.id);
   const missing = isMissingTrack(track);
   const gradient = coverColors(track.artworkHue);
+  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
   const sleepLabel = sleep.mode === 'off' ? 'Sleep timer' : `Sleep timer, ${formatSleepRemaining(sleep.mode, sleep.remainingMs)}`;
@@ -171,7 +203,11 @@ export function NowPlayingScreen({
       accessibilityViewIsModal
     >
       <LinearGradient
-        colors={[`${gradient[0]}59`, `${gradient[1]}59`]}
+        colors={
+          coverColor
+            ? [`${coverColor}59`, `${coverColor}00`]
+            : [`${gradient[0]}59`, `${gradient[1]}59`]
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -338,6 +374,14 @@ export function NowPlayingScreen({
                 onSeek={(ms) => {
                   void seek(ms);
                 }}
+                onImport={
+                  Platform.OS === 'web'
+                    ? undefined
+                    : () => {
+                        void importLyrics();
+                      }
+                }
+                importing={importingLyrics}
               />
             </View>
           </Animated.View>
