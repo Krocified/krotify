@@ -74,19 +74,20 @@ Add `EXPO_PUBLIC_E2E=1` (read through `process.env.EXPO_PUBLIC_E2E` at build tim
 - never call MediaStore, SAF, audio, or the link service;
 - expose `window.__krotifyE2E` with a small, documented API to reset state and read
   the current route. This is test-only and stripped from production builds;
-- freeze relative timestamps used by "Recently played". Real clocks make
-  screenshots flaky.
+- freeze relative timestamps used by history so the later Home section is testable
+  and screenshots stay stable.
 
 ## Test suites
 
 ### 1. Library
 
 - App loads on Library with the demo tracks and no Settings overlay.
-- Liked Songs row is present and sits flush against the tag pills when tags exist.
+- Library is only the tag pills and the flat song list: no Recently played, no
+  Liked Songs row, no Playlists rail.
 - Tag bar is absent when no tag has an active track.
-- Playlists rail shows empty state and opens the create flow.
-- Recently played is absent until a track is played.
 - Scrolling reaches the bottom without horizontal overflow.
+- Each row shows cover, title and `artist · duration`, and its ellipsis opens the
+  same action sheet as a long press.
 
 ### 2. Search and player
 
@@ -104,8 +105,10 @@ Add `EXPO_PUBLIC_E2E=1` (read through `process.env.EXPO_PUBLIC_E2E` at build tim
 - Hidden tracks slides over Settings; Settings is still open underneath.
 - Back from Hidden returns to Settings; back from Settings returns to the screen
   that opened it.
-- Storage shows the link-service fields; an invalid URL is rejected and a valid
-  `http://` URL saves.
+- The Hidden tracks row has no track count; the count appears on the page.
+- Storage has no link-service fields.
+- The version row opens the Tech stack page; back returns to Settings. About and
+  Tech stack both show `Created by Krocified`.
 - Permission, scan summary, exclude-all count and storage rows render real labels.
 
 ### 4. Inline editing
@@ -120,20 +123,25 @@ Add `EXPO_PUBLIC_E2E=1` (read through `process.env.EXPO_PUBLIC_E2E` at build tim
 ### 5. Tags
 
 - Create a tag in the editor, assign it, and see the filter bar appear.
-- Filter by the tag narrows the list and hides Recently played.
+- Filter by the tag narrows the list.
 - Unassign the last track and the bar disappears.
+- Settings lists the tag with its count, creates another tag, and deletes one
+  after confirmation; the deleted tag leaves every song.
 - Now Playing tag button opens the same sheet and toggles an assignment.
 - Bookmark opens the playlist picker and saving reports success.
+- The picker creates a playlist and adds the current track in one press.
+- Checking two playlists and pressing Add reports both; a partial failure names
+  the playlist that failed.
 
 ### 6. Import and link surface
 
 - Import has no recent-imports list.
 - The local import card fills more of the screen and has the drop-field border.
-- On web, local import and link download are disabled with "Available on device
-  builds".
-- With no link service URL, the link card explains Settings.
-- With a saved URL and token, the Download button enables; a mocked network
-  response adds no track when it is not audio.
+- On web, local import is disabled with "Available on device builds".
+- Import shows no YouTube link card and no link empty state.
+- Settings shows no link-service URL or token field.
+- A direct settings write that enables the flag is still covered by the module
+  tests; the default UI stays hidden.
 
 ### 7. Accessibility
 

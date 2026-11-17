@@ -19,6 +19,9 @@ export function CoverArt({ hue, title, size, radius, uri }: Props) {
 
   return (
     <View
+      accessible={false}
+      aria-hidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         styles.frame,
         { width: size, height: size, borderRadius: radius, backgroundColor: gradient[0] },

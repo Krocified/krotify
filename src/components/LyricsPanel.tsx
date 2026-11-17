@@ -10,7 +10,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import type { LrcLine } from '../lib/lrc';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 import type { LyricsState } from '../library/useLyrics';
 
 type Props = {
@@ -19,9 +19,19 @@ type Props = {
   plain?: string;
   positionMs: number;
   onSeek: (positionMs: number) => void;
+  onImport?: () => void;
+  importing?: boolean;
 };
 
-export function LyricsPanel({ state, lines, plain, positionMs, onSeek }: Props) {
+export function LyricsPanel({
+  state,
+  lines,
+  plain,
+  positionMs,
+  onSeek,
+  onImport,
+  importing = false,
+}: Props) {
   const scrollRef = useRef<ScrollViewInstance>(null);
   const offsets = useRef<number[]>([]);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -63,6 +73,26 @@ export function LyricsPanel({ state, lines, plain, positionMs, onSeek }: Props) 
     return (
       <View style={styles.centered}>
         <Text style={styles.message}>Lyrics not found</Text>
+        {onImport ? (
+          <Pressable
+            onPress={onImport}
+            disabled={importing}
+            accessibilityRole="button"
+            accessibilityLabel="Import .lrc"
+            accessibilityState={{ disabled: importing }}
+            style={({ pressed }) => [
+              styles.importButton,
+              pressed && !importing && styles.importButtonPressed,
+              importing && styles.importButtonDisabled,
+            ]}
+          >
+            {importing ? (
+              <ActivityIndicator color={colors.accent} size="small" />
+            ) : (
+              <Text style={styles.importButtonText}>Import .lrc</Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -129,6 +159,25 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
     textAlign: 'center',
+  },
+  importButton: {
+    minHeight: 44,
+    minWidth: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surfaceHi,
+  },
+  importButtonPressed: {
+    backgroundColor: '#ffffff14',
+  },
+  importButtonDisabled: {
+    opacity: 0.6,
+  },
+  importButtonText: {
+    ...type.meta,
+    color: colors.text,
   },
   line: {
     paddingVertical: space.sm,

@@ -47,9 +47,8 @@ test('formatBytes uses readable binary units', () => {
   assert.equal(formatBytes(1024 * 1024), '1.0 MB');
 });
 
-test('hiddenTracksLabel keeps the count beside the row title', () => {
-  assert.equal(hiddenTracksLabel(0), 'Hidden tracks, 0');
-  assert.equal(hiddenTracksLabel(3), 'Hidden tracks, 3');
+test('hiddenTracksLabel drops the count from the row title', () => {
+  assert.equal(hiddenTracksLabel(), 'Hidden tracks');
 });
 
 test('moveFilesLabel and reclaimableLabel report files and space', () => {

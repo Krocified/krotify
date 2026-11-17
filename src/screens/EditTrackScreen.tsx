@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { Directory, File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,10 +15,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
+import { SquareImageCropper } from '../components/SquareImageCropper';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagEditor } from '../components/TagEditor';
 import { validateArtworkInput, type ArtworkInput } from '../lib/artworkInput';
 import { formatDuration } from '../lib/format';
+import { persistTrackArtwork } from '../library/trackArtwork';
 import { buildTrackFieldPatch, type EditForm } from '../tracks/editPatch';
 import { updateTrackFields } from '../tracks/repo';
 import { colors, radius, space, type } from '../theme';
@@ -82,20 +84,12 @@ function artworkMime(file: File): string {
   return 'image/jpeg';
 }
 
-async function persistArtwork(file: File): Promise<string> {
-  const directory = new Directory(Paths.document, 'artwork');
-  directory.create({ intermediates: true, idempotent: true });
-  const extension = extensionOf(file.name) || 'jpg';
-  const destination = new File(directory, `edit-${Date.now()}.${extension.toLowerCase()}`);
-  await file.copy(destination);
-  return destination.uri;
-}
-
 export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProps) {
   const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditForm>(() => formFromTrack(track));
   const [artwork, setArtwork] = useState<ArtworkSelection | null>(null);
+  const [cropUri, setCropUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileSize = fileSizeOf(track.uri);
@@ -124,10 +118,30 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
         setError(validation.errors.join(' '));
         return;
       }
-      const uri = await persistArtwork(file);
-      setArtwork({ uri, input });
+      setCropUri(file.uri);
     } catch {
       setError('Could not open the artwork picker.');
+    }
+  }
+
+  async function handleCropDone(file: File) {
+    setCropUri(null);
+    setError(null);
+    try {
+      const input: ArtworkInput = { mimeType: artworkMime(file), sizeBytes: file.size };
+      const validation = validateArtworkInput(input);
+      if (!validation.ok) {
+        setError(validation.errors.join(' '));
+        return;
+      }
+      const uri = await persistTrackArtwork(file);
+      setArtwork({ uri, input });
+    } catch {
+      setError('Could not save the artwork.');
+    } finally {
+      try {
+        new File(file.uri).delete();
+      } catch {}
     }
   }
 
@@ -336,6 +350,12 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
         }
       />
       {editing ? renderEditor() : renderDetails()}
+      <SquareImageCropper
+        visible={cropUri !== null}
+        uri={cropUri}
+        onCancel={() => setCropUri(null)}
+        onDone={(file) => void handleCropDone(file)}
+      />
     </View>
   );
 }

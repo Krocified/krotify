@@ -2,11 +2,10 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
@@ -15,17 +14,20 @@ import Sortable from 'react-native-sortables';
 import { CollectionHeader } from '../components/CollectionHeader';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
+import { PlaylistActionsSheet } from '../components/PlaylistActionsSheet';
+import { PlaylistCard } from '../components/PlaylistCard';
+import { PlaylistCreateSheet } from '../components/PlaylistCreateSheet';
 import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
-  createPlaylist,
   deletePlaylist,
+  listPlaylistSummaries,
   listPlaylistTracks,
-  listPlaylists,
   removePlaylistTrack,
   reorderPlaylistTracks,
   type Playlist,
+  type PlaylistSummary,
 } from '../db/repo';
 import { formatDuration } from '../lib/format';
 import { hueFromSeed } from '../lib/hash';
@@ -63,15 +65,15 @@ export function PlaylistsScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
   const [trackIds, setTrackIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [actionsTarget, setActionsTarget] = useState<Playlist | null>(null);
   const [editTarget, setEditTarget] = useState<{
     playlist: Playlist;
     queue: Track[];
   } | null>(null);
-  const [busy, setBusy] = useState(false);
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Playlist | null>(null);
@@ -99,7 +101,7 @@ export function PlaylistsScreen({
 
   useEffect(() => {
     let cancelled = false;
-    listPlaylists()
+    listPlaylistSummaries()
       .then((items) => {
         if (!cancelled) setPlaylists(items);
       })
@@ -113,6 +115,12 @@ export function PlaylistsScreen({
       cancelled = true;
     };
   }, []);
+
+  function refreshSummaries() {
+    listPlaylistSummaries()
+      .then((items) => setPlaylists(items))
+      .catch(() => {});
+  }
 
   useEffect(() => {
     if (!selectedId) return;
@@ -140,22 +148,14 @@ export function PlaylistsScreen({
     setMessage(null);
     if (onOpenPlaylist) onOpenPlaylist(null);
     else setLocalSelectedId(null);
+    refreshSummaries();
   }
 
-  async function create() {
-    const name = newName.trim();
-    if (!name || busy) return;
-    setBusy(true);
+  function handleCreated(playlist: Playlist) {
+    setPlaylists((previous) => [{ ...playlist, trackCount: 0 }, ...previous]);
+    setCreateOpen(false);
     setMessage(null);
-    try {
-      const playlist = await createPlaylist(name);
-      setPlaylists((previous) => [playlist, ...previous]);
-      setNewName('');
-    } catch {
-      setMessage('Could not create the playlist.');
-    } finally {
-      setBusy(false);
-    }
+    onPlaylistsChanged?.();
   }
 
   function startEdit(playlist: Playlist, queueTracks?: Track[]) {
@@ -176,16 +176,16 @@ export function PlaylistsScreen({
 
   function handleSaved(saved: Playlist) {
     setPlaylists((previous) =>
-      previous.map((playlist) => (playlist.id === saved.id ? saved : playlist)),
+      previous.map((playlist) =>
+        playlist.id === saved.id ? { ...playlist, ...saved } : playlist,
+      ),
     );
     setEditTarget((current) =>
       current && current.playlist.id === saved.id
         ? { ...current, playlist: saved }
         : current,
     );
-    void listPlaylists()
-      .then((items) => setPlaylists(items))
-      .catch(() => {});
+    refreshSummaries();
     onPlaylistsChanged?.();
   }
 
@@ -209,6 +209,13 @@ export function PlaylistsScreen({
     try {
       await removePlaylistTrack(selectedId, trackId);
       setTrackIds((previous) => previous.filter((id) => id !== trackId));
+      setPlaylists((previous) =>
+        previous.map((playlist) =>
+          playlist.id === selectedId
+            ? { ...playlist, trackCount: Math.max(0, playlist.trackCount - 1) }
+            : playlist,
+        ),
+      );
     } catch {
       setMessage('Could not remove the track.');
     } finally {
@@ -227,6 +234,14 @@ export function PlaylistsScreen({
         if (seq !== reorderSeq.current || selectedIdRef.current !== playlistId) return;
         setMessage((current) =>
           current === 'Could not reorder the playlist.' ? null : current,
+        );
+        const firstArtworkUri = ids
+          .map((id) => byId.get(id))
+          .find((track) => Boolean(track?.artworkUri))?.artworkUri;
+        setPlaylists((previous) =>
+          previous.map((playlist) =>
+            playlist.id === playlistId ? { ...playlist, firstArtworkUri } : playlist,
+          ),
         );
       })
       .catch(async () => {
@@ -261,101 +276,55 @@ export function PlaylistsScreen({
     return (
       <View style={styles.flex}>
         <ScreenHeader leading={<BackPill onPress={onClose} />} title="Playlists" />
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.content,
-            {
-              paddingBottom:
-                insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
-            },
-          ]}
-        >
-          <View style={styles.createRow}>
-            <TextInput
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="New playlist"
-              placeholderTextColor={colors.textDim}
-              style={styles.input}
-              returnKeyType="done"
-              onSubmitEditing={() => void create()}
-            />
-            <Pressable
-              onPress={() => void create()}
-              disabled={busy || newName.trim().length === 0}
-              accessibilityRole="button"
-              accessibilityLabel="Create playlist"
-              accessibilityState={{ disabled: busy || newName.trim().length === 0 }}
-              style={({ pressed }) => [
-                styles.addButton,
-                (busy || newName.trim().length === 0) && styles.disabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.text} />
-              ) : (
-                <Ionicons name="add" size={24} color={colors.text} />
-              )}
-            </Pressable>
+        {loading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color={colors.accent} />
           </View>
-
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-
-          {loading ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={colors.accent} />
-            </View>
-          ) : playlists.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
-              <Text style={styles.emptyText}>No playlists yet. Create one above to collect tracks.</Text>
-            </View>
-          ) : (
-            <View style={styles.card}>
-              {playlists.map((playlist) => (
-                <View key={playlist.id} style={styles.playlistRow}>
-                  <Pressable
-                    onPress={() => openPlaylist(playlist.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${playlist.name}`}
-                    style={({ pressed }) => [styles.playlistMain, pressed && styles.pressed]}
-                  >
-                    <CoverArt
-                      hue={hueFromSeed(playlist.id + playlist.name)}
-                      title={playlist.name}
-                      size={40}
-                      radius={4}
-                      uri={playlist.artworkUri}
-                    />
-                    <Text style={styles.playlistName} numberOfLines={1}>
-                      {playlist.name}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => startEdit(playlist)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${playlist.name}`}
-                    style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="pencil" size={19} color={colors.textDim} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setPendingDelete(playlist)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${playlist.name}`}
-                    style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="trash-outline" size={20} color={colors.danger} />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          )}
-        </ScrollView>
+        ) : (
+          <FlatList
+            data={playlists}
+            keyExtractor={(playlist) => playlist.id}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
+            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingBottom:
+                  insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
+              },
+            ]}
+            ListHeaderComponent={
+              <View style={styles.indexHeader}>
+                <Pressable
+                  onPress={() => setCreateOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="New playlist"
+                  style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}
+                >
+                  <Ionicons name="add" size={22} color={colors.text} />
+                  <Text style={styles.newButtonText}>New playlist</Text>
+                </Pressable>
+                {message ? <Text style={styles.message}>{message}</Text> : null}
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
+                <Text style={styles.emptyText}>
+                  No playlists yet. Create one above to collect tracks.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <PlaylistCard
+                summary={item}
+                onOpen={() => openPlaylist(item.id)}
+                onMenu={() => setActionsTarget(item)}
+              />
+            )}
+          />
+        )}
       </View>
     );
   }
@@ -475,6 +444,26 @@ export function PlaylistsScreen({
         onClose={() => setEditTarget(null)}
         onSaved={handleSaved}
       />
+      <PlaylistActionsSheet
+        visible={actionsTarget !== null}
+        playlist={actionsTarget}
+        onClose={() => setActionsTarget(null)}
+        onEdit={() => {
+          const target = actionsTarget;
+          setActionsTarget(null);
+          if (target) startEdit(target);
+        }}
+        onDelete={() => {
+          const target = actionsTarget;
+          setActionsTarget(null);
+          if (target) setPendingDelete(target);
+        }}
+      />
+      <PlaylistCreateSheet
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
     </View>
   );
 }
@@ -574,26 +563,24 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     gap: space.md,
   },
-  createRow: {
-    flexDirection: 'row',
+  gridRow: {
+    gap: space.md,
+  },
+  indexHeader: {
     gap: space.sm,
   },
-  input: {
-    ...type.body,
-    flex: 1,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    paddingHorizontal: space.md,
-    minHeight: 48,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
+  newButton: {
+    minHeight: 52,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: space.sm,
     borderRadius: radius.screen,
     backgroundColor: colors.accent,
+  },
+  newButtonText: {
+    ...type.body,
+    color: colors.text,
   },
   message: {
     ...type.meta,
@@ -625,41 +612,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    overflow: 'hidden',
-  },
-  playlistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 56,
-    paddingRight: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ffffff10',
-  },
-  playlistMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  playlistName: {
-    ...type.body,
-    flex: 1,
-    color: colors.text,
-  },
   iconButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-  },
-  disabled: {
-    opacity: 0.35,
   },
   pressed: {
     opacity: 0.75,

@@ -38,7 +38,7 @@ export function TabBar({ active, onSelect, blurTarget }: Props) {
             blurTarget={blurTarget}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.row}>
+          <View style={styles.row} role="tablist">
             {TABS.map((tab) => {
               const selected = tab.name === active;
               return (

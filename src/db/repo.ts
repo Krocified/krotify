@@ -12,6 +12,11 @@ export type Playlist = {
   artworkUri?: string;
 };
 
+export type PlaylistSummary = Playlist & {
+  trackCount: number;
+  firstArtworkUri?: string;
+};
+
 export type CachedMetadata = {
   title?: string;
   artist?: string;
@@ -65,6 +70,45 @@ export async function listPlaylists(): Promise<Playlist[]> {
     createdAt: row.createdAt,
     description: orUndefined(row.description),
     artworkUri: orUndefined(row.artworkUri),
+  }));
+}
+
+type PlaylistSummaryRow = PlaylistRow & {
+  trackCount: number;
+  firstArtworkUri: string | null;
+};
+
+export const PLAYLIST_SUMMARIES_SQL = `
+SELECT p.id AS id, p.name AS name, p.createdAt AS createdAt,
+       p.description AS description, p.artworkUri AS artworkUri,
+       COUNT(t.id) AS trackCount,
+       (SELECT t2.artworkUri
+          FROM playlist_tracks x
+          JOIN tracks t2 ON t2.id = x.trackId
+         WHERE x.playlistId = p.id
+           AND t2.status = 'active'
+           AND t2.artworkUri IS NOT NULL
+         ORDER BY x.position ASC
+         LIMIT 1) AS firstArtworkUri
+  FROM playlists p
+  LEFT JOIN playlist_tracks pt ON pt.playlistId = p.id
+  LEFT JOIN tracks t ON t.id = pt.trackId AND t.status = 'active'
+ GROUP BY p.id
+ ORDER BY p.createdAt DESC
+`;
+
+export async function listPlaylistSummaries(): Promise<PlaylistSummary[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.getAllAsync<PlaylistSummaryRow>(PLAYLIST_SUMMARIES_SQL);
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt,
+    description: orUndefined(row.description),
+    artworkUri: orUndefined(row.artworkUri),
+    trackCount: Number(row.trackCount || 0),
+    firstArtworkUri: row.firstArtworkUri ?? undefined,
   }));
 }
 
