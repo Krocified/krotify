@@ -2,7 +2,7 @@ import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
 export { expect };
 
-const FIRST_TRACK = 'Neon Orchard, Mira Vale · 4:49';
+const FIRST_TRACK = 'Neon Orchard Mira Vale · 4:49';
 
 /**
  * Every spec uses this fixture, which clears localStorage before the app
@@ -29,7 +29,7 @@ export function escapeRegExp(value: string): string {
 
 export function trackButton(page: Page, title: string): Locator {
   return page.getByRole('button', {
-    name: new RegExp(`^${escapeRegExp(title)}, .+ · \\d+:\\d{2}$`),
+    name: new RegExp(`^${escapeRegExp(title)} .+ · \\d+:\\d{2}$`),
   });
 }
 
@@ -44,7 +44,7 @@ export function searchScope(page: Page): Locator {
 
 export function searchResult(page: Page, title: string): Locator {
   return searchScope(page).getByRole('button', {
-    name: new RegExp(`^${escapeRegExp(title)}, .+ · \\d+:\\d{2}$`),
+    name: new RegExp(`^${escapeRegExp(title)} .+ · \\d+:\\d{2}$`),
   });
 }
 

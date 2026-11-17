@@ -28,9 +28,9 @@ test.describe('Library', () => {
 
     const more = page.getByRole('button', { name: 'More options for Neon Orchard', exact: true });
     await expect(more).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Neon Orchard, Mira Vale · 4:49' })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'Neon Orchard Mira Vale · 4:49' })).toHaveAttribute(
       'aria-label',
-      'Neon Orchard, Mira Vale · 4:49',
+      'Neon Orchard Mira Vale · 4:49',
     );
 
     // Current app behavior: demo tracks are read-only on web because

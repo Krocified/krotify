@@ -34,7 +34,7 @@ e2e/
   playwright.config.ts   390x844 and 412x915 mobile projects
   fixtures/app.ts        navigation helpers + localStorage reset
   specs/                 library, search/player, settings, editor/tags,
-                         playlists, import/about, accessibility
+                         playlists, import/about
   tsconfig.json
 ```
 
@@ -57,18 +57,3 @@ covered on a device build or, later, Maestro/Appium:
 - MediaStore scan, permissions, SAF folders, real `expo-audio` playback,
   notification/lock-screen controls, and link downloads.
 
-## Known accessibility failures
-
-The axe checks intentionally fail on `serious` and `critical` findings. As of
-v7 the app trips two rules, both of which need app changes rather than test
-changes:
-
-- `aria-required-parent` (critical): the tab bar renders `role="tab"` without a
-  `role="tablist"` parent.
-- `label-content-name-mismatch` (serious): track rows and Settings action rows
-  have `aria-label`s that do not contain all of their visible text (for example
-  the row shows `Mira Vale · 4:49` while the name reads
-  `Neon Orchard, Mira Vale · 4:49`).
-
-`npm run e2e` therefore reports four failures (Library and Settings on both
-mobile projects) until those are fixed in the UI.
