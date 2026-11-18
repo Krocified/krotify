@@ -59,8 +59,18 @@ function locationExists(location: string): boolean {
 }
 
 function errorText(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message.trim();
-  if (typeof error === 'string' && error.trim()) return error.trim();
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message.trim()
+      : typeof error === 'string' && error.trim()
+        ? error.trim()
+        : '';
+  if (message) {
+    if (/permission|SecurityException|MANAGE_DOCUMENTS|grantUriPermission/i.test(message)) {
+      return 'The storage folder denied access. Choose the folder again in Settings.';
+    }
+    return message;
+  }
   try {
     const detail = JSON.stringify(error);
     if (detail && detail !== '{}') return detail;

@@ -7,7 +7,7 @@ import { CoverArt } from '../components/CoverArt';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
-import { buildAlbums, buildArtists, type Artist } from '../lib/groups';
+import { buildArtists, type Artist } from '../lib/groups';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -23,7 +23,7 @@ type Props = {
   onSelect: (track: Track, queue: Track[]) => void;
 };
 
-type Selection = { kind: 'artist'; key: string } | { kind: 'album'; key: string };
+type Selection = { kind: 'artist'; key: string };
 
 function countLabel(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
@@ -47,24 +47,15 @@ export function CollectionsScreen({
   const insets = useSafeAreaInsets();
   const [selection, setSelection] = useState<Selection | null>(null);
   const artists = useMemo(() => buildArtists(tracks), [tracks]);
-  const albums = useMemo(() => buildAlbums(tracks), [tracks]);
 
   const artist = selection?.kind === 'artist'
     ? artists.find((item) => item.key === selection.key) ?? null
     : null;
-  const album = selection?.kind === 'album'
-    ? albums.find((item) => item.key === selection.key) ?? null
-    : null;
-  const detail = artist ?? album;
-  const detailTitle = artist ? artist.name : album ? album.title : '';
-  const detailSubtitle = album ? album.artist : undefined;
-  const detailMeta = artist
-    ? artistMeta(artist)
-    : album
-      ? countLabel(album.tracks.length, 'track')
-      : '';
-  const detailTracks = artist ? artist.tracks : album ? album.tracks : [];
-  const detailHue = album ? album.artworkHue : artist?.tracks[0]?.artworkHue ?? 0;
+  const detail = artist;
+  const detailTitle = artist ? artist.name : '';
+  const detailMeta = artist ? artistMeta(artist) : '';
+  const detailTracks = artist ? artist.tracks : [];
+  const detailHue = artist?.tracks[0]?.artworkHue ?? 0;
 
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl;
 
@@ -98,7 +89,6 @@ export function CollectionsScreen({
         >
           <CollectionHeader
             title={detailTitle}
-            description={detailSubtitle}
             meta={detailMeta}
             artworkUri={detailTracks[0]?.artworkUri}
             fallbackHue={detailHue}
@@ -178,38 +168,6 @@ export function CollectionsScreen({
                       {item.name}
                     </Text>
                     <Text style={styles.rowMeta}>{artistMeta(item)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-                </Pressable>
-              ))
-            )}
-          </View>
-
-          <Text style={styles.sectionTitle}>Albums</Text>
-          <View style={styles.card}>
-            {albums.length === 0 ? (
-              <Text style={styles.empty}>No albums yet.</Text>
-            ) : (
-              albums.map((item) => (
-                <Pressable
-                  key={item.key}
-                  onPress={() => setSelection({ kind: 'album', key: item.key })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.title} by ${item.artist}`}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                >
-                  <CoverArt
-                    hue={item.artworkHue}
-                    title={item.title}
-                    size={48}
-                    radius={radius.cover}
-                    uri={item.tracks[0]?.artworkUri}
-                  />
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.rowMeta}>{item.artist}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
                 </Pressable>

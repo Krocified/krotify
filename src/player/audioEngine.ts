@@ -59,7 +59,7 @@ function requestNotificationPermission(): void {
 }
 
 export function createEngine(): PlaybackEngine {
-  let playlist = createAudioPlaylist({ updateInterval: 500 });
+  let playlist = createAudioPlaylist({ updateInterval: 200 });
   const globalIndexes: number[] = [];
   let loopMode: EngineLoopMode = 'none';
   let volume = 1;
@@ -88,7 +88,7 @@ export function createEngine(): PlaybackEngine {
           previous.destroy();
         } catch {}
       }
-      playlist = createAudioPlaylist({ updateInterval: 500 });
+      playlist = createAudioPlaylist({ updateInterval: 200 });
       playlist.loop = loopMode;
       playlist.volume = volume;
       if (lockScreen.current) {

@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurTargetView } from 'expo-blur';
 import type { ComponentRef } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,7 +34,6 @@ import { resolveBack } from './lib/backIntent';
 import { resolveBlurLayer } from './lib/layerTarget';
 import { mergeLibrary, sortTracks } from './lib/library';
 import { importResultMessage } from './lib/importResult';
-import { parseResume, serializeResume } from './lib/resume';
 import {
   formatBytes,
   isMissingTrack,
@@ -50,6 +48,7 @@ import {
   moveOwnedFiles,
   setStorageRoot,
   storageInfo,
+  storageRootIsWritable,
 } from './storage/root';
 import type { StorageRoot } from './storage/types';
 import { filterTracksByTag, reconcileTagFilter } from './tags/filter';
@@ -69,11 +68,11 @@ import { NowPlayingScreen } from './screens/NowPlayingScreen';
 import { PlaylistsScreen } from './screens/PlaylistsScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { TagsScreen } from './screens/TagsScreen';
 import { TechStackScreen } from './components/TechStackScreen';
 import { colors, radius, space, type } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
-const RESUME_KEY = 'krotify.resume.v1';
 const EXIT_WINDOW_MS = 2000;
 
 const toStorageView = (
@@ -88,11 +87,8 @@ const toStorageView = (
 export function AppShell() {
   const {
     track: currentTrack,
-    isPlaying,
-    positionMs,
     lastError,
     playTrack,
-    restore,
     stop,
     removeFromQueue,
     setQueue,
@@ -122,14 +118,13 @@ export function AppShell() {
     totalBytes: number;
   } | null>(null);
   const [cleanPrompt, setCleanPrompt] = useState(false);
-  const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
   const [techStackOpen, setTechStackOpen] = useState(false);
   const [actionTrack, setActionTrack] = useState<Track | null>(null);
-  const [clearTarget, setClearTarget] = useState<Track | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Track | null>(null);
+  const [clearTargets, setClearTargets] = useState<Track[] | null>(null);
+  const [deleteTargets, setDeleteTargets] = useState<Track[] | null>(null);
   const [excludeAllConfirm, setExcludeAllConfirm] = useState(false);
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null);
   const [tagTrack, setTagTrack] = useState<Track | null>(null);
@@ -144,6 +139,7 @@ export function AppShell() {
   const likedBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const detailsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const tagsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
   const backInterceptorRef = useRef<(() => boolean) | null>(null);
   const exitArmedRef = useRef<number | null>(null);
@@ -158,10 +154,6 @@ export function AppShell() {
   const searchReturnRef = useRef<ScreenName>('library');
   const pendingRootRef = useRef<StorageRoot | null>(null);
   const previousRootRef = useRef<StorageRoot | null>(null);
-  const resumedRef = useRef(false);
-  const lastPositionRef = useRef<{ trackId: string; positionMs: number } | null>(null);
-  const resumeSnapshotRef = useRef<{ trackId: string; positionMs: number } | null>(null);
-  const wasPlayingRef = useRef(false);
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
@@ -187,14 +179,6 @@ export function AppShell() {
     () => filterTracksByTag(tracks, effectiveTagId, assignments),
     [tracks, effectiveTagId, assignments],
   );
-  const hiddenScannedCount = useMemo(
-    () => excluded.filter((track) => track.source === 'scan').length,
-    [excluded],
-  );
-  const hiddenNote =
-    hiddenScannedCount > 0
-      ? `${hiddenScannedCount} scanned track${hiddenScannedCount === 1 ? '' : 's'} hidden. Restore them in Settings.`
-      : null;
   const scanExcludeCount = useMemo(
     () =>
       libraryTracks.filter(
@@ -319,7 +303,6 @@ export function AppShell() {
         setLibraryTracks(DEMO_TRACKS);
         setStatus('ready');
         setStatusNote('Web preview: demo library');
-        setLibraryLoaded(true);
         void refreshTags();
         return;
       }
@@ -327,7 +310,6 @@ export function AppShell() {
       if (scanEnabled !== true) {
         setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
         setStatus(active.length > 0 ? 'ready' : 'empty');
-        setLibraryLoaded(true);
         void refreshTags();
         return;
       }
@@ -363,7 +345,6 @@ export function AppShell() {
         setStatus('error');
       } finally {
         if (!cancelled) {
-          setLibraryLoaded(true);
           void refreshTags();
         }
       }
@@ -427,6 +408,9 @@ export function AppShell() {
         case 'close-hidden-tracks':
           setScreen('settings');
           return true;
+        case 'close-tags':
+          setScreen('settings');
+          return true;
         case 'close-settings':
           setScreen(settingsReturnRef.current);
           return true;
@@ -451,89 +435,6 @@ export function AppShell() {
     });
     return () => sub.remove();
   }, [showToast, techStackOpen]);
-
-
-
-
-  useEffect(() => {
-    resumeSnapshotRef.current = currentTrack
-      ? { trackId: currentTrack.id, positionMs }
-      : null;
-    if (currentTrack) {
-      lastPositionRef.current = { trackId: currentTrack.id, positionMs };
-    } else if (lastPositionRef.current) {
-      const last = lastPositionRef.current;
-      lastPositionRef.current = null;
-      void AsyncStorage.setItem(
-        RESUME_KEY,
-        serializeResume({ trackId: last.trackId, positionMs: last.positionMs }),
-      ).catch(() => {});
-    }
-  }, [currentTrack, positionMs]);
-
-  const persistResume = useCallback(() => {
-    const snapshot = resumeSnapshotRef.current;
-    if (!snapshot) return;
-    void AsyncStorage.setItem(
-      RESUME_KEY,
-      serializeResume({ trackId: snapshot.trackId, positionMs: snapshot.positionMs }),
-    ).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (wasPlayingRef.current && !isPlaying) persistResume();
-    wasPlayingRef.current = isPlaying;
-  }, [isPlaying, persistResume]);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-    const timer = setInterval(persistResume, 5000);
-    return () => clearInterval(timer);
-  }, [isPlaying, persistResume]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') persistResume();
-    });
-    let removeWebListener: (() => void) | undefined;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const handler = () => persistResume();
-      window.addEventListener('pagehide', handler);
-      removeWebListener = () => window.removeEventListener('pagehide', handler);
-    }
-    return () => {
-      sub.remove();
-      removeWebListener?.();
-    };
-  }, [persistResume]);
-
-  useEffect(() => {
-    if (!libraryLoaded || resumedRef.current) return;
-    if (tracks.length === 0) return;
-    resumedRef.current = true;
-    void (async () => {
-      const raw = await AsyncStorage.getItem(RESUME_KEY);
-      const saved = parseResume(raw);
-      if (!saved) return;
-      const target = tracks.find((track) => track.id === saved.trackId);
-      if (!target) {
-        if (tracks.length === 0) resumedRef.current = false;
-        else await AsyncStorage.removeItem(RESUME_KEY);
-        return;
-      }
-      const restored = await restore(
-        target,
-        (track) => resolvePlaybackUri(track, assetsRef.current),
-        saved.positionMs,
-      );
-      if (!restored) {
-        if (target.missing) await AsyncStorage.removeItem(RESUME_KEY);
-        else resumedRef.current = false;
-      }
-    })().catch(() => {
-      resumedRef.current = false;
-    });
-  }, [libraryLoaded, restore, tracks]);
 
   function rememberReturnScreen() {
     returnScreenRef.current = screen === 'search' ? tab : screen;
@@ -582,33 +483,30 @@ export function AppShell() {
     selectFromOverlay(queue[0], queue);
   }
 
-  async function hideTrack(track: Track) {
-    if (track.source === 'demo') return;
+  async function hideTracks(list: Track[]) {
+    const targets = list.filter((track) => track.source !== 'demo');
+    if (targets.length === 0) return;
     try {
-      await setTrackStatus(track.id, 'hidden');
+      for (let start = 0; start < targets.length; start += 50) {
+        const chunk = targets.slice(start, start + 50);
+        await Promise.all(chunk.map((track) => setTrackStatus(track.id, 'hidden')));
+      }
       await refreshLibraryFromDb();
     } catch {
-      setStatusNote('Could not hide this track');
+      setStatusNote('Could not hide these tracks');
       return;
     }
-    removeFromQueue([track.id]);
+    removeFromQueue(targets.map((track) => track.id));
     setStatusNote(null);
   }
 
-  async function handleRestore(id: string) {
-    try {
-      await setTrackStatus(id, 'active');
-      await refreshLibraryFromDb();
-    } catch {
-      showToast('Could not restore this track');
-      return;
-    }
-    setStatusNote(null);
+  function hideTrack(track: Track) {
+    void hideTracks([track]);
   }
 
-  async function handleRestoreAll() {
+  async function restoreTracks(ids: string[]) {
+    if (ids.length === 0) return;
     try {
-      const ids = excluded.map((track) => track.id);
       for (let start = 0; start < ids.length; start += 50) {
         const chunk = ids.slice(start, start + 50);
         await Promise.all(chunk.map((id) => setTrackStatus(id, 'active')));
@@ -621,49 +519,50 @@ export function AppShell() {
     setStatusNote(null);
   }
 
+  function handleRestore(id: string) {
+    void restoreTracks([id]);
+  }
+
+  function handleRestoreAll() {
+    void restoreTracks(excluded.map((track) => track.id));
+  }
+
   async function excludeAllTracks() {
     const targets = libraryTracks.filter(
       (track) => track.source === 'scan' && !excludedIds.has(track.id),
     );
-    if (targets.length === 0) return;
-    try {
-      await Promise.all(targets.map((track) => setTrackStatus(track.id, 'hidden')));
-      await refreshLibraryFromDb();
-    } catch {
-      setStatusNote('Could not hide the scanned tracks');
-      return;
-    }
-    removeFromQueue(targets.map((track) => track.id));
-    setStatusNote(`${targets.length} scanned tracks hidden. Restore them in Settings.`);
+    await hideTracks(targets);
   }
 
-  async function handleClear(track: Track) {
+  async function clearTracks(list: Track[]) {
+    if (list.length === 0) return;
     try {
-      await clearTrack(track.id);
+      for (const track of list) await clearTrack(track.id);
       await refreshLibraryFromDb();
     } catch {
-      showToast('Could not remove this track');
+      showToast('Could not remove these tracks');
       return;
     }
-    removeFromQueue([track.id]);
-    if (currentTrack?.id === track.id) {
+    removeFromQueue(list.map((track) => track.id));
+    if (list.some((track) => track.id === currentTrack?.id)) {
       stop();
       closeNowPlayingIfOpen();
     }
     setStatusNote(null);
   }
 
-  async function deleteTrack(track: Track) {
+  async function deleteTracks(list: Track[]) {
+    if (list.length === 0) return;
     try {
-      await deleteTrackEverywhere(track, assetsRef.current);
+      for (const track of list) await deleteTrackEverywhere(track, assetsRef.current);
       await refreshLibraryFromDb();
     } catch {
-      showToast('Could not delete this file');
+      showToast('Could not delete these files');
       return;
     }
-    removeFromQueue([track.id]);
+    removeFromQueue(list.map((track) => track.id));
     setStatusNote(null);
-    if (currentTrack?.id === track.id) {
+    if (list.some((track) => track.id === currentTrack?.id)) {
       stop();
       closeNowPlayingIfOpen();
     }
@@ -841,6 +740,14 @@ export function AppShell() {
     setImporting(true);
     setImportFailures([]);
     try {
+      if (!(await storageRootIsWritable())) {
+        showToast('Storage folder access was lost. Choose it again.');
+        const root = await chooseStorageRoot();
+        if (!root) {
+          setStatusNote('Choose a storage folder before importing.');
+          return;
+        }
+      }
       const { added, skipped, failures } = await pickAndImportTracks();
       setImportFailures(failures);
       const skippedNote =
@@ -881,6 +788,7 @@ export function AppShell() {
     liked: likedOpen,
     playlists: playlistsOpen,
     techStack: techStackOpen,
+    tags: screen === 'tags',
     hidden: screen === 'hiddenTracks',
     settings: screen === 'settings' || screen === 'hiddenTracks',
     search: screen === 'search',
@@ -890,6 +798,7 @@ export function AppShell() {
     liked: likedBlurRef,
     playlists: playlistsBlurRef,
     techStack: techStackBlurRef,
+    tags: tagsBlurRef,
     hidden: hiddenBlurRef,
     settings: settingsBlurRef,
     search: searchBlurRef,
@@ -949,11 +858,11 @@ export function AppShell() {
             selectedTagId={effectiveTagId}
             onSelectTag={setSelectedTagId}
             status={status}
-            statusNote={
-              statusNote ?? (lastError === 'File missing' ? 'File missing' : null) ?? hiddenNote
-            }
+            statusNote={statusNote ?? (lastError === 'File missing' ? 'File missing' : null)}
             onSelect={handleSelect}
             onManage={handleManage}
+            onHideMany={(list) => void hideTracks(list)}
+            onDeleteMany={setDeleteTargets}
             onOpenSearch={openSearch}
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
@@ -987,8 +896,8 @@ export function AppShell() {
         <NowPlayingScreen
           onClose={() => setScreen(returnScreenRef.current)}
           onDetails={(track) => setEditTarget(track)}
-          onClearTrack={(track) => setClearTarget(track)}
-          onDeleteFile={(track) => setDeleteTarget(track)}
+          onClearTrack={(track) => setClearTargets([track])}
+          onDeleteFile={(track) => setDeleteTargets([track])}
           registerClose={registerClose}
           registerBackInterceptor={registerBackInterceptor}
         />
@@ -1036,9 +945,16 @@ export function AppShell() {
         onMoveFiles={() => void handleMoveFiles()}
         moveFailures={moveFailures}
         onCleanStorage={() => setCleanPrompt(true)}
-        onTagsChanged={refreshTags}
+        onOpenTags={() => setScreen('tags')}
         onOpenTechStack={() => setTechStackOpen(true)}
       />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={tagsBlurRef}
+        style={[StyleSheet.absoluteFill, screen !== 'tags' && styles.layerHidden]}
+        pointerEvents={screen === 'tags' ? 'auto' : 'none'}
+      >
+        <TagsScreen visible={screen === 'tags'} onBack={() => setScreen('settings')} />
       </BlurTargetView>
       <BlurTargetView
         ref={hiddenBlurRef}
@@ -1049,10 +965,13 @@ export function AppShell() {
           visible={screen === 'hiddenTracks'}
           tracks={excluded}
           onBack={closeHiddenTracks}
-          onRestore={(id) => void handleRestore(id)}
+          onRestore={handleRestore}
+          onRestoreMany={(ids) => void restoreTracks(ids)}
           onRestoreAll={() => void handleRestoreAll()}
-          onClear={(track) => setClearTarget(track)}
-          onDelete={(track) => setDeleteTarget(track)}
+          onClear={(track) => setClearTargets([track])}
+          onDelete={(track) => setDeleteTargets([track])}
+          onClearMany={setClearTargets}
+          onDeleteMany={setDeleteTargets}
         />
       </BlurTargetView>
       <BlurTargetView
@@ -1116,10 +1035,10 @@ export function AppShell() {
         onClose={() => setActionTrack(null)}
         onDetails={(track) => setEditTarget(track)}
         onTags={(track) => setTagTrack(track)}
-        onExclude={(track) => void hideTrack(track)}
-        onDelete={(track) => setDeleteTarget(track)}
-        onClear={(track) => setClearTarget(track)}
-        onDeleteFile={(track) => setDeleteTarget(track)}
+        onExclude={hideTrack}
+        onDelete={(track) => setDeleteTargets([track])}
+        onClear={(track) => setClearTargets([track])}
+        onDeleteFile={(track) => setDeleteTargets([track])}
         onFavorite={(track) => void handleFavorite(track)}
         onAddToPlaylist={(track) => setPickerTrack(track)}
       />
@@ -1134,43 +1053,49 @@ export function AppShell() {
         onClose={() => setTagTrack(null)}
       />
       <ConfirmSheet
-        visible={clearTarget !== null}
-        title="Remove from library?"
-        message={
-          clearTarget
-            ? `"${clearTarget.title}" will be removed from the library. The audio file stays on this device.`
-            : ''
+        visible={clearTargets !== null}
+        title={
+          clearTargets?.length === 1
+            ? 'Remove from library?'
+            : `Remove ${clearTargets?.length ?? 0} tracks?`
         }
-        confirmLabel="Remove"
+        message={
+          clearTargets?.length === 1
+            ? `"${clearTargets[0]?.title}" will be removed from the library. The audio file stays on this device.`
+            : `${clearTargets?.length ?? 0} tracks will be removed from the library. Their audio files stay on this device.`
+        }
+        confirmLabel={clearTargets?.length === 1 ? 'Remove' : 'Remove all'}
         destructive
         onConfirm={() => {
-          const track = clearTarget;
-          setClearTarget(null);
-          if (track) void handleClear(track);
+          const list = clearTargets;
+          setClearTargets(null);
+          if (list) void clearTracks(list);
         }}
-        onCancel={() => setClearTarget(null)}
+        onCancel={() => setClearTargets(null)}
       />
       <ConfirmSheet
-        visible={deleteTarget !== null}
-        title="Delete file?"
-        message={
-          deleteTarget
-            ? `"${deleteTarget.title}" and its audio file will be deleted from this device. This cannot be undone.`
-            : ''
+        visible={deleteTargets !== null}
+        title={
+          deleteTargets?.length === 1 ? 'Delete file?' : `Delete ${deleteTargets?.length ?? 0} files?`
         }
-        confirmLabel="Delete file"
+        message={
+          deleteTargets?.length === 1
+            ? `"${deleteTargets[0]?.title}" and its audio file will be deleted from this device. This cannot be undone.`
+            : `${deleteTargets?.length ?? 0} tracks and their audio files will be deleted from this device. This cannot be undone.`
+        }
+        confirmLabel={deleteTargets?.length === 1 ? 'Delete file' : 'Delete files'}
         destructive
         onConfirm={() => {
-          const track = deleteTarget;
-          setDeleteTarget(null);
-          if (track) void deleteTrack(track);
+          const list = deleteTargets;
+          setDeleteTargets(null);
+          if (list) void deleteTracks(list);
         }}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => setDeleteTargets(null)}
       />
       <ConfirmSheet
         visible={excludeAllConfirm}
         title="Hide all scanned tracks?"
-        message={`${scanExcludeCount} scanned tracks will be hidden from the library. You can restore them in Settings.`}
+        message={`${scanExcludeCount} scanned tracks will be hidden from the library.`}
         confirmLabel="Hide all"
         destructive
         onConfirm={() => {

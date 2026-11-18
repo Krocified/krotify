@@ -3,6 +3,7 @@ export type BlurLayer =
   | 'liked'
   | 'playlists'
   | 'techStack'
+  | 'tags'
   | 'hidden'
   | 'settings'
   | 'search'
@@ -13,6 +14,7 @@ export type LayerState = {
   liked: boolean;
   playlists: boolean;
   techStack?: boolean;
+  tags?: boolean;
   hidden: boolean;
   settings: boolean;
   search: boolean;
@@ -23,6 +25,7 @@ export function resolveBlurLayer(state: LayerState): BlurLayer {
   if (state.liked) return 'liked';
   if (state.playlists) return 'playlists';
   if (state.techStack) return 'techStack';
+  if (state.tags) return 'tags';
   if (state.hidden) return 'hidden';
   if (state.settings) return 'settings';
   if (state.search) return 'search';

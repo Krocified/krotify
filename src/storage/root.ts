@@ -116,6 +116,32 @@ export async function getStorageRoot(): Promise<StorageRoot> {
   return root;
 }
 
+export async function storageRootIsWritable(): Promise<boolean> {
+  const root = await getStorageRoot();
+  if (!root.uri.startsWith('content://')) {
+    try {
+      const directory = new Directory(root.uri);
+      ensureDirectory(root.uri);
+      return directory.exists;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const directory = new Directory(root.uri);
+    const probe = directory.createFile(
+      `krotify-access-${Date.now()}.txt`,
+      'text/plain',
+    );
+    try {
+      probe.delete();
+    } catch {}
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function chooseStorageRoot(): Promise<StorageRoot | null> {
   let directory: Directory;
   try {

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
+import { SelectionBar } from '../components/SelectionBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
@@ -28,6 +29,8 @@ type Props = {
   statusNote: string | null;
   onSelect: (track: Track, queue: Track[]) => void;
   onManage: (track: Track) => void;
+  onHideMany: (tracks: Track[]) => void;
+  onDeleteMany: (tracks: Track[]) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onOpenLiked?: () => void;
@@ -49,6 +52,8 @@ export function LibraryScreen({
   statusNote,
   onSelect,
   onManage,
+  onHideMany,
+  onDeleteMany,
   onOpenSearch,
   onOpenSettings,
 }: Props) {
@@ -57,24 +62,98 @@ export function LibraryScreen({
   const listRef = useRef<FlatList<Track>>(null);
   const statusMessage = STATUS_NOTE[status] ?? null;
   const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8;
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectedTracks = useMemo(
+    () => tracks.filter((track) => selectedIds.has(track.id)),
+    [tracks, selectedIds],
+  );
+  const selectedCount = selectedTracks.length;
+
+  function startSelection(track: Track) {
+    setSelecting(true);
+    setSelectedIds(new Set([track.id]));
+  }
+
+  function toggleSelection(track: Track) {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(track.id)) next.delete(track.id);
+      else next.add(track.id);
+      return next;
+    });
+  }
+
+  function exitSelection() {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  }
 
   return (
     <View style={styles.root}>
       <ScreenHeader
         leading={
-          <>
-            <Image
-              source={require('../../assets/lyrics.png')}
-              style={styles.brandIcon}
-              accessible={false}
-            />
-            <Text style={styles.wordmark}>Krotify</Text>
-          </>
+          selecting ? (
+            <Text style={styles.selectTitle}>{selectedCount} selected</Text>
+          ) : (
+            <>
+              <Image
+                source={require('../../assets/lyrics.png')}
+                style={styles.brandIcon}
+                accessible={false}
+              />
+              <Text style={styles.wordmark}>Krotify</Text>
+            </>
+          )
         }
         trailing={
-          <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
+          selecting ? (
+            <Pressable
+              onPress={exitSelection}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel selection"
+              hitSlop={space.sm}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          ) : (
+            <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
+          )
         }
       />
+
+      {selecting ? (
+        <SelectionBar
+          count={selectedCount}
+          actions={[
+            {
+              key: 'hide',
+              label: 'Hide',
+              icon: 'eye-off-outline',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                const targets = selectedTracks;
+                exitSelection();
+                onHideMany(targets);
+              },
+            },
+            {
+              key: 'delete',
+              label: 'Delete',
+              icon: 'trash-outline',
+              tone: 'destructive',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                const targets = selectedTracks;
+                exitSelection();
+                onDeleteMany(targets);
+              },
+            },
+          ]}
+          onCancel={exitSelection}
+        />
+      ) : null}
 
       {status === 'scanning' ? (
         <View style={styles.scanning}>
@@ -101,13 +180,24 @@ export function LibraryScreen({
               renderItem={({ item }) => (
                 <TrackRow
                   track={item}
-                  onPress={(track) => onSelect(track, tracks)}
-                  onLongPress={() => onManage(item)}
-                  onMore={() => onManage(item)}
+                  selectionMode={selecting}
+                  selected={selectedIds.has(item.id)}
+                  onPress={(track) => {
+                    if (selecting) toggleSelection(track);
+                    else onSelect(track, tracks);
+                  }}
+                  onLongPress={() => {
+                    if (selecting) toggleSelection(item);
+                    else startSelection(item);
+                  }}
+                  onMore={selecting ? undefined : () => onManage(item)}
                 />
               )}
+              extraData={selectedIds}
               ListHeaderComponent={
-                <TagFilterBar tags={tags} selectedId={selectedTagId} onSelect={onSelectTag} />
+                selecting ? undefined : (
+                  <TagFilterBar tags={tags} selectedId={selectedTagId} onSelect={onSelectTag} />
+                )
               }
               ListEmptyComponent={
                 selectedTagId !== null && tracks.length === 0 ? (
@@ -163,6 +253,20 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
+  },
+  selectTitle: {
+    ...type.body,
+    color: colors.text,
+  },
+  cancelButton: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    borderRadius: 999,
+  },
+  cancelText: {
+    ...type.meta,
+    color: colors.textDim,
   },
   scanning: {
     flex: 1,

@@ -22,6 +22,41 @@ function discard(file: File): void {
   } catch {}
 }
 
+function mimeFor(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'mp3':
+      return 'audio/mpeg';
+    case 'm4a':
+    case 'aac':
+      return 'audio/mp4';
+    case 'flac':
+      return 'audio/flac';
+    case 'ogg':
+    case 'opus':
+      return 'audio/ogg';
+    case 'wav':
+      return 'audio/wav';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function copyIntoContentDirectory(
+  source: File,
+  directory: Directory,
+  name: string,
+): Promise<File> {
+  const destination = directory.createFile(name, source.type || mimeFor(name));
+  try {
+    await destination.write(await source.bytes());
+    return destination;
+  } catch (error) {
+    discard(destination);
+    throw error;
+  }
+}
+
 export async function storeOwnedFile(
   sourceUri: string,
   fileName: string,
@@ -32,8 +67,14 @@ export async function storeOwnedFile(
   ensureDirectory(directory);
 
   const name = uniqueFileName(fileName, takenNames(directory));
+  const source = new File(sourceUri);
+
+  if (targetRoot.uri.startsWith('content://')) {
+    return copyIntoContentDirectory(source, directory, name);
+  }
+
   const destination = new File(directory, name);
-  await new File(sourceUri).copy(destination);
+  await source.copy(destination);
   return destination;
 }
 
@@ -43,36 +84,16 @@ export async function downloadOwnedFile(
   options: { signal?: AbortSignal; headers?: Record<string, string> } = {},
 ): Promise<File> {
   const root = await getStorageRoot();
-  const directory = new Directory(root.uri);
-  ensureDirectory(directory);
+  ensureDirectory(new Directory(root.uri));
 
-  const name = uniqueFileName(fileName, takenNames(directory));
-  const destination = new File(directory, name);
-
+  const cache = new File(Paths.cache, `download-${Date.now()}`);
   try {
-    return await File.downloadFileAsync(url, destination, {
+    await File.downloadFileAsync(url, cache, {
       signal: options.signal,
       headers: options.headers,
     });
-  } catch (error) {
-    if (
-      options.signal?.aborted ||
-      (error instanceof Error && error.name === 'AbortError')
-    ) {
-      discard(destination);
-      throw error;
-    }
-
-    discard(destination);
-    const cache = new File(Paths.cache, `download-${Date.now()}`);
-    try {
-      await File.downloadFileAsync(url, cache, {
-        signal: options.signal,
-        headers: options.headers,
-      });
-      return await storeOwnedFile(cache.uri, fileName, root);
-    } finally {
-      discard(cache);
-    }
+    return await storeOwnedFile(cache.uri, fileName, root);
+  } finally {
+    discard(cache);
   }
 }

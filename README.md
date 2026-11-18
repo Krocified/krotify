@@ -5,7 +5,7 @@ network, no catalogue. Album art is the product; the chrome stays quiet.
 
 ## Status
 
-Current version: `0.7.1`.
+Current version: `0.7.4`.
 
 v0 through v7 are built. The app is a local-first player with a real library,
 a chosen storage folder, app-owned metadata and tags, local lyrics, and recovery
@@ -26,8 +26,8 @@ lyrics) is still pending.
 - YouTube links import through the companion service in `server/`, configured in
   Settings. It extracts the best audio, verifies the file is playable, and never
   adds an HTML or 0:00 track. The Import tab is an action surface, not a list.
-- App-local tags: create and assign them in the track editor or in Settings,
-  delete them from Settings, and filter the Library with a chip bar.
+- App-local tags: create and assign them in the track editor, manage them on
+  their own page in Settings, and filter the Library with a chip bar.
 - Hidden tracks have their own page. Restore returns a track; Clear removes it
   from the app and keeps the file; Delete removes both.
 - Missing files are detected before playback, marked in the UI with Clear and
@@ -35,14 +35,14 @@ lyrics) is still pending.
 - Playlists have a name, description, and cover, with Play, Shuffle and drag
   reorder. A heart in Now Playing persists to Liked Songs. Back closes overlays
   and routes first. The app exits only after a double press at Library.
-- Shuffle, repeat, sleep timer with fade-out, resume, scan opt-in, and the system
+- Shuffle, repeat, sleep timer with fade-out, scan opt-in, and the system
   audio filters.
 - Local lyrics: import a `.lrc` from Now Playing, cached per track in SQLite,
   with timed highlight, auto-scroll and tap-to-seek. LRCLIB stays a gated
   exploration; v7 makes no lyrics network call.
 - Library is only the song list plus tag pills. A Collections control in the
-  header opens a section with Liked Songs, Playlists, Artists and Albums, each
-  with its own searchable list and Play/Shuffle detail.
+  header opens a section with Liked Songs, Playlists and Artists, each with its
+  own searchable list and Play/Shuffle detail.
 - Playlists are a two-column cover grid with inline create, per-card edit/delete
   and track counts. Detail keeps Play, Shuffle and drag reorder.
 - Artwork: the real cover tints Now Playing through a local AndroidX Palette

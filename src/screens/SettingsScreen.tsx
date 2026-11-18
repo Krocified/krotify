@@ -17,7 +17,6 @@ import appJson from '../../app.json';
 import { CreatedByKrocified } from '../components/CreatedByKrocified';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
-import { TagsSection } from '../components/TagsSection';
 import { SleepTimerControls } from '../components/SleepTimerControls';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
@@ -59,7 +58,7 @@ type Props = {
   onMoveFiles: () => void;
   moveFailures?: { name: string; reason: string }[];
   onCleanStorage: () => void;
-  onTagsChanged?: () => void;
+  onOpenTags: () => void;
   onOpenTechStack?: () => void;
 };
 
@@ -89,7 +88,7 @@ export function SettingsScreen({
   onMoveFiles,
   moveFailures = [],
   onCleanStorage,
-  onTagsChanged,
+  onOpenTags,
   onOpenTechStack,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -290,7 +289,20 @@ export function SettingsScreen({
           ) : null}
 
           <Text style={styles.sectionTitle}>Tags</Text>
-          <TagsSection onTagsChanged={onTagsChanged} />
+          <View style={styles.card}>
+            <Pressable
+              onPress={onOpenTags}
+              accessibilityRole="button"
+              accessibilityLabel="Manage tags"
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Manage tags</Text>
+                <Text style={styles.rowMeta}>Create and delete tags</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+            </Pressable>
+          </View>
 
           <Text style={styles.sectionTitle}>Storage</Text>
           <View style={styles.card}>

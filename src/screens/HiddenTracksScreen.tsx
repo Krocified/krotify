@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill } from '../components/ScreenHeader';
+import { SelectionBar } from '../components/SelectionBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ScrollBar } from '../components/ScrollBar';
 import { useScrollProgress } from '../components/useScrollProgress';
@@ -25,9 +26,12 @@ type Props = {
   tracks: Track[];
   onBack: () => void;
   onRestore: (id: string) => void;
+  onRestoreMany: (ids: string[]) => void;
   onRestoreAll: () => void;
   onClear: (track: Track) => void;
   onDelete: (track: Track) => void;
+  onClearMany: (tracks: Track[]) => void;
+  onDeleteMany: (tracks: Track[]) => void;
 };
 
 const SLIDE_MS = 280;
@@ -37,14 +41,21 @@ export function HiddenTracksScreen({
   tracks,
   onBack,
   onRestore,
+  onRestoreMany,
   onRestoreAll,
   onClear,
   onDelete,
+  onClearMany,
+  onDeleteMany,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { width } = useWindowDimensions();
   const [anim] = useState(() => new Animated.Value(0));
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectedTracks = tracks.filter((track) => selectedIds.has(track.id));
+  const selectedCount = selectedTracks.length;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -54,6 +65,25 @@ export function HiddenTracksScreen({
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [anim, visible]);
+
+  function startSelection(track: Track) {
+    setSelecting(true);
+    setSelectedIds(new Set([track.id]));
+  }
+
+  function toggleSelection(track: Track) {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(track.id)) next.delete(track.id);
+      else next.add(track.id);
+      return next;
+    });
+  }
+
+  function exitSelection() {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  }
 
   return (
     <Animated.View
@@ -73,9 +103,74 @@ export function HiddenTracksScreen({
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>Hidden tracks</Text>
-        <View style={styles.iconButton} />
+        <Text style={styles.title}>{selecting ? `${selectedCount} selected` : 'Hidden tracks'}</Text>
+        {selecting ? (
+          <Pressable
+            onPress={exitSelection}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel selection"
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.headerAction, pressed && styles.actionPressed]}
+          >
+            <Text style={styles.headerActionText}>Cancel</Text>
+          </Pressable>
+        ) : tracks.length > 0 ? (
+          <Pressable
+            onPress={() => setSelecting(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select hidden tracks"
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.headerAction, pressed && styles.actionPressed]}
+          >
+            <Text style={styles.headerActionText}>Select</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.iconButton} />
+        )}
       </View>
+
+      {selecting ? (
+        <SelectionBar
+          count={selectedCount}
+          actions={[
+            {
+              key: 'restore',
+              label: 'Restore',
+              icon: 'refresh',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                const ids = selectedTracks.map((track) => track.id);
+                exitSelection();
+                onRestoreMany(ids);
+              },
+            },
+            {
+              key: 'clear',
+              label: 'Clear',
+              icon: 'remove-circle-outline',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                const targets = selectedTracks;
+                exitSelection();
+                onClearMany(targets);
+              },
+            },
+            {
+              key: 'delete',
+              label: 'Delete',
+              icon: 'trash-outline',
+              tone: 'destructive',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                const targets = selectedTracks;
+                exitSelection();
+                onDeleteMany(targets);
+              },
+            },
+          ]}
+          onCancel={exitSelection}
+        />
+      ) : null}
 
       <View style={{ flex: 1 }}>
         <Animated.ScrollView
@@ -95,29 +190,47 @@ export function HiddenTracksScreen({
             </Text>
           ) : (
             <>
-              <View style={styles.card}>
-                <Pressable
-                  onPress={onRestoreAll}
-                  accessibilityRole="button"
-                  accessibilityLabel="Restore all hidden tracks"
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                >
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>Restore all</Text>
-                    <Text style={styles.rowMeta}>
-                      {tracks.length} hidden {tracks.length === 1 ? 'track' : 'tracks'}
-                    </Text>
-                  </View>
-                  <Ionicons name="refresh" size={22} color={colors.accent2} />
-                </Pressable>
-              </View>
+              {selecting ? null : (
+                <View style={styles.card}>
+                  <Pressable
+                    onPress={onRestoreAll}
+                    accessibilityRole="button"
+                    accessibilityLabel="Restore all hidden tracks"
+                    style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                  >
+                    <View style={styles.rowText}>
+                      <Text style={styles.rowTitle}>Restore all</Text>
+                      <Text style={styles.rowMeta}>
+                        {tracks.length} hidden {tracks.length === 1 ? 'track' : 'tracks'}
+                      </Text>
+                    </View>
+                    <Ionicons name="refresh" size={22} color={colors.accent2} />
+                  </Pressable>
+                </View>
+              )}
 
               <View style={styles.card}>
                 {tracks.map((track) => {
                   const missing = isMissingTrack(track);
                   return (
                     <View key={track.id} style={styles.track}>
-                      <View style={styles.trackMain}>
+                      <Pressable
+                        onPress={() => {
+                          if (selecting) toggleSelection(track);
+                        }}
+                        onLongPress={() => {
+                          if (selecting) toggleSelection(track);
+                          else startSelection(track);
+                        }}
+                        accessibilityRole={selecting ? 'checkbox' : undefined}
+                        accessibilityLabel={
+                          selecting
+                            ? `${track.title}${selectedIds.has(track.id) ? ', selected' : ''}`
+                            : undefined
+                        }
+                        accessibilityState={selecting ? { checked: selectedIds.has(track.id) } : undefined}
+                        style={styles.trackMain}
+                      >
                         <CoverArt
                           hue={track.artworkHue}
                           title={track.title}
@@ -146,33 +259,46 @@ export function HiddenTracksScreen({
                             </Text>
                           ) : null}
                         </View>
-                      </View>
-                      <View style={styles.actions}>
-                        <Pressable
-                          onPress={() => onRestore(track.id)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Restore ${track.title}`}
-                          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                        >
-                          <Text style={styles.actionRestore}>Restore</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => onClear(track)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Clear ${track.title} from the library`}
-                          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                        >
-                          <Text style={styles.actionText}>Clear</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => onDelete(track)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Delete ${track.title} and its file`}
-                          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                        >
-                          <Text style={styles.actionDanger}>Delete</Text>
-                        </Pressable>
-                      </View>
+                        {selecting ? (
+                          <Ionicons
+                            name={
+                              selectedIds.has(track.id) ? 'checkmark-circle' : 'ellipse-outline'
+                            }
+                            size={24}
+                            color={
+                              selectedIds.has(track.id) ? colors.accent : colors.textDim
+                            }
+                          />
+                        ) : null}
+                      </Pressable>
+                      {selecting ? null : (
+                        <View style={styles.actions}>
+                          <Pressable
+                            onPress={() => onRestore(track.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Restore ${track.title}`}
+                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                          >
+                            <Text style={styles.actionRestore}>Restore</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => onClear(track)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Clear ${track.title} from the library`}
+                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                          >
+                            <Text style={styles.actionText}>Clear</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => onDelete(track)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Delete ${track.title} and its file`}
+                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                          >
+                            <Text style={styles.actionDanger}>Delete</Text>
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -210,6 +336,16 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
+  },
+  headerAction: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    borderRadius: 999,
+  },
+  headerActionText: {
+    ...type.meta,
+    color: colors.textDim,
   },
   title: {
     ...type.body,

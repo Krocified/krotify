@@ -11,9 +11,18 @@ type Props = {
   onPress: (track: Track) => void;
   onLongPress?: () => void;
   onMore?: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
 };
 
-export function TrackRow({ track, onPress, onLongPress, onMore }: Props) {
+export function TrackRow({
+  track,
+  onPress,
+  onLongPress,
+  onMore,
+  selectionMode = false,
+  selected = false,
+}: Props) {
   const duration = formatDuration(track.durationMs);
   const missing = isMissingTrack(track);
   const detail = missing ? 'File missing' : track.artist ? `${track.artist} · ${duration}` : duration;
@@ -28,6 +37,7 @@ export function TrackRow({ track, onPress, onLongPress, onMore }: Props) {
         accessibilityRole="button"
         accessibilityLabel={missing ? `${label}, file missing` : label}
         accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
+        accessibilityState={selectionMode ? { selected } : undefined}
         style={({ pressed }) => [styles.main, pressed && styles.pressed]}
       >
         <CoverArt
@@ -55,7 +65,15 @@ export function TrackRow({ track, onPress, onLongPress, onMore }: Props) {
           )}
         </View>
       </Pressable>
-      {onMore ? (
+      {selectionMode ? (
+        <View style={styles.more}>
+          <Ionicons
+            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+            size={22}
+            color={selected ? colors.accent : colors.textDim}
+          />
+        </View>
+      ) : onMore ? (
         <Pressable
           onPress={onMore}
           accessibilityRole="button"
