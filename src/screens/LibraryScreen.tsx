@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,7 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SelectionBar } from '../components/SelectionBar';
-import { selectionState, toggleAllVisible } from '../lib/selection';
+import {
+  clearSelection,
+  selectionBackHandler,
+  selectionState,
+  toggleAllVisible,
+  toggleId,
+} from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
@@ -36,6 +42,7 @@ type Props = {
   onOpenSettings: () => void;
   onOpenLiked?: () => void;
   onOpenPlaylists?: () => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
@@ -57,6 +64,7 @@ export function LibraryScreen({
   onDeleteMany,
   onOpenSearch,
   onOpenSettings,
+  registerBackInterceptor,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -78,51 +86,34 @@ export function LibraryScreen({
   }
 
   function toggleSelection(track: Track) {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(track.id)) next.delete(track.id);
-      else next.add(track.id);
-      return next;
-    });
+    setSelectedIds((previous) => toggleId(previous, track.id));
   }
 
   function exitSelection() {
     setSelecting(false);
-    setSelectedIds(new Set());
+    setSelectedIds(clearSelection());
   }
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(selectionBackHandler(selecting, exitSelection));
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selecting]);
 
   return (
     <View style={styles.root}>
       <ScreenHeader
         leading={
-          selecting ? (
-            <Text style={styles.selectTitle}>{selectedCount} selected</Text>
-          ) : (
-            <>
-              <Image
-                source={require('../../assets/lyrics.png')}
-                style={styles.brandIcon}
-                accessible={false}
-              />
-              <Text style={styles.wordmark}>Krotify</Text>
-            </>
-          )
+          <>
+            <Image
+              source={require('../../assets/lyrics.png')}
+              style={styles.brandIcon}
+              accessible={false}
+            />
+            <Text style={styles.wordmark}>Krotify</Text>
+          </>
         }
-        trailing={
-          selecting ? (
-            <Pressable
-              onPress={exitSelection}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel selection"
-              hitSlop={space.sm}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.rowPressed]}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-          ) : (
-            <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
-          )
-        }
+        trailing={<HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />}
       />
 
       {selecting ? (
@@ -257,20 +248,6 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
-  },
-  selectTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  cancelButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingHorizontal: space.sm,
-    borderRadius: 999,
-  },
-  cancelText: {
-    ...type.meta,
-    color: colors.textDim,
   },
   scanning: {
     flex: 1,
