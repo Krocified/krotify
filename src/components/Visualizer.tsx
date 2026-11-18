@@ -19,7 +19,15 @@ import {
   Svg,
 } from 'react-native-svg';
 import { pickVisualizerStyle, type VisualizerStyleName } from '../lib/visualizerStyle';
-import { mirroredPath, openSinePath } from '../lib/waveGeometry';
+import { mirroredPath, openSinePath, type WavePathInput } from '../lib/waveGeometry';
+import {
+  BLOB_COPIES,
+  BLOB_SHAPES,
+  CURVE_LAYERS,
+  SHEEN_BAND,
+  SOUNDWAVE_LAYER,
+  THREAD_LAYER,
+} from '../lib/visualizerArt';
 import { useReduceMotion } from './useReduceMotion';
 
 type Props = {
@@ -41,7 +49,6 @@ type Geometry = {
 const PAUSED_DURATION = 48000;
 const BREATH_DURATION = 5200;
 const BREATH_SCALE = 0.06;
-const BLOB_COPIES = 3;
 
 const PLAYING_DURATIONS: Record<VisualizerStyleName, number> = {
   curves: 13000,
@@ -51,24 +58,12 @@ const PLAYING_DURATIONS: Record<VisualizerStyleName, number> = {
   thread: 14000,
 };
 
-const CURVE_LAYERS = [
-  { periods: 2, amplitude: 0.34, phase: 0, strokeWidth: 2.2, opacity: 0.5 },
-  { periods: 4, amplitude: 0.22, phase: 1.4, strokeWidth: 1.8, opacity: 0.35 },
-  { periods: 6, amplitude: 0.13, phase: 2.8, strokeWidth: 1.5, opacity: 0.25 },
-];
-
-const BLOB_SHAPES = [
-  { x: 0.18, y: 0.3, radius: 0.55, colorIndex: 0, opacity: 0.85 },
-  { x: 0.52, y: 0.66, radius: 0.42, colorIndex: 1, opacity: 0.75 },
-  { x: 0.78, y: 0.36, radius: 0.6, colorIndex: 0, opacity: 0.65 },
-];
-
 const waveInput = (
   geometry: Geometry,
   periods: number,
   amplitude: number,
   phase: number,
-): { width: number; height: number; periods: number; amplitude: number; phase: number } => ({
+): WavePathInput => ({
   width: geometry.artWidth,
   height: geometry.height,
   periods,
@@ -125,16 +120,23 @@ function CurvesArt({ geometry, gradientId }: { geometry: Geometry; gradientId: s
 }
 
 function SoundwaveArt({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
-  const d = mirroredPath(waveInput(geometry, 8, 0.26 * geometry.height, 0.4));
+  const d = mirroredPath(
+    waveInput(
+      geometry,
+      SOUNDWAVE_LAYER.periods,
+      SOUNDWAVE_LAYER.amplitude * geometry.height,
+      SOUNDWAVE_LAYER.phase,
+    ),
+  );
   return (
     <>
-      <Path d={d} fill={`url(#${gradientId})`} opacity={0.55} />
+      <Path d={d} fill={`url(#${gradientId})`} opacity={SOUNDWAVE_LAYER.fillOpacity} />
       <Path
         d={d}
         fill="none"
         stroke={`url(#${gradientId})`}
-        strokeWidth={1.5}
-        opacity={0.85}
+        strokeWidth={SOUNDWAVE_LAYER.strokeWidth}
+        opacity={SOUNDWAVE_LAYER.opacity}
       />
     </>
   );
@@ -156,22 +158,20 @@ function SheenBand({ geometry, gradientId }: { geometry: Geometry; gradientId: s
   return (
     <Rect
       x={0}
-      y={0.28 * geometry.height}
+      y={SHEEN_BAND.y * geometry.height}
       width={geometry.artWidth}
-      height={0.44 * geometry.height}
+      height={SHEEN_BAND.height * geometry.height}
       fill={`url(#${gradientId})`}
-      opacity={0.5}
+      opacity={SHEEN_BAND.opacity}
     />
   );
 }
 
 function BlobsArt({
   geometry,
-  colors,
   radialIds,
 }: {
   geometry: Geometry;
-  colors: readonly [string, string];
   radialIds: readonly [string, string];
 }) {
   return (
@@ -195,12 +195,19 @@ function BlobsArt({
 function ThreadArt({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
   return (
     <Path
-      d={openSinePath(waveInput(geometry, 8, 0.26 * geometry.height, 0.9))}
+      d={openSinePath(
+        waveInput(
+          geometry,
+          THREAD_LAYER.periods,
+          THREAD_LAYER.amplitude * geometry.height,
+          THREAD_LAYER.phase,
+        ),
+      )}
       fill="none"
       stroke={`url(#${gradientId})`}
-      strokeWidth={1.5}
-      strokeDasharray="110 78"
-      opacity={0.85}
+      strokeWidth={THREAD_LAYER.strokeWidth}
+      strokeDasharray={THREAD_LAYER.dash}
+      opacity={THREAD_LAYER.opacity}
     />
   );
 }
@@ -292,7 +299,9 @@ export function Visualizer({
         <Animated.View style={[styles.art, driftStyle, { width: artWidth }]}>
           <Svg width={artWidth} height={height} viewBox={`0 0 ${artWidth} ${height}`}>
             <Defs>
-              <GradientDef id={gradientId} colors={colors} cycles={cycles} />
+              {style !== 'blobs' && (
+                <GradientDef id={gradientId} colors={colors} cycles={cycles} />
+              )}
               {style === 'blobs' && (
                 <>
                   <RadialDef id={radialIds[0]} color={colors[0]} />
@@ -306,7 +315,7 @@ export function Visualizer({
             )}
             {style === 'sheen' && <SheenArt geometry={geometry} gradientId={gradientId} />}
             {style === 'blobs' && (
-              <BlobsArt geometry={geometry} colors={colors} radialIds={radialIds} />
+              <BlobsArt geometry={geometry} radialIds={radialIds} />
             )}
             {style === 'thread' && <ThreadArt geometry={geometry} gradientId={gradientId} />}
           </Svg>

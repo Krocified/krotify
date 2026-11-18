@@ -60,20 +60,6 @@ export function openSinePath(input: WavePathInput): string {
   return [move(points[0]), ...cubicSegments(points)].join(' ');
 }
 
-export function sinePath(input: WavePathInput): string {
-  const points = samplePoints(input);
-  const first = points[0];
-  const last = points[points.length - 1];
-  const centerY = centerYOf(input);
-  return [
-    move(first),
-    ...cubicSegments(points),
-    lineTo(last.x, centerY),
-    lineTo(first.x, centerY),
-    'Z',
-  ].join(' ');
-}
-
 export function mirroredPath(input: WavePathInput): string {
   const top = samplePoints(input);
   const centerY = centerYOf(input);
