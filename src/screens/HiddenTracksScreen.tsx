@@ -14,7 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
-import { selectionState, toggleAllVisible } from '../lib/selection';
+import {
+  clearSelection,
+  selectionBackHandler,
+  selectionState,
+  toggleAllVisible,
+  toggleId,
+} from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ScrollBar } from '../components/ScrollBar';
 import { useScrollProgress } from '../components/useScrollProgress';
@@ -33,6 +39,7 @@ type Props = {
   onDelete: (track: Track) => void;
   onClearMany: (tracks: Track[]) => void;
   onDeleteMany: (tracks: Track[]) => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 const SLIDE_MS = 280;
@@ -48,6 +55,7 @@ export function HiddenTracksScreen({
   onDelete,
   onClearMany,
   onDeleteMany,
+  registerBackInterceptor,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -57,6 +65,12 @@ export function HiddenTracksScreen({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const selectedTracks = tracks.filter((track) => selectedIds.has(track.id));
   const selectedCount = selectedTracks.length;
+
+  if (!visible && (selecting || selectedIds.size > 0)) {
+    setSelecting(false);
+    setSelectedIds(clearSelection());
+  }
+
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -73,18 +87,19 @@ export function HiddenTracksScreen({
   }
 
   function toggleSelection(track: Track) {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(track.id)) next.delete(track.id);
-      else next.add(track.id);
-      return next;
-    });
+    setSelectedIds((previous) => toggleId(previous, track.id));
   }
 
   function exitSelection() {
     setSelecting(false);
-    setSelectedIds(new Set());
+    setSelectedIds(clearSelection());
   }
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(selectionBackHandler(selecting, exitSelection));
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selecting]);
 
   return (
     <Animated.View
@@ -104,17 +119,9 @@ export function HiddenTracksScreen({
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>{selecting ? `${selectedCount} selected` : 'Hidden tracks'}</Text>
+        <Text style={styles.title}>Hidden tracks</Text>
         {selecting ? (
-          <Pressable
-            onPress={exitSelection}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel selection"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.actionPressed]}
-          >
-            <Text style={styles.headerActionText}>Cancel</Text>
-          </Pressable>
+          <View style={styles.iconButton} />
         ) : tracks.length > 0 ? (
           <Pressable
             onPress={() => setSelecting(true)}

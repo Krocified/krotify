@@ -955,7 +955,11 @@ export function AppShell() {
         style={[StyleSheet.absoluteFill, screen !== 'tags' && styles.layerHidden]}
         pointerEvents={screen === 'tags' ? 'auto' : 'none'}
       >
-        <TagsScreen visible={screen === 'tags'} onBack={() => setScreen('settings')} />
+        <TagsScreen
+          visible={screen === 'tags'}
+          onBack={() => setScreen('settings')}
+          registerBackInterceptor={registerBackInterceptor}
+        />
       </BlurTargetView>
       <BlurTargetView
         ref={hiddenBlurRef}
@@ -973,6 +977,7 @@ export function AppShell() {
           onDelete={(track) => setDeleteTargets([track])}
           onClearMany={setClearTargets}
           onDeleteMany={setDeleteTargets}
+          registerBackInterceptor={registerBackInterceptor}
         />
       </BlurTargetView>
       <BlurTargetView
