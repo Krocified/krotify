@@ -65,14 +65,19 @@ export function Sheet({ visible, title, onClose, children }: Props) {
   }, [anim, visible]);
 
   useEffect(() => {
-    if (keyboardHeight <= 0) return;
-    const handle = TextInput.State.currentlyFocusedInput();
-    if (!handle) return;
+    if (!visible || keyboardHeight <= 0) return;
     const timer = setTimeout(() => {
-      scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(handle, 24, true);
-    }, 60);
+      const handle = TextInput.State.currentlyFocusedInput();
+      if (handle) {
+        try {
+          scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(handle, 24, true);
+          return;
+        } catch {}
+      }
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 80);
     return () => clearTimeout(timer);
-  }, [keyboardHeight]);
+  }, [keyboardHeight, visible]);
 
   useEffect(() => {
     if (!visible || Platform.OS !== 'web') return;
@@ -138,7 +143,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
           style={[
             styles.panel,
             {
-              paddingBottom: insets.bottom + space.md,
+              paddingBottom: keyboardHeight > 0 ? space.md : insets.bottom + space.md,
               maxHeight: metrics.maxHeight,
               marginBottom: metrics.lift,
               transform: [
@@ -164,6 +169,8 @@ export function Sheet({ visible, title, onClose, children }: Props) {
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {children}
           </ScrollView>
@@ -192,6 +199,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingTop: space.sm,
     paddingHorizontal: space.md,
+    overflow: 'hidden',
   },
   grabber: {
     alignSelf: 'center',
@@ -208,6 +216,8 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
   },
   content: {
     gap: space.sm,
