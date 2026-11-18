@@ -1030,6 +1030,8 @@ export function AppShell() {
             onPlay={playQueue}
             onSelect={selectFromOverlay}
             registerBackInterceptor={registerBackInterceptor}
+            tags={tags}
+            assignments={assignments}
           />
         </BlurTargetView>
       ) : null}
