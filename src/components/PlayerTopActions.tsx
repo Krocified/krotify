@@ -1,9 +1,9 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useState, type ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { SleepState } from '../player/PlayerProvider';
 import type { SleepPreset } from '../lib/sleepTimer';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space } from '../theme';
 import { SleepTimerControls } from './SleepTimerControls';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -104,7 +104,7 @@ export function PlayerTopActions({
       </View>
 
       {open ? (
-        <>
+        <View style={styles.popover}>
           <View style={styles.secondaryRow}>
             {secondary.map((action) => (
               <Pressable
@@ -116,10 +116,9 @@ export function PlayerTopActions({
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
                 accessibilityState={action.key === 'sleep' ? { expanded: sleepOpen } : undefined}
-                style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
               >
-                <Ionicons name={action.icon} size={16} color={colors.text} />
-                <Text style={styles.pillText}>{action.label}</Text>
+                <Ionicons name={action.icon} size={20} color={colors.text} />
               </Pressable>
             ))}
           </View>
@@ -140,7 +139,7 @@ export function PlayerTopActions({
               />
             </View>
           ) : null}
-        </>
+        </View>
       ) : null}
     </View>
   );
@@ -149,7 +148,7 @@ export function PlayerTopActions({
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'flex-end',
-    gap: space.sm,
+    zIndex: 2,
   },
   row: {
     flexDirection: 'row',
@@ -166,29 +165,33 @@ const styles = StyleSheet.create({
   pressed: {
     backgroundColor: '#ffffff14',
   },
+  popover: {
+    position: 'absolute',
+    top: 50,
+    right: 0,
+    alignItems: 'flex-end',
+    gap: space.xs,
+    padding: space.xs,
+    borderRadius: radius.screen,
+    backgroundColor: colors.surface,
+  },
   secondaryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: space.xs,
   },
-  pill: {
-    minHeight: 36,
-    flexDirection: 'row',
+  secondaryButton: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.sm,
+    justifyContent: 'center',
     borderRadius: radius.screen,
-    backgroundColor: '#ffffff14',
-  },
-  pillText: {
-    ...type.meta,
-    color: colors.text,
+    backgroundColor: colors.surfaceHi,
   },
   sleepPanel: {
     alignSelf: 'stretch',
     padding: space.sm,
     borderRadius: radius.screen,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bg,
   },
 });

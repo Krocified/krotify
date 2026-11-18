@@ -25,12 +25,16 @@ test('ambientTheme stays in range with and without a cover color', () => {
     assert.ok(isHexColor(theme.base));
     assert.ok(isHexColor(theme.top));
     assert.ok(isHexColor(theme.bottom));
-    assert.equal(theme.pools.length, 3);
+    assert.equal(theme.pools.length, 4);
     for (const pool of theme.pools) {
       assert.ok(isHexColor(pool.color));
-      assert.ok(pool.size >= 0.9 && pool.size <= 1.6);
-      assert.ok(pool.driftX >= -0.25 && pool.driftX <= 0.25);
-      assert.ok(pool.durationMs >= 60000 && pool.durationMs <= 120000);
+      assert.ok(pool.size >= 1 && pool.size <= 1.9);
+      assert.ok(pool.x >= 0 && pool.x <= 1);
+      assert.ok(pool.y >= 0 && pool.y <= 1);
+      assert.ok(pool.opacity >= 0.3 && pool.opacity <= 0.6);
+      assert.ok(pool.driftX >= -0.35 && pool.driftX <= 0.35);
+      assert.ok(pool.driftY >= -0.35 && pool.driftY <= 0.35);
+      assert.ok(pool.durationMs >= 24000 && pool.durationMs <= 48000);
     }
   }
 });

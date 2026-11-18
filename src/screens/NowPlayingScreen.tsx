@@ -219,7 +219,7 @@ export function NowPlayingScreen({
       style={[styles.root, { transform: [{ translateY: slide }] }]}
       accessibilityViewIsModal
     >
-      <AmbientBackdrop theme={ambient} playing={isPlaying && !lyricsMode} />
+      <AmbientBackdrop theme={ambient} />
       {actionsOpen ? (
         <Pressable
           onPress={() => setActionsOpen(false)}
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   topActions: {

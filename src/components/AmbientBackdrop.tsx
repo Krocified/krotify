@@ -7,10 +7,9 @@ import { useReduceMotion } from './useReduceMotion';
 
 type Props = {
   theme: AmbientTheme;
-  playing: boolean;
 };
 
-export function AmbientBackdrop({ theme, playing }: Props) {
+export function AmbientBackdrop({ theme }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
@@ -28,7 +27,7 @@ export function AmbientBackdrop({ theme, playing }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!playing || reduceMotion || !appActive) {
+    if (reduceMotion || !appActive) {
       for (const value of values) value.stopAnimation();
       return;
     }
@@ -38,13 +37,13 @@ export function AmbientBackdrop({ theme, playing }: Props) {
           Animated.delay(pool.delayMs),
           Animated.timing(values[index], {
             toValue: 1,
-            duration: pool.durationMs,
+            duration: pool.durationMs / 2,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
           Animated.timing(values[index], {
             toValue: 0,
-            duration: pool.durationMs,
+            duration: pool.durationMs / 2,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
@@ -56,7 +55,7 @@ export function AmbientBackdrop({ theme, playing }: Props) {
       for (const loop of loops) loop.stop();
       for (const value of values) value.setValue(0);
     };
-  }, [appActive, playing, reduceMotion, theme, values]);
+  }, [appActive, reduceMotion, theme, values]);
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -96,10 +95,14 @@ export function AmbientBackdrop({ theme, playing }: Props) {
                   {
                     scale: value.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [1, 1.08],
+                      outputRange: [1, 1.16],
                     }),
                   },
                 ],
+                opacity: value.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [pool.opacity * 0.55, pool.opacity],
+                }),
               },
             ]}
           >
@@ -121,6 +124,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     overflow: 'hidden',
     backgroundColor: colors.surface,
-    opacity: 0.65,
   },
 });
