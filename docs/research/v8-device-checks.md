@@ -41,3 +41,14 @@ web preview.
 | Liked | Swipe left reveals trash, one row open, tap/swipe right closes, confirm removes |  | pending |
 | Playlist | Compact hero and Play/Shuffle/Edit/Add row; picker and drag reorder still work |  | pending |
 | Blur | Player buttons and tag chips render as glass pills; no crash without a target |  | pending |
+
+## v8.3
+
+| Area | Check | Build | Result |
+|---|---|---|---|
+| Player | Sleep, tags, playlist and details render as one blur-pill group, no black circles |  | pending |
+| Ambient | Backdrop moves on first paint; bigger/denser pools, visible drift and scale |  | pending |
+| Keyboard | Sheets keep a small bottom gap above the visible keyboard |  | pending |
+| Liked | Swipe reveals the smaller icon-only red trash; confirm still removes |  | pending |
+| Hero | Playlist, Liked Songs and artist detail show the compact `CollectionHero` with grouped pill |  | pending |
+| Selection | Library actions are icon-only; the select-all control is bigger and easy to hit |  | pending |

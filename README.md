@@ -19,7 +19,7 @@ Hidden tracks have their own page. A missing file is marked and never stops the 
 
 ## Status
 
-Version `0.8.2`. v0 through v8 built, and v8.1/v8.2 are feedback passes. Library settings is its own page, liked songs support bulk and swipe removal, and sheets anchor to the keyboard top. Device checks for v8 through v8.2 are listed in `docs/research/v8-device-checks.md` and still pending.
+Version `0.8.3`. v0 through v8 built, and v8.1/v8.2/v8.3 are feedback passes. The player overflow is one blur-pill group, the ambient backdrop starts moving immediately, sheets keep a small gap above the keyboard, playlist/liked/artist detail share one compact `CollectionHero`, and Library multi-select is icon-only with a bigger select-all. Device checks for v8 through v8.3 are listed in `docs/research/v8-device-checks.md` and still pending.
 
 ## Run it
 
@@ -69,6 +69,7 @@ src/
   screens/            Library, Import, Search, Now Playing, Settings, Hidden,
                       Collections, Playlists, Liked, Edit Track, Tech stack
   components/         headers, tabs, rows, sheets, cropper, player pieces
+  ui/                 shared styles, icon button, empty state, settings kit
   lib/                pure logic with tests: selection, queue, crop, ambient, more
 server/               link service: Express and yt-dlp
 modules/              local Expo modules (AndroidX Palette)

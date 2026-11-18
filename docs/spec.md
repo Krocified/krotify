@@ -628,6 +628,42 @@ Targets version 0.8.2 (`versionCode` 802).
   for keyboard anchoring, swipe rows, the settings split and blur pills are
   recorded in `docs/research/v8-device-checks.md`.
 
+### v8.3: Third feedback pass (built, device verification pending)
+
+Focus: make the third round of 0.8.2 feedback land — grouping, motion and
+compactness — without adding a new surface. Targets version 0.8.3
+(`versionCode` 803).
+
+- **Player overflow is one blur-pill group.** Sleep, tags, playlist and details
+  are a single grouped blur pill, matching the rest of the player chrome. The
+  per-icon black circles are gone; each control keeps its 44px hit target and
+  accessibility label, and the group still collapses on choose, on tap-away and
+  on back.
+- **Ambient starts moving immediately.** The backdrop no longer waits before it
+  moves: the pools are bigger and denser, the cycles are faster (16–30s) and the
+  drift, scale and opacity are stronger, so motion is visible on first paint.
+  Colors still come from the cover's dominant color with the generated hue as
+  the fallback, and cover art never moves.
+- **Sheets keep a small gap above the keyboard.** The shared bottom sheet adds a
+  small bottom gap above the visible keyboard, so the field and the submit row
+  sit clear of the keyboard edge instead of touching it. Every sheet inherits the
+  fix.
+- **Liked Songs swipe is a smaller trash button.** The swipe action is an
+  icon-only trash button, smaller and red, with the same confirmation sheet
+  before anything changes.
+- **One compact `CollectionHero`.** Playlist, Liked Songs and artist detail share
+  a single `CollectionHero`: a 92px cover, an icon-only Play, and a grouped blur
+  pill for shuffle, edit and add, with a bottom margin before the list. The
+  per-screen hero variants are gone.
+- **Library multi-select CTAs are icon-only.** The Library selection actions are
+  icon-only with accessibility labels, and the select-all control is bigger, so
+  the bar stays readable and the all-control is easier to hit.
+- **Not in v8.3.** No new screens, navigation or third-party dependencies. No
+  change to audio files, tag storage or the import path. No custom notification
+  layout. Device checks for the overflow group, ambient motion, the keyboard gap,
+  the swipe trash, `CollectionHero` and the selection bar are recorded in
+  `docs/research/v8-device-checks.md`.
+
 
 ## Library management
 
@@ -759,12 +795,13 @@ storage folder. A web page is never added as a track.
 incremental results across title, artist and album.
 
 **Now Playing** — plain back/down control aligned with the other back pills, no
-black pill. The backdrop is a slow ambient field built from the cover's palette,
+black pill. The backdrop is an ambient field built from the cover's palette,
 seeded per track; the static dominant color is the first paint, and the generated
 hue is the no-art fallback. Cover, then a left-aligned title and artist block, then
 draggable progress with previous/play/next centered on play and repeat at the
-right. The top-right holds only the heart and the lyrics toggle; an expand control
-opens a labelled row with Sleep timer, Tags, Save to playlist and Details. An
+right. The top-right holds the heart, the lyrics toggle and an expand control; the
+expand opens one blur-pill group of icon-only Sleep timer, Tags, Save to playlist
+and Details controls, without moving the back pill. An
 active sleep timer appears only as a small "Sleep · 12:34" caption near the
 transport. Lyrics mode compacts the header to a 48px cover with title and artist on
 one line each, hands the height to the transcript, and keeps Import .lrc, Paste
@@ -780,11 +817,13 @@ and moves to the next or previous track with queue wrap; vertical swipe does
 nothing; the bar itself never moves. Closing the song page returns to this card
 at the current position with no slide.
 
-**Settings** — an instant page, sectioned into Library (permission, scan, rescan,
-exclude all), Storage, Playback, and About. Hidden tracks is a separate layer that
-slides in over Settings; back returns to Settings with Settings still open. Tabs
-and the mini-player stay available, and the tab-bar blur samples Settings itself.
-There is no network lyrics setting; lyrics are imported on the song page.
+**Settings** — an instant page, sectioned into Library, Tags, Storage, Playback
+and About. Library is one row that opens Library settings, its own page for
+permission, scan, rescan, hidden tracks and exclude all. Hidden tracks is a
+separate layer that slides in over Library settings; back returns to Library
+settings with it still open. Tabs and the mini-player stay available, and the
+tab-bar blur samples the active page. There is no network lyrics setting; lyrics
+are imported on the song page.
 
 ## Visual design system
 
@@ -813,12 +852,12 @@ art.
   album's initial in 800-weight white at 40% opacity. Generated art is ours, so
   it may also carry the grain.
 - 1:1, 4px radius on phone, 8px on large screens, subtle outer shadow.
-- Now Playing backdrop = an ambient field from the current cover's palette: two or
-  three soft color pools drifting on independent 60–120s loops, brightened toward
-  the cover's lightest tone at the top and darkened toward `bg` at the bottom, over
-  the static dominant-color gradient (`#191414` fallback). Motion is seeded by
-  track, pauses with playback, when backgrounded, and under reduce-motion. The
-  generated hue is the no-art fallback. The cover itself is never blurred,
+- Now Playing backdrop = an ambient field from the current cover's palette: four
+  soft color pools drifting on independent 16–30s loops, brightened toward the
+  cover's lightest tone at the top and darkened toward `bg` at the bottom, over
+  the static dominant-color gradient (`#191414` fallback). Motion starts on mount,
+  is seeded by track, and pauses only when backgrounded or under reduce-motion.
+  The generated hue is the no-art fallback. The cover itself is never blurred,
   distorted, filtered or animated.
 - No logo, wordmark or playback controls on top of artwork.
 
@@ -842,8 +881,15 @@ hovered, draggable. Runs from below the header to the mini-player bottom.
 **Motion** — Now Playing opens with a 300ms ease-out slide; closing is instant.
 Album/artist detail and tab changes are instant. Settings slides in/out over
 280ms. Progress glides 500ms while playing, snaps on track changes and swipes.
-List rows use a light press-scale. The ambient backdrop moves on 60–120s loops and
+List rows use a light press-scale. The ambient backdrop moves on 16–30s loops and
 is the only continuous background motion. No gratuitous bounces.
+
+**Shared UI** — `src/theme.ts` owns color, spacing, type and radius tokens.
+`src/ui/styles.ts` owns the cross-screen styles (overlay, header, card, row,
+actions, fields, empty states). `src/ui/IconButton`, `src/ui/EmptyState`,
+`src/ui/Settings` (section and row), `src/components/BlurPill` and
+`src/components/CollectionHero` are the shared elements screens compose. Screens
+keep only their one-off layout styles.
 
 ## Data model
 ```ts
@@ -929,9 +975,9 @@ claims.
   clears before the page changes.
 - Ambient backdrop: one animated palette field per track, seeded by track id and
   animated whenever the player is visible. Cover art itself never moves.
-- Version: 0.8.2 (`versionCode` 802). `v8` shipped as 0.8.0, `v8.1` was the
-  first feedback pass and `v8.2` is the second. `.github/workflows/release.yml`
-  bumps and publishes on every push to `main`.
+- Version: 0.8.3 (`versionCode` 803). `v8` shipped as 0.8.0, `v8.1` was the
+  first feedback pass, `v8.2` the second and `v8.3` the third.
+  `.github/workflows/release.yml` bumps and publishes on every push to `main`.
 
 ## Remaining after v2
 
