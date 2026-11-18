@@ -15,7 +15,6 @@ test('every wave layer wraps the art in a whole number of drift periods', () => 
   const allPeriods = [
     ...wavePeriods('curves'),
     ...wavePeriods('soundwave'),
-    ...wavePeriods('thread'),
   ];
   assert.ok(allPeriods.length > 0);
   for (const periods of allPeriods) {

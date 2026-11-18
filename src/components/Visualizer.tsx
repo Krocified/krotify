@@ -14,7 +14,6 @@ import {
   LinearGradient,
   Path,
   RadialGradient,
-  Rect,
   Stop,
   Svg,
 } from 'react-native-svg';
@@ -24,9 +23,7 @@ import {
   BLOB_COPIES,
   BLOB_SHAPES,
   CURVE_LAYERS,
-  SHEEN_BAND,
   SOUNDWAVE_LAYER,
-  THREAD_LAYER,
 } from '../lib/visualizerArt';
 import { useReduceMotion } from './useReduceMotion';
 
@@ -53,9 +50,7 @@ const BREATH_SCALE = 0.06;
 const PLAYING_DURATIONS: Record<VisualizerStyleName, number> = {
   curves: 13000,
   soundwave: 11000,
-  sheen: 9000,
   blobs: 16000,
-  thread: 14000,
 };
 
 const waveInput = (
@@ -142,31 +137,6 @@ function SoundwaveArt({ geometry, gradientId }: { geometry: Geometry; gradientId
   );
 }
 
-function SheenArt({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
-  return (
-    <Rect
-      x={0}
-      y={0}
-      width={geometry.artWidth}
-      height={geometry.height}
-      fill={`url(#${gradientId})`}
-    />
-  );
-}
-
-function SheenBand({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
-  return (
-    <Rect
-      x={0}
-      y={SHEEN_BAND.y * geometry.height}
-      width={geometry.artWidth}
-      height={SHEEN_BAND.height * geometry.height}
-      fill={`url(#${gradientId})`}
-      opacity={SHEEN_BAND.opacity}
-    />
-  );
-}
-
 function BlobsArt({
   geometry,
   radialIds,
@@ -192,26 +162,6 @@ function BlobsArt({
   );
 }
 
-function ThreadArt({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
-  return (
-    <Path
-      d={openSinePath(
-        waveInput(
-          geometry,
-          THREAD_LAYER.periods,
-          THREAD_LAYER.amplitude * geometry.height,
-          THREAD_LAYER.phase,
-        ),
-      )}
-      fill="none"
-      stroke={`url(#${gradientId})`}
-      strokeWidth={THREAD_LAYER.strokeWidth}
-      strokeDasharray={THREAD_LAYER.dash}
-      opacity={THREAD_LAYER.opacity}
-    />
-  );
-}
-
 export function Visualizer({
   seed,
   colors,
@@ -223,11 +173,9 @@ export function Visualizer({
   const [size, setSize] = useState<Size | null>(null);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const gradientId = `${uid}grad`;
-  const bandGradientId = `${uid}band`;
   const radialIds: readonly [string, string] = [`${uid}radA`, `${uid}radB`];
 
   const drift = useSharedValue(0);
-  const counter = useSharedValue(0);
   const breath = useSharedValue(0);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -242,10 +190,8 @@ export function Visualizer({
   useEffect(() => {
     if (reduceMotion || !size) {
       cancelAnimation(drift);
-      cancelAnimation(counter);
       cancelAnimation(breath);
       drift.value = 0;
-      counter.value = 0;
       breath.value = 0;
       return undefined;
     }
@@ -256,24 +202,15 @@ export function Visualizer({
       withTiming(1 + phase, { duration, easing: Easing.linear }),
       -1,
     );
-    if (style === 'sheen') {
-      const bandPhase = counter.value % 1;
-      counter.value = bandPhase;
-      counter.value = withRepeat(
-        withTiming(1 + bandPhase, { duration, easing: Easing.linear }),
-        -1,
-      );
-    }
     if (style === 'blobs') {
       cancelAnimation(breath);
       breath.value = withRepeat(withTiming(1, { duration: BREATH_DURATION }), -1, true);
     }
     return () => {
       cancelAnimation(drift);
-      cancelAnimation(counter);
       cancelAnimation(breath);
     };
-  }, [breath, counter, drift, isPlaying, reduceMotion, size, style]);
+  }, [breath, drift, isPlaying, reduceMotion, size, style]);
 
   const width = size?.width ?? 0;
   const height = size?.height ?? 0;
@@ -287,10 +224,6 @@ export function Visualizer({
       { translateX: -drift.value * periodWidth },
       { scaleY: style === 'blobs' ? 1 + breath.value * BREATH_SCALE : 1 },
     ],
-  }));
-
-  const counterStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: (counter.value - 2) * periodWidth }],
   }));
 
   return (
@@ -313,21 +246,9 @@ export function Visualizer({
             {style === 'soundwave' && (
               <SoundwaveArt geometry={geometry} gradientId={gradientId} />
             )}
-            {style === 'sheen' && <SheenArt geometry={geometry} gradientId={gradientId} />}
             {style === 'blobs' && (
               <BlobsArt geometry={geometry} radialIds={radialIds} />
             )}
-            {style === 'thread' && <ThreadArt geometry={geometry} gradientId={gradientId} />}
-          </Svg>
-        </Animated.View>
-      )}
-      {size && size.width > 0 && size.height > 0 && style === 'sheen' && (
-        <Animated.View style={[styles.art, counterStyle, { width: artWidth }]}>
-          <Svg width={artWidth} height={height} viewBox={`0 0 ${artWidth} ${height}`}>
-            <Defs>
-              <GradientDef id={bandGradientId} colors={colors} cycles={cycles} />
-            </Defs>
-            <SheenBand geometry={geometry} gradientId={bandGradientId} />
           </Svg>
         </Animated.View>
       )}
