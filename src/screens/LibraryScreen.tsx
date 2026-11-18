@@ -153,6 +153,7 @@ export function LibraryScreen({
               key: 'like',
               label: allSelectedLiked ? 'Unlike' : 'Like',
               icon: allSelectedLiked ? 'heart' : 'heart-outline',
+              iconOnly: true,
               disabled: selectedCount === 0,
               onPress: () => {
                 void likeSelection();
@@ -162,6 +163,7 @@ export function LibraryScreen({
               key: 'tag',
               label: 'Tag',
               icon: 'pricetags-outline',
+              iconOnly: true,
               disabled: selectedCount === 0,
               onPress: () => setTagOpen(true),
             },
@@ -169,6 +171,7 @@ export function LibraryScreen({
               key: 'playlist',
               label: 'Playlist',
               icon: 'bookmark-outline',
+              iconOnly: true,
               disabled: selectedCount === 0,
               onPress: () => setPlaylistOpen(true),
             },
@@ -176,6 +179,7 @@ export function LibraryScreen({
               key: 'hide',
               label: 'Hide',
               icon: 'eye-off-outline',
+              iconOnly: true,
               disabled: selectedCount === 0,
               onPress: () => {
                 const targets = selectedTracks;
@@ -188,6 +192,7 @@ export function LibraryScreen({
               label: 'Delete',
               icon: 'trash-outline',
               tone: 'destructive',
+              iconOnly: true,
               disabled: selectedCount === 0,
               onPress: () => {
                 const targets = selectedTracks;

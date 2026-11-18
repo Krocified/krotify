@@ -12,6 +12,7 @@ export type SelectionAction = {
   icon: IconName;
   tone?: 'destructive';
   disabled?: boolean;
+  iconOnly?: boolean;
   onPress: () => void;
 };
 
@@ -46,7 +47,7 @@ export function SelectionBar({ count, allState, onToggleAll, actions, onCancel }
       >
         <Ionicons
           name={ALL_ICON[allState]}
-          size={20}
+          size={24}
           color={allState === 'none' ? colors.textDim : colors.accent}
         />
         <Text style={styles.count}>{count} selected</Text>
@@ -67,23 +68,26 @@ export function SelectionBar({ count, allState, onToggleAll, actions, onCancel }
             accessibilityState={{ disabled: action.disabled }}
             style={({ pressed }) => [
               styles.action,
+              action.iconOnly && styles.actionIconOnly,
               action.disabled && styles.disabled,
               pressed && !action.disabled && styles.pressed,
             ]}
           >
             <Ionicons
               name={action.icon}
-              size={18}
+              size={action.iconOnly ? 22 : 18}
               color={action.tone === 'destructive' ? colors.danger : colors.text}
             />
-            <Text
-              style={[
-                styles.actionText,
-                action.tone === 'destructive' && styles.actionTextDanger,
-              ]}
-            >
-              {action.label}
-            </Text>
+            {action.iconOnly ? null : (
+              <Text
+                style={[
+                  styles.actionText,
+                  action.tone === 'destructive' && styles.actionTextDanger,
+                ]}
+              >
+                {action.label}
+              </Text>
+            )}
           </Pressable>
         ))}
       </ScrollView>
@@ -114,7 +118,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   allControl: {
-    minHeight: 44,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.xs,
@@ -137,6 +141,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     borderRadius: radius.screen,
     backgroundColor: colors.surfaceHi,
+  },
+  actionIconOnly: {
+    width: 44,
+    height: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    gap: 0,
+    paddingHorizontal: 0,
+    borderRadius: 22,
   },
   actionText: {
     ...type.meta,
