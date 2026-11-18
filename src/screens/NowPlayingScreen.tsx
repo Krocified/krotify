@@ -556,7 +556,7 @@ export function NowPlayingScreen({
       />
       <PlaylistPickerSheet
         visible={playlistOpen}
-        track={track}
+        tracks={[track]}
         onClose={() => setPlaylistOpen(false)}
       />
     </Animated.View>

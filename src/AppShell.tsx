@@ -1051,7 +1051,7 @@ export function AppShell() {
       />
       <PlaylistPickerSheet
         visible={pickerTrack !== null}
-        track={pickerTrack}
+        tracks={pickerTrack ? [pickerTrack] : []}
         onClose={() => setPickerTrack(null)}
       />
       <TagAssignSheet

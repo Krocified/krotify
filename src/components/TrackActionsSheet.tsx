@@ -9,13 +9,13 @@ import {
   View,
 } from 'react-native';
 import {
-  addPlaylistTrack,
+  addPlaylistTracks,
   createPlaylist,
   deletePlaylist,
-  listPlaylistTracks,
   listPlaylists,
   type Playlist,
 } from '../db/repo';
+import { bulkAddMessage } from '../lib/playlistAdd';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { Sheet } from './Sheet';
@@ -157,26 +157,19 @@ export function TrackActionsSheet({
 
 type PickerProps = {
   visible: boolean;
-  track: Track | null;
+  tracks: Track[];
   onClose: () => void;
   onAdded?: (playlist: Playlist) => void;
+  onResult?: (message: string) => void;
 };
 
-function resultMessage(added: string[], already: string[], failed: string[]): string {
-  let message = '';
-  if (added.length > 0) {
-    message = `Added to ${added.length} ${added.length === 1 ? 'playlist' : 'playlists'}`;
-    if (already.length > 0) message += `; already in ${already.join(', ')}`;
-  } else if (already.length > 0) {
-    message = `Already in ${already.join(', ')}`;
-  } else {
-    message = 'Could not add this track';
-  }
-  if (failed.length > 0) message += `; failed: ${failed.join(', ')}`;
-  return `${message}.`;
-}
-
-export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: PickerProps) {
+export function PlaylistPickerSheet({
+  visible,
+  tracks,
+  onClose,
+  onAdded,
+  onResult,
+}: PickerProps) {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -185,6 +178,7 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const busy = creating || adding;
+  const count = tracks.length;
 
   useEffect(() => {
     if (!visible) return;
@@ -228,8 +222,13 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
     setMessage(null);
   }
 
+  function report(next: string) {
+    setMessage(next);
+    onResult?.(next);
+  }
+
   async function createAndAdd() {
-    if (!track || busy) return;
+    if (count === 0 || busy) return;
     const name = newName.replace(/\s+/g, ' ').trim();
     if (name === '') {
       setMessage('Enter a playlist name.');
@@ -240,19 +239,22 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
     let created: Playlist | null = null;
     try {
       created = await createPlaylist(name);
-      await addPlaylistTrack(created.id, track.id);
+      const added = await addPlaylistTracks(
+        created.id,
+        tracks.map((item) => item.id),
+      );
       setPlaylists((previous) => [created as Playlist, ...previous]);
       setSelected((previous) => new Set(previous).add(created!.id));
       setNewName('');
-      setMessage(`Created "${name}" and added "${track.title}".`);
+      report(
+        `Created "${name}" and added ${added} ${added === 1 ? 'song' : 'songs'}.`,
+      );
       onAdded?.(created);
     } catch {
       if (created) {
         try {
           await deletePlaylist(created.id);
-        } catch {
-          // The empty playlist is harmless; report the add failure either way.
-        }
+        } catch {}
       }
       setMessage('Could not create the playlist. Try again.');
     } finally {
@@ -261,35 +263,43 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
   }
 
   async function addSelected() {
-    if (!track || busy || selected.size === 0) return;
+    if (count === 0 || busy || selected.size === 0) return;
     setAdding(true);
     setMessage(null);
-    const added: string[] = [];
+    const addedPlaylists: string[] = [];
     const already: string[] = [];
     const failed: string[] = [];
+    let addedTracks = 0;
     for (const playlist of playlists) {
       if (!selected.has(playlist.id)) continue;
       try {
-        const existing = await listPlaylistTracks(playlist.id);
-        if (existing.includes(track.id)) {
+        const added = await addPlaylistTracks(
+          playlist.id,
+          tracks.map((item) => item.id),
+        );
+        if (added === 0) {
           already.push(playlist.name);
           continue;
         }
-        await addPlaylistTrack(playlist.id, track.id);
-        added.push(playlist.name);
+        addedTracks += added;
+        addedPlaylists.push(playlist.name);
         onAdded?.(playlist);
       } catch {
         failed.push(playlist.name);
       }
     }
-    setMessage(resultMessage(added, already, failed));
+    if (addedTracks === 0 && already.length > 0 && failed.length === 0) {
+      report(`Already in ${already.join(', ')}.`);
+    } else {
+      report(bulkAddMessage(addedTracks, addedPlaylists.length + failed.length, failed));
+    }
     setAdding(false);
   }
 
   const addLabel =
     selected.size === 0
       ? 'Add to playlists'
-      : `Add to ${selected.size} ${selected.size === 1 ? 'playlist' : 'playlists'}`;
+      : `Add ${count} ${count === 1 ? 'song' : 'songs'} to ${selected.size} ${selected.size === 1 ? 'playlist' : 'playlists'}`;
 
   return (
     <Sheet visible={visible} title="Add to playlist" onClose={closePicker}>
@@ -325,48 +335,51 @@ export function PlaylistPickerSheet({ visible, track, onClose, onAdded }: Picker
         })
       )}
       {!loading ? (
-      <View style={styles.newRow}>
-        <TextInput
-          value={newName}
-          onChangeText={(value) => {
-            setNewName(value);
-            setMessage(null);
-          }}
-          onSubmitEditing={() => void createAndAdd()}
-          placeholder="New playlist"
-          placeholderTextColor={colors.textDim}
-          editable={!busy}
-          returnKeyType="done"
-          maxLength={60}
-          accessibilityLabel="New playlist name"
-          style={styles.input}
-        />
-        <Pressable
-          onPress={() => void createAndAdd()}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Create playlist and add track"
-          accessibilityState={{ disabled: busy, busy: creating }}
-          style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
-        >
-          {creating ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={styles.createText}>Create</Text>
-          )}
-        </Pressable>
-      </View>
+        <View style={styles.newRow}>
+          <TextInput
+            value={newName}
+            onChangeText={(value) => {
+              setNewName(value);
+              setMessage(null);
+            }}
+            onSubmitEditing={() => void createAndAdd()}
+            placeholder="New playlist"
+            placeholderTextColor={colors.textDim}
+            editable={!busy}
+            returnKeyType="done"
+            maxLength={60}
+            accessibilityLabel="New playlist name"
+            style={styles.input}
+          />
+          <Pressable
+            onPress={() => void createAndAdd()}
+            disabled={busy || count === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Create playlist and add songs"
+            accessibilityState={{ disabled: busy || count === 0, busy: creating }}
+            style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
+          >
+            {creating ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <Text style={styles.createText}>Create</Text>
+            )}
+          </Pressable>
+        </View>
       ) : null}
       {message ? <Text style={styles.message}>{message}</Text> : null}
       <Pressable
         onPress={() => void addSelected()}
-        disabled={selected.size === 0 || busy}
+        disabled={selected.size === 0 || busy || count === 0}
         accessibilityRole="button"
         accessibilityLabel={addLabel}
-        accessibilityState={{ disabled: selected.size === 0 || busy, busy: adding }}
+        accessibilityState={{
+          disabled: selected.size === 0 || busy || count === 0,
+          busy: adding,
+        }}
         style={({ pressed }) => [
           styles.addButton,
-          (selected.size === 0 || busy) && styles.addDisabled,
+          (selected.size === 0 || busy || count === 0) && styles.addDisabled,
           pressed && selected.size > 0 && !busy && styles.pressed,
         ]}
       >

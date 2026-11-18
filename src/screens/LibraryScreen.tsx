@@ -13,6 +13,7 @@ import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SelectionBar } from '../components/SelectionBar';
 import { TagBulkSheet } from '../components/TagBulkSheet';
+import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
 import {
   clearSelection,
   selectionBackHandler,
@@ -77,6 +78,7 @@ export function LibraryScreen({
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [tagOpen, setTagOpen] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
   const selectedTracks = useMemo(
     () => tracks.filter((track) => selectedIds.has(track.id)),
     [tracks, selectedIds],
@@ -132,6 +134,13 @@ export function LibraryScreen({
               icon: 'pricetags-outline',
               disabled: selectedCount === 0,
               onPress: () => setTagOpen(true),
+            },
+            {
+              key: 'playlist',
+              label: 'Playlist',
+              icon: 'bookmark-outline',
+              disabled: selectedCount === 0,
+              onPress: () => setPlaylistOpen(true),
             },
             {
               key: 'hide',
@@ -247,6 +256,15 @@ export function LibraryScreen({
         trackIds={[...selectedIds]}
         onClose={() => setTagOpen(false)}
         onDone={(message) => onNotify?.(message)}
+      />
+      <PlaylistPickerSheet
+        visible={playlistOpen}
+        tracks={selectedTracks}
+        onClose={() => {
+          setPlaylistOpen(false);
+          exitSelection();
+        }}
+        onResult={(message) => onNotify?.(message)}
       />
     </View>
   );
