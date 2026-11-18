@@ -18,3 +18,14 @@ web preview.
 | Player | Expanded row back behavior; sleep caption; lyrics overflow |  | pending |
 | Notification | Seek bar and timestamps: cold start, 5-minute track, 30-second track |  | pending |
 | Notification | Next from app and notification, queue rebuild, background return |  | pending |
+
+## v8.1
+
+| Area | Check | Build | Result |
+|---|---|---|---|
+| Ambient | Motion is visible while paused; still distinct per track; reduce motion static |  | pending |
+| Player | Overflow is icon-only; the back/down pill stays put when it opens |  | pending |
+| Selection | Library actions visible: Like, Tag, Playlist, Hide, Delete; Like reports a count |  | pending |
+| Keyboard | Sheet field and submit row stay above the keyboard after the ScrollView shrinks |  | pending |
+| Notification | Pause from the notification, open the app, then Play starts playback |  | pending |
+| Notification | Determinate progress bar advances for a five-minute and a thirty-second track |  | pending |

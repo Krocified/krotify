@@ -408,7 +408,7 @@ About Tech stack page and credit; per-layer tab-bar blur targets. LRCLIB is not 
 - **Hidden tracks row.** The Settings row drops its trailing track count; the
   Hidden tracks page keeps the count.
 
-### v8: Everyday gestures (planned)
+### v8: Everyday gestures (built, device verification pending)
 
 Focus: make the gestures a daily user repeats trustworthy — selection, import,
 artwork, playlists, artist pages and the player — before adding another surface.
@@ -539,6 +539,55 @@ completion of something already shipped.
   picker is the only new screen. No custom notification layout. No in-app file
   browser and no folder-recursive scan. No change to what an import or a delete
   does to files. No removal of the sleep timer feature.
+
+### v8.1: Feedback pass (built, device verification pending)
+
+Focus: close the gaps the 0.8.0 feedback found without adding a new surface.
+Targets version 0.8.1 (`versionCode` 801).
+
+- **Ambient moves whenever the player is visible.** The backdrop animates while
+  paused as well as while playing; it only stops when the app is backgrounded or
+  reduce-motion is on. Three seeded pools drift further and faster than v8 —
+  a 24–48s cycle instead of 60–120s, with a scale pulse and opacity breathing —
+  so the motion is visible on a short look. Colors still come from the cover's
+  dominant color, with the generated hue as the fallback. The same track always
+  uses the same seed; animation stays on the native driver and cover art never
+  moves.
+- **The player overflow is a quiet icon popover.** The expand control opens a
+  compact popover of icon-only buttons (sleep timer, tags, save to playlist,
+  details), each a 44px target with an accessibility label; labels leave the
+  visible UI. The popover is absolutely positioned below the top row, so opening
+  it never moves the back/down pill on the left or reflows the stage. It still
+  collapses on choose, on tap-away and on back.
+- **Selection actions are visible and include Like.** The Library selection bar
+  always shows its actions beside the count and Cancel; the horizontal action
+  strip no longer collapses to zero width. Library selection offers Like or
+  Unlike (bulk add to or remove from Liked Songs, reporting the count), Tag,
+  Playlist, Hide and Delete. The same bar width fix applies to Hidden tracks,
+  Tags and the playlist song picker.
+- **Sheets shrink instead of overflowing above the keyboard.** The sheet body's
+  ScrollView shrinks to the panel's measured height before it scrolls, so the
+  focused field and the submit row cannot render past the lifted panel and under
+  the keyboard. After the keyboard opens, the sheet scrolls the focused field
+  into view and falls back to scrolling to the end. New playlist, Edit playlist,
+  Paste lyrics, the tag picker and the playlist picker all inherit the fix.
+- **Notification pause and app state agree.** Pausing from the notification and
+  then opening the app keeps the paused state and still lets Play start playback.
+  On return to the foreground the provider re-asserts the audio mode, asks the
+  native playlist to re-emit its status so `playing` and position are current,
+  and re-applies lock-screen metadata. A Play press that does not start within
+  half a second reloads the current window at the current position and plays,
+  instead of leaving a dead player.
+- **The notification carries progress.** The media notification posts a
+  determinate progress bar from the player's position and duration and refreshes
+  it once a second while playing. This is a native patch through a config plugin,
+  so it survives `expo prebuild --clean`; it is present for both a five-minute
+  and a thirty-second track. No custom expanded notification layout is added.
+- **Not in v8.1.** No new screens, navigation or dependencies. No change to the
+  audio files, tags or the import path. The sleep timer stays. Device checks for
+  the notification bar, keyboard lift and ambient motion are recorded in
+  `docs/research/v8-device-checks.md`.
+
 
 ## Library management
 
@@ -839,9 +888,10 @@ claims.
 - Back: artist detail returns to Collections, Collections to Library; a selection
   clears before the page changes.
 - Ambient backdrop: one animated palette field per track, seeded by track id and
-  paused with playback or reduce-motion. Cover art itself never moves.
-- Version: 0.7.4 (`versionCode` 704); v8 targets 0.8.0 (`versionCode` 800).
-  `.github/workflows/release.yml` bumps and publishes on every push to `main`.
+  animated whenever the player is visible. Cover art itself never moves.
+- Version: 0.8.1 (`versionCode` 801). `v8` shipped as 0.8.0 and `v8.1` is the
+  feedback pass. `.github/workflows/release.yml` bumps and publishes on every
+  push to `main`.
 
 ## Remaining after v2
 

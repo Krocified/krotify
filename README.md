@@ -10,16 +10,16 @@ catalogue, no network needed to play. Covers lead; the chrome stays quiet.
 - Browses as a collection: Library with tag chips, Collections for Liked Songs, Playlists, Artists and Albums.
 - Imports with the system picker, one copy per file, a determinate progress bar and a working Cancel. Rows appear as files land.
 - Edits title, artist, album, year, genre, tags and cover in the app. Covers come from the gallery or from files and crop to a square.
-- Selects many songs at once to hide, delete, tag or add to playlists. Select all scoped to the visible rows, and back cancels the selection.
+- Selects many songs at once to like, hide, delete, tag or add to playlists. Select all scoped to the visible rows, and back cancels the selection.
 - Fills a playlist from inside it: search, filter by tag, select all, add N songs, without leaving the playlist.
 - Shows local `.lrc` lyrics with timed highlight, auto-scroll and tap-to-seek.
-- Plays on a player page with an ambient backdrop built from the cover's colors, two primary controls, and a sleep timer behind one expand.
+- Plays on a player page with an always-moving ambient backdrop built from the cover's colors, two primary controls, and an icon overflow for the sleep timer, tags, playlists and details.
 
 Hidden tracks have their own page. A missing file is marked and never stops the next track. Link import is off behind `LINK_IMPORT_ENABLED`; the companion `server/` app stays on disk.
 
 ## Status
 
-Version `0.8.0`. v0 through v8 are built. Device checks for v8 (cropper, import, ambient, notification seek bar) are listed in `docs/research/v8-device-checks.md` and still pending.
+Version `0.8.1`. v0 through v8 built, and v8.1 is the 0.8.0 feedback pass. Device checks for v8 and v8.1 (cropper, import, ambient, keyboard lift, notification progress) are listed in `docs/research/v8-device-checks.md` and still pending.
 
 ## Run it
 
