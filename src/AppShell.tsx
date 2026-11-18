@@ -922,6 +922,7 @@ export function AppShell() {
             onOpenPlaylists={() => openPlaylists(null)}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
+            registerBackInterceptor={registerBackInterceptor}
           />
         )}
       </BlurTargetView>
@@ -1028,6 +1029,7 @@ export function AppShell() {
             onClose={closePlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
+            registerBackInterceptor={registerBackInterceptor}
           />
         </BlurTargetView>
       ) : null}

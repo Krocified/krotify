@@ -1,13 +1,21 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { File } from 'expo-file-system';
+import { ArtworkSourceSheet } from '../components/ArtworkSourceSheet';
 import { CollectionHeader } from '../components/CollectionHeader';
+import { SquareImageCropper } from '../components/SquareImageCropper';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TrackRow } from '../components/TrackRow';
-import { buildArtists, type Artist } from '../lib/groups';
+import { applyArtistArt, artistArtKey, artistSongsLabel } from '../lib/artistIdentity';
+import { validateArtworkInput } from '../lib/artworkInput';
+import { buildArtists } from '../lib/groups';
+import { selectionBackHandler } from '../lib/selection';
+import { clearArtistArt, listArtistArt, saveArtistArt } from '../library/artistArtwork';
+import { pickImageFromFiles, pickImageFromGallery } from '../library/imageInput';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -21,6 +29,7 @@ type Props = {
   onOpenPlaylists: () => void;
   onPlay: (queue: Track[]) => void;
   onSelect: (track: Track, queue: Track[]) => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 type Selection = { kind: 'artist'; key: string };
@@ -29,8 +38,8 @@ function countLabel(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
-function artistMeta(artist: Artist): string {
-  return `${countLabel(artist.albumCount, 'album')} · ${countLabel(artist.tracks.length, 'track')}`;
+function artistMeta(artist: { tracks: unknown[] }): string {
+  return artistSongsLabel(artist.tracks.length);
 }
 
 export function CollectionsScreen({
@@ -43,10 +52,18 @@ export function CollectionsScreen({
   onOpenPlaylists,
   onPlay,
   onSelect,
+  registerBackInterceptor,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [selection, setSelection] = useState<Selection | null>(null);
-  const artists = useMemo(() => buildArtists(tracks), [tracks]);
+  const [artistCovers, setArtistCovers] = useState<ReadonlyMap<string, string>>(new Map());
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [cropUri, setCropUri] = useState<string | null>(null);
+  const [coverMessage, setCoverMessage] = useState<string | null>(null);
+  const artists = useMemo(
+    () => applyArtistArt(buildArtists(tracks), artistCovers),
+    [tracks, artistCovers],
+  );
 
   const artist = selection?.kind === 'artist'
     ? artists.find((item) => item.key === selection.key) ?? null
@@ -58,6 +75,80 @@ export function CollectionsScreen({
   const detailHue = artist?.tracks[0]?.artworkHue ?? 0;
 
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl;
+
+  useEffect(() => {
+    let cancelled = false;
+    listArtistArt()
+      .then((covers) => {
+        if (!cancelled) setArtistCovers(covers);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(
+      selectionBackHandler(selection !== null, () => setSelection(null)),
+    );
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selection]);
+
+  async function pickCover(source: 'gallery' | 'files') {
+    setCoverMessage(null);
+    try {
+      const picked =
+        source === 'gallery' ? await pickImageFromGallery() : await pickImageFromFiles();
+      if (!picked) return;
+      const validation = validateArtworkInput({
+        mimeType: picked.mimeType,
+        sizeBytes: picked.sizeBytes,
+      });
+      if (!validation.ok) {
+        setCoverMessage(validation.errors.join(' '));
+        return;
+      }
+      setCropUri(picked.uri);
+    } catch {
+      setCoverMessage('Could not open the cover picker.');
+    }
+  }
+
+  async function handleCropDone(file: File) {
+    setCropUri(null);
+    if (!artist) return;
+    try {
+      const uri = await saveArtistArt(artistArtKey(artist.name), file);
+      setArtistCovers((previous) =>
+        new Map(previous).set(artistArtKey(artist.name), uri),
+      );
+      setCoverMessage(null);
+    } catch {
+      setCoverMessage('Could not save the cover.');
+    } finally {
+      try {
+        new File(file.uri).delete();
+      } catch {}
+    }
+  }
+
+  async function resetCover() {
+    if (!artist) return;
+    const key = artistArtKey(artist.name);
+    try {
+      await clearArtistArt(key);
+      setArtistCovers((previous) => {
+        const next = new Map(previous);
+        next.delete(key);
+        return next;
+      });
+      setCoverMessage(null);
+    } catch {
+      setCoverMessage('Could not restore the default cover.');
+    }
+  }
 
   return (
     <View
@@ -90,11 +181,13 @@ export function CollectionsScreen({
           <CollectionHeader
             title={detailTitle}
             meta={detailMeta}
-            artworkUri={detailTracks[0]?.artworkUri}
+            artworkUri={artist?.artworkUri ?? detailTracks[0]?.artworkUri}
             fallbackHue={detailHue}
             onPlay={() => onPlay(detailTracks)}
             onShuffle={() => onPlay(shuffle(detailTracks))}
+            onPressArtwork={() => setSourceOpen(true)}
           />
+          {coverMessage ? <Text style={styles.coverMessage}>{coverMessage}</Text> : null}
           <View style={styles.list}>
             {detailTracks.map((track) => (
               <TrackRow
@@ -176,6 +269,20 @@ export function CollectionsScreen({
           </View>
         </ScrollView>
       )}
+      <ArtworkSourceSheet
+        visible={sourceOpen}
+        canRemove={Boolean(artist?.artworkUri)}
+        onGallery={() => void pickCover('gallery')}
+        onFiles={() => void pickCover('files')}
+        onRemove={() => void resetCover()}
+        onClose={() => setSourceOpen(false)}
+      />
+      <SquareImageCropper
+        visible={cropUri !== null}
+        uri={cropUri}
+        onCancel={() => setCropUri(null)}
+        onDone={(file) => void handleCropDone(file)}
+      />
     </View>
   );
 }
@@ -260,6 +367,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     paddingHorizontal: space.xs,
     marginTop: space.sm,
+  },
+  coverMessage: {
+    ...type.meta,
+    color: colors.danger,
+    paddingHorizontal: space.md,
+    paddingTop: space.sm,
   },
   empty: {
     ...type.meta,

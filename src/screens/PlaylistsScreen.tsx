@@ -46,6 +46,7 @@ type Props = {
   playlistId?: string | null;
   onOpenPlaylist?: (id: string | null) => void;
   onPlaylistsChanged?: () => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 function applyVisibleOrder(current: string[], visibleOrder: string[]): string[] {

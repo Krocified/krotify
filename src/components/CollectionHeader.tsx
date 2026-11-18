@@ -12,6 +12,7 @@ type Props = {
   onPlay: () => void;
   onShuffle?: () => void;
   onEdit?: () => void;
+  onPressArtwork?: () => void;
   disabled?: boolean;
 };
 
@@ -24,18 +25,36 @@ export function CollectionHeader({
   onPlay,
   onShuffle,
   onEdit,
+  onPressArtwork,
   disabled = false,
 }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.hero}>
-        <CoverArt
-          hue={fallbackHue}
-          title={title}
-          size={140}
-          radius={radius.coverLarge}
-          uri={artworkUri}
-        />
+        {onPressArtwork ? (
+          <Pressable
+            onPress={onPressArtwork}
+            accessibilityRole="button"
+            accessibilityLabel="Change artist cover"
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <CoverArt
+              hue={fallbackHue}
+              title={title}
+              size={140}
+              radius={radius.coverLarge}
+              uri={artworkUri}
+            />
+          </Pressable>
+        ) : (
+          <CoverArt
+            hue={fallbackHue}
+            title={title}
+            size={140}
+            radius={radius.coverLarge}
+            uri={artworkUri}
+          />
+        )}
         <View style={styles.heroText}>
           <Text style={styles.title} numberOfLines={2}>
             {title}
