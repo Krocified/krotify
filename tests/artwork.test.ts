@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mergeCachedMetadata } from '../src/db/cachedMetadata.ts';
+import { validateArtworkInput } from '../src/lib/artworkInput.ts';
 import type { CachedMetadata } from '../src/db/repo.ts';
 
 test('keeps cached artwork when the patch omits artworkUri', () => {
@@ -46,4 +47,13 @@ test('still overwrites other keys, including with undefined', () => {
     artist: undefined,
     artworkUri: 'file:///art/cover.jpg',
   });
+});
+
+test('an unknown artwork size is accepted', () => {
+  assert.deepEqual(validateArtworkInput({ mimeType: 'image/jpeg', sizeBytes: 0 }), { ok: true });
+});
+
+test('a negative artwork size is rejected', () => {
+  const result = validateArtworkInput({ mimeType: 'image/jpeg', sizeBytes: -1 });
+  assert.equal(result.ok, false);
 });

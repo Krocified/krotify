@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { mergeCachedMetadata } from './cachedMetadata';
+import { appendPositions, tracksToAppend } from '../lib/playlistAdd';
 import { getDb } from './index';
 
 export { mergeCachedMetadata };
@@ -179,15 +180,40 @@ export async function listPlaylistTracks(playlistId: string): Promise<string[]> 
 }
 
 export async function addPlaylistTrack(playlistId: string, trackId: string): Promise<void> {
+  await addPlaylistTracks(playlistId, [trackId]);
+}
+
+export async function addPlaylistTracks(
+  playlistId: string,
+  trackIds: readonly string[],
+): Promise<number> {
   const db = await getDb();
-  if (!db) return;
-  await db.runAsync(
-    `INSERT OR IGNORE INTO playlist_tracks (playlistId, trackId, position)
-     VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1000 FROM playlist_tracks WHERE playlistId = ?))`,
-    playlistId,
-    trackId,
+  if (!db || trackIds.length === 0) return 0;
+  const rows = await db.getAllAsync<{ trackId: string }>(
+    'SELECT trackId FROM playlist_tracks WHERE playlistId = ?',
     playlistId,
   );
+  const toAdd = tracksToAppend(
+    rows.map((row) => row.trackId),
+    trackIds,
+  );
+  if (toAdd.length === 0) return 0;
+  const maxRow = await db.getFirstAsync<{ max: number | null }>(
+    'SELECT MAX(position) AS max FROM playlist_tracks WHERE playlistId = ?',
+    playlistId,
+  );
+  const positions = appendPositions(maxRow?.max ?? 0, toAdd.length);
+  await db.withTransactionAsync(async () => {
+    for (let index = 0; index < toAdd.length; index += 1) {
+      await db.runAsync(
+        'INSERT OR IGNORE INTO playlist_tracks (playlistId, trackId, position) VALUES (?, ?, ?)',
+        playlistId,
+        toAdd[index],
+        positions[index],
+      );
+    }
+  });
+  return toAdd.length;
 }
 
 export async function removePlaylistTrack(playlistId: string, trackId: string): Promise<void> {

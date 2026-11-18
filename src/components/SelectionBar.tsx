@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { SelectionState } from '../lib/selection';
 import { colors, radius, space, type } from '../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -16,15 +17,46 @@ export type SelectionAction = {
 
 type Props = {
   count: number;
+  allState: SelectionState;
+  onToggleAll: () => void;
   actions: SelectionAction[];
   onCancel: () => void;
 };
 
-export function SelectionBar({ count, actions, onCancel }: Props) {
+const ALL_ICON: Record<SelectionState, IconName> = {
+  none: 'square-outline',
+  partial: 'remove-circle',
+  all: 'checkbox',
+};
+
+export function SelectionBar({ count, allState, onToggleAll, actions, onCancel }: Props) {
+  const allLabel = allState === 'all' ? 'Unselect all' : 'Select all';
+
   return (
     <View style={styles.bar}>
-      <Text style={styles.count}>{count} selected</Text>
-      <View style={styles.actions}>
+      <Pressable
+        onPress={onToggleAll}
+        accessibilityRole="checkbox"
+        accessibilityLabel={allLabel}
+        accessibilityState={{
+          checked: allState === 'all' ? true : allState === 'partial' ? 'mixed' : false,
+        }}
+        hitSlop={space.xs}
+        style={({ pressed }) => [styles.allControl, pressed && styles.pressed]}
+      >
+        <Ionicons
+          name={ALL_ICON[allState]}
+          size={20}
+          color={allState === 'none' ? colors.textDim : colors.accent}
+        />
+        <Text style={styles.count}>{count} selected</Text>
+      </Pressable>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.actionsScroll}
+        contentContainerStyle={styles.actions}
+      >
         {actions.map((action) => (
           <Pressable
             key={action.key}
@@ -54,15 +86,15 @@ export function SelectionBar({ count, actions, onCancel }: Props) {
             </Text>
           </Pressable>
         ))}
-        <Pressable
-          onPress={onCancel}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel selection"
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-      </View>
+      </ScrollView>
+      <Pressable
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel selection"
+        style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
+      >
+        <Text style={styles.cancelText}>Cancel</Text>
+      </Pressable>
     </View>
   );
 }
@@ -80,6 +112,18 @@ const styles = StyleSheet.create({
   count: {
     ...type.meta,
     color: colors.text,
+  },
+  allControl: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.xs,
+    borderRadius: radius.screen,
+  },
+  actionsScroll: {
+    flex: 1,
+    flexGrow: 0,
   },
   actions: {
     flexDirection: 'row',

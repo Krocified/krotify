@@ -24,12 +24,14 @@ import {
 import { recordPlay } from './db/repo';
 import { getScanSummary, type ScanSummary } from './db/settings';
 import { pickAndImportTracks, type ImportFailure } from './imports/local';
+import type { ImportProgress } from './lib/importProgress';
 import { DEMO_TRACKS } from './library/demo';
 import { useFavorites } from './library/FavoritesProvider';
 import { grantAudioPermission, readAudioPermissionState } from './library/permissions';
 import { resolvePlaybackUri } from './library/playbackSource';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
+import { activeBackOwner } from './lib/backOwner';
 import { resolveBack } from './lib/backIntent';
 import { resolveBlurLayer } from './lib/layerTarget';
 import { mergeLibrary, sortTracks } from './lib/library';
@@ -102,6 +104,8 @@ export function AppShell() {
   const [excluded, setExcluded] = useState<Track[]>([]);
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<ImportFailure[]>([]);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const importAbortRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
@@ -141,7 +145,7 @@ export function AppShell() {
   const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const tagsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
-  const backInterceptorRef = useRef<(() => boolean) | null>(null);
+  const backInterceptorsRef = useRef(new Map<string, () => boolean>());
   const exitArmedRef = useRef<number | null>(null);
   const screenRef = useRef<ScreenName>('library');
   const tabRef = useRef<TabName>('library');
@@ -157,11 +161,36 @@ export function AppShell() {
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
-  const registerBackInterceptor = useCallback(
-    (handler: (() => boolean) | null) => {
-      backInterceptorRef.current = handler;
+  const registerBackFor = useCallback(
+    (owner: string, handler: (() => boolean) | null) => {
+      if (handler) backInterceptorsRef.current.set(owner, handler);
+      else backInterceptorsRef.current.delete(owner);
     },
     [],
+  );
+  const registerLibraryBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('library', handler),
+    [registerBackFor],
+  );
+  const registerCollectionsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('collections', handler),
+    [registerBackFor],
+  );
+  const registerNowPlayingBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('nowPlaying', handler),
+    [registerBackFor],
+  );
+  const registerHiddenBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('hidden', handler),
+    [registerBackFor],
+  );
+  const registerTagsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('tags', handler),
+    [registerBackFor],
+  );
+  const registerPlaylistsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('playlists', handler),
+    [registerBackFor],
   );
   const showToast = useCallback(
     (message: string) => setToast({ id: Date.now(), message }),
@@ -372,7 +401,14 @@ export function AppShell() {
         setTechStackOpen(false);
         return true;
       }
-      if (backInterceptorRef.current?.()) {
+      const owner = activeBackOwner({
+        screen: screenRef.current,
+        tab: tabRef.current,
+        likedOpen: likedOpenRef.current,
+        playlistsOpen: playlistsOpenRef.current,
+      });
+      const interceptor = owner === 'none' ? null : backInterceptorsRef.current.get(owner);
+      if (interceptor?.()) {
         exitArmedRef.current = null;
         return true;
       }
@@ -748,7 +784,27 @@ export function AppShell() {
           return;
         }
       }
-      const { added, skipped, failures } = await pickAndImportTracks();
+      const controller = new AbortController();
+      importAbortRef.current = controller;
+      const { added, skipped, failures } = await pickAndImportTracks({
+        signal: controller.signal,
+        onProgress: setImportProgress,
+        onAdded: (record) => {
+          const uiTrack = toUiTrack(record);
+          setLibraryTracks((prev) =>
+            mergeLibrary(
+              prev.filter((item) => item.source !== 'demo'),
+              [uiTrack],
+              new Set(),
+            ),
+          );
+          setStatus('ready');
+        },
+        onUpdated: (record) => {
+          const uiTrack = toUiTrack(record);
+          setLibraryTracks((prev) => mergeLibrary(prev, [uiTrack], new Set()));
+        },
+      });
       setImportFailures(failures);
       const skippedNote =
         skipped.length > 0
@@ -772,8 +828,14 @@ export function AppShell() {
       selectTab('library');
       showToast(importResultMessage(added.length, failures.length));
     } finally {
+      importAbortRef.current = null;
+      setImportProgress(null);
       setImporting(false);
     }
+  }
+
+  function cancelImport() {
+    importAbortRef.current?.abort();
   }
 
   const fullScreenOverlay = editTarget !== null;
@@ -867,12 +929,16 @@ export function AppShell() {
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
+            registerBackInterceptor={registerLibraryBack}
+            onNotify={showToast}
           />
         ) : activeTab === 'import' ? (
           <ImportScreen
             active={screen === 'import'}
             importing={importing}
             importFailures={importFailures}
+            progress={importProgress}
+            onCancelImport={cancelImport}
             onImport={handleImport}
             onLinkImported={handleLinkImported}
             onOpenSearch={openSearch}
@@ -889,6 +955,7 @@ export function AppShell() {
             onOpenPlaylists={() => openPlaylists(null)}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
+            registerBackInterceptor={registerCollectionsBack}
           />
         )}
       </BlurTargetView>
@@ -899,7 +966,7 @@ export function AppShell() {
           onClearTrack={(track) => setClearTargets([track])}
           onDeleteFile={(track) => setDeleteTargets([track])}
           registerClose={registerClose}
-          registerBackInterceptor={registerBackInterceptor}
+          registerBackInterceptor={registerNowPlayingBack}
         />
       ) : null}
       <BlurTargetView
@@ -954,7 +1021,11 @@ export function AppShell() {
         style={[StyleSheet.absoluteFill, screen !== 'tags' && styles.layerHidden]}
         pointerEvents={screen === 'tags' ? 'auto' : 'none'}
       >
-        <TagsScreen visible={screen === 'tags'} onBack={() => setScreen('settings')} />
+        <TagsScreen
+          visible={screen === 'tags'}
+          onBack={() => setScreen('settings')}
+          registerBackInterceptor={registerTagsBack}
+        />
       </BlurTargetView>
       <BlurTargetView
         ref={hiddenBlurRef}
@@ -972,6 +1043,7 @@ export function AppShell() {
           onDelete={(track) => setDeleteTargets([track])}
           onClearMany={setClearTargets}
           onDeleteMany={setDeleteTargets}
+          registerBackInterceptor={registerHiddenBack}
         />
       </BlurTargetView>
       <BlurTargetView
@@ -990,6 +1062,9 @@ export function AppShell() {
             onClose={closePlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
+            registerBackInterceptor={registerPlaylistsBack}
+            tags={tags}
+            assignments={assignments}
           />
         </BlurTargetView>
       ) : null}
@@ -1044,7 +1119,7 @@ export function AppShell() {
       />
       <PlaylistPickerSheet
         visible={pickerTrack !== null}
-        track={pickerTrack}
+        tracks={pickerTrack ? [pickerTrack] : []}
         onClose={() => setPickerTrack(null)}
       />
       <TagAssignSheet

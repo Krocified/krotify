@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { importedFileName } from '../lib/importName.ts';
 import { titleFromFilename } from '../lib/format.ts';
+import type { ImportProgress } from '../lib/importProgress.ts';
 import { storeOwnedFile } from '../storage/store.ts';
 import {
   findOwnedByKey,
@@ -11,7 +12,7 @@ import {
   setTrackStatus,
   updateTrackFields,
 } from '../tracks/repo.ts';
-import { readTrackSeed } from '../tracks/seed';
+import { readTrackSeeds, saveSeedArtwork } from '../tracks/seed';
 import { seedToTrackPatch } from '../tracks/seedMap.ts';
 import type { TrackRecord } from '../tracks/types.ts';
 import {
@@ -78,20 +79,33 @@ function errorText(error: unknown): string {
   return 'Copy failed for an unknown reason.';
 }
 
-export async function pickAndImportTracks(): Promise<ImportResult> {
+export type ImportOptions = {
+  onProgress?: (progress: ImportProgress) => void;
+  onAdded?: (record: TrackRecord) => void;
+  onUpdated?: (record: TrackRecord) => void;
+  signal?: AbortSignal;
+};
+
+export async function pickAndImportTracks(
+  options: ImportOptions = {},
+): Promise<ImportResult> {
   const picked = await DocumentPicker.getDocumentAsync({
     type: 'audio/*',
     multiple: true,
-    copyToCacheDirectory: true,
+    copyToCacheDirectory: false,
   });
   if (picked.canceled) return { added: [], skipped: [], failures: [] };
 
   const added: TrackRecord[] = [];
   const skipped: ImportSkip[] = [];
   const failures: ImportFailure[] = [];
+  const seeds = await readTrackSeeds(picked.assets.map((asset) => asset.uri));
+  const total = picked.assets.length;
 
   for (const [index, asset] of picked.assets.entries()) {
+    if (options.signal?.aborted) break;
     const name = importedFileName(asset.name, `track-${index + 1}.mp3`, asset.mimeType);
+    options.onProgress?.({ index: index + 1, total, name });
     let copied: File | null = null;
 
     try {
@@ -152,11 +166,11 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
         continue;
       }
 
-      const durationMs = await probeDurationMs(copied.uri).catch(() => 0);
-      const seed = await readTrackSeed(copied.uri);
+      const seed = seeds.get(asset.uri) ?? {};
       const patch = seedToTrackPatch(seed, name);
 
       if (decision.kind === 'reactivate') {
+        const durationMs = await probeDurationMs(copied.uri).catch(() => 0);
         await updateTrackFields(decision.id, {
           ...patch,
           location: copied.uri,
@@ -174,7 +188,7 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
           location: copied.uri,
           fileName: copied.name,
           sizeBytes: copied.size,
-          durationMs,
+          durationMs: 0,
           title: patch.title ?? titleFromFilename(name),
           artist: patch.artist ?? '',
           album: patch.album ?? '',
@@ -186,6 +200,23 @@ export async function pickAndImportTracks(): Promise<ImportResult> {
           artworkUri: patch.artworkUri,
         });
         added.push(record);
+        options.onAdded?.(record);
+
+        const location = copied.uri;
+        const durationMs = await probeDurationMs(location).catch(() => 0);
+        const artworkUri = await saveSeedArtwork(location);
+        if (durationMs > 0 || artworkUri) {
+          await updateTrackFields(record.id, {
+            ...(durationMs > 0 ? { durationMs } : {}),
+            ...(artworkUri ? { artworkUri } : {}),
+          });
+          const refreshed = await getTrack(record.id);
+          if (refreshed) {
+            const position = added.findIndex((item) => item.id === refreshed.id);
+            if (position >= 0) added[position] = refreshed;
+            options.onUpdated?.(refreshed);
+          }
+        }
       }
       copied = null;
     } catch (error) {

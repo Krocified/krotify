@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,6 +12,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SelectionBar } from '../components/SelectionBar';
+import { TagBulkSheet } from '../components/TagBulkSheet';
+import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
+import {
+  clearSelection,
+  selectionBackHandler,
+  selectionState,
+  toggleAllVisible,
+  toggleId,
+} from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
@@ -35,6 +44,8 @@ type Props = {
   onOpenSettings: () => void;
   onOpenLiked?: () => void;
   onOpenPlaylists?: () => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
+  onNotify?: (message: string) => void;
 };
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
@@ -56,6 +67,8 @@ export function LibraryScreen({
   onDeleteMany,
   onOpenSearch,
   onOpenSettings,
+  registerBackInterceptor,
+  onNotify,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -64,10 +77,13 @@ export function LibraryScreen({
   const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8;
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [tagOpen, setTagOpen] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
   const selectedTracks = useMemo(
     () => tracks.filter((track) => selectedIds.has(track.id)),
     [tracks, selectedIds],
   );
+  const visibleIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
   const selectedCount = selectedTracks.length;
 
   function startSelection(track: Track) {
@@ -76,57 +92,56 @@ export function LibraryScreen({
   }
 
   function toggleSelection(track: Track) {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(track.id)) next.delete(track.id);
-      else next.add(track.id);
-      return next;
-    });
+    setSelectedIds((previous) => toggleId(previous, track.id));
   }
 
   function exitSelection() {
     setSelecting(false);
-    setSelectedIds(new Set());
+    setSelectedIds(clearSelection());
   }
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(selectionBackHandler(selecting, exitSelection));
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selecting]);
 
   return (
     <View style={styles.root}>
       <ScreenHeader
         leading={
-          selecting ? (
-            <Text style={styles.selectTitle}>{selectedCount} selected</Text>
-          ) : (
-            <>
-              <Image
-                source={require('../../assets/lyrics.png')}
-                style={styles.brandIcon}
-                accessible={false}
-              />
-              <Text style={styles.wordmark}>Krotify</Text>
-            </>
-          )
+          <>
+            <Image
+              source={require('../../assets/lyrics.png')}
+              style={styles.brandIcon}
+              accessible={false}
+            />
+            <Text style={styles.wordmark}>Krotify</Text>
+          </>
         }
-        trailing={
-          selecting ? (
-            <Pressable
-              onPress={exitSelection}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel selection"
-              hitSlop={space.sm}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.rowPressed]}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-          ) : (
-            <HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />
-          )
-        }
+        trailing={<HeaderActions onOpenSearch={onOpenSearch} onOpenSettings={onOpenSettings} />}
       />
 
       {selecting ? (
         <SelectionBar
           count={selectedCount}
+          allState={selectionState(selectedIds, visibleIds)}
+          onToggleAll={() => setSelectedIds((previous) => toggleAllVisible(previous, visibleIds))}
           actions={[
+            {
+              key: 'tag',
+              label: 'Tag',
+              icon: 'pricetags-outline',
+              disabled: selectedCount === 0,
+              onPress: () => setTagOpen(true),
+            },
+            {
+              key: 'playlist',
+              label: 'Playlist',
+              icon: 'bookmark-outline',
+              disabled: selectedCount === 0,
+              onPress: () => setPlaylistOpen(true),
+            },
             {
               key: 'hide',
               label: 'Hide',
@@ -236,6 +251,21 @@ export function LibraryScreen({
           </View>
         </>
       )}
+      <TagBulkSheet
+        visible={tagOpen}
+        trackIds={[...selectedIds]}
+        onClose={() => setTagOpen(false)}
+        onDone={(message) => onNotify?.(message)}
+      />
+      <PlaylistPickerSheet
+        visible={playlistOpen}
+        tracks={selectedTracks}
+        onClose={() => {
+          setPlaylistOpen(false);
+          exitSelection();
+        }}
+        onResult={(message) => onNotify?.(message)}
+      />
     </View>
   );
 }
@@ -253,20 +283,6 @@ const styles = StyleSheet.create({
     ...type.display,
     color: colors.text,
     letterSpacing: -0.5,
-  },
-  selectTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  cancelButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingHorizontal: space.sm,
-    borderRadius: 999,
-  },
-  cancelText: {
-    ...type.meta,
-    color: colors.textDim,
   },
   scanning: {
     flex: 1,

@@ -1,4 +1,4 @@
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const V4_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS tracks (
@@ -94,6 +94,12 @@ CREATE TABLE IF NOT EXISTS lyrics_cache (
   kind TEXT NOT NULL,
   text TEXT,
   fetchedAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS artist_art (
+  artistKey TEXT PRIMARY KEY,
+  artworkUri TEXT NOT NULL,
+  updatedAt INTEGER NOT NULL
 );
 `;
 

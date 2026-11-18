@@ -21,6 +21,7 @@ import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
+  addPlaylistTracks,
   deletePlaylist,
   listPlaylistSummaries,
   listPlaylistTracks,
@@ -29,6 +30,9 @@ import {
   type Playlist,
   type PlaylistSummary,
 } from '../db/repo';
+import { PlaylistSongPicker } from './PlaylistSongPicker';
+import { bulkAddMessage } from '../lib/playlistAdd';
+import type { TagCount } from '../tags/filter';
 import { formatDuration } from '../lib/format';
 import { hueFromSeed } from '../lib/hash';
 import { moveId } from '../lib/playlistOrder';
@@ -46,6 +50,9 @@ type Props = {
   playlistId?: string | null;
   onOpenPlaylist?: (id: string | null) => void;
   onPlaylistsChanged?: () => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
+  tags?: TagCount[];
+  assignments?: ReadonlyMap<string, readonly string[]>;
 };
 
 function applyVisibleOrder(current: string[], visibleOrder: string[]): string[] {
@@ -62,6 +69,9 @@ export function PlaylistsScreen({
   playlistId,
   onOpenPlaylist,
   onPlaylistsChanged,
+  registerBackInterceptor,
+  tags = [],
+  assignments = new Map(),
 }: Props) {
   const insets = useSafeAreaInsets();
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
@@ -77,6 +87,7 @@ export function PlaylistsScreen({
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Playlist | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   const reorderQueue = useRef<Promise<void>>(Promise.resolve());
@@ -221,6 +232,16 @@ export function PlaylistsScreen({
     } finally {
       setBusyTrackId(null);
     }
+  }
+
+  async function addSongs(ids: string[]) {
+    if (!selectedId || ids.length === 0) return;
+    const added = await addPlaylistTracks(selectedId, ids);
+    setTrackIds((previous) => [...previous, ...ids.filter((id) => !previous.includes(id))]);
+    setMessage(bulkAddMessage(added, 1, []));
+    setPickerOpen(false);
+    refreshSummaries();
+    onPlaylistsChanged?.();
   }
 
   function persistOrder(ids: string[]) {
@@ -376,6 +397,17 @@ export function PlaylistsScreen({
               }
               disabled={queue.length === 0}
             />
+            <View style={styles.detailActions}>
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add songs to ${name}`}
+                style={({ pressed }) => [styles.addSongs, pressed && styles.pressed]}
+              >
+                <Ionicons name="add" size={18} color={colors.text} />
+                <Text style={styles.addSongsText}>Add songs</Text>
+              </Pressable>
+            </View>
             {message ? (
               <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
             ) : null}
@@ -389,9 +421,15 @@ export function PlaylistsScreen({
             <View style={styles.detailEmpty}>
               <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
               <Text style={styles.emptyTitle}>No songs yet</Text>
-              <Text style={styles.emptyText}>
-                {"Add tracks from a song's action sheet to build this playlist."}
-              </Text>
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add songs to ${name}`}
+                style={({ pressed }) => [styles.addSongs, pressed && styles.pressed]}
+              >
+                <Ionicons name="add" size={18} color={colors.text} />
+                <Text style={styles.addSongsText}>Add songs</Text>
+              </Pressable>
             </View>
           ) : (
             <Sortable.Grid
@@ -464,6 +502,18 @@ export function PlaylistsScreen({
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
       />
+      {pickerOpen && selectedId ? (
+        <PlaylistSongPicker
+          playlistName={selectedPlaylist?.name ?? 'Playlist'}
+          tracks={tracks}
+          existingIds={trackIds}
+          tags={tags}
+          assignments={assignments}
+          onClose={() => setPickerOpen(false)}
+          onAdd={addSongs}
+          registerBackInterceptor={registerBackInterceptor}
+        />
+      ) : null}
     </View>
   );
 }
@@ -589,6 +639,24 @@ const styles = StyleSheet.create({
   loading: {
     paddingVertical: space.xl,
     alignItems: 'center',
+  },
+  detailActions: {
+    flexDirection: 'row',
+    paddingHorizontal: space.md,
+    paddingBottom: space.sm,
+  },
+  addSongs: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    borderRadius: 999,
+    backgroundColor: colors.surfaceHi,
+  },
+  addSongsText: {
+    ...type.meta,
+    color: colors.text,
   },
   empty: {
     alignItems: 'center',

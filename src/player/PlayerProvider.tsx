@@ -6,14 +6,14 @@ import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import { restoreOrder, shuffleOrder } from '../lib/shuffle';
-import { tickSleep } from '../lib/sleepTimer';
+import { needsLockScreenReassert } from '../lib/lockScreen';
+import { tickSleep, type SleepMode } from '../lib/sleepTimer';
 import type { Track } from '../types';
 import { setTrackMissing } from '../tracks/repo';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
-export type SleepMode = 'off' | 'timer' | 'end';
 
 export type SleepState = { mode: SleepMode; remainingMs: number };
 
@@ -88,6 +88,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const originalQueueRef = useRef<Track[]>([]);
   const sleepRef = useRef<SleepState>({ mode: 'off', remainingMs: 0 });
   const sleepRemainingRef = useRef(0);
+  const reassertedTrackRef = useRef<string | null>(null);
   const sleepEndTrackRef = useRef<string | null>(null);
   const trackRef = useRef<Track | null>(null);
   const windowRef = useRef<WindowState>({ globalIndexes: [] });
@@ -95,8 +96,28 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const appendingRef = useRef(false);
   const indexRef = useRef(-1);
 
+  useEffect(() => {
+    const current = trackRef.current;
+    if (!current || modeRef.current !== 'audio') return;
+    const durationMs = Math.round((status.duration ?? 0) * 1000);
+    if (
+      !needsLockScreenReassert({
+        isActive: true,
+        isLoaded: Boolean(status.isLoaded),
+        durationMs,
+        trackId: current.id,
+        reassertedTrackId: reassertedTrackRef.current,
+      })
+    ) {
+      return;
+    }
+    reassertedTrackRef.current = current.id;
+    engine.updateLockScreenMetadata(current);
+  }, [status.duration, status.isLoaded, status.currentIndex]);
+
   const resetAudioWindow = useCallback(() => {
     loadGenerationRef.current += 1;
+    reassertedTrackRef.current = null;
     engine.recreate();
     setPlaylist(engine.playlist);
     engine.setLoop(repeatRef.current === 'off' ? 'none' : repeatRef.current === 'one' ? 'single' : 'all');
@@ -460,6 +481,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const requestId = ++requestRef.current;
       loadGenerationRef.current += 1;
       endHandledForRef.current = null;
+      reassertedTrackRef.current = null;
       resolveUriRef.current = resolveUri;
       const targetIndex = nextQueue.findIndex((item) => item.id === nextTrack.id);
       let playQueue = nextQueue;

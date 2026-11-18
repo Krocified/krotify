@@ -11,6 +11,15 @@ export type CropRect = {
   height: number;
 };
 
+export function baseScaleFor(
+  imageWidth: number,
+  imageHeight: number,
+  viewport: number,
+): number {
+  if (imageWidth <= 0 || imageHeight <= 0 || viewport <= 0) return 0;
+  return Math.max(viewport / imageWidth, viewport / imageHeight);
+}
+
 export function clampTransform(input: {
   imageWidth: number;
   imageHeight: number;
@@ -30,7 +39,7 @@ export function clampTransform(input: {
     };
   }
 
-  const baseScale = Math.max(viewport / imageWidth, viewport / imageHeight);
+  const baseScale = baseScaleFor(imageWidth, imageHeight, viewport);
   const displayScale = baseScale * scale;
   const maxTx = Math.max(0, (imageWidth * displayScale - viewport) / 2);
   const maxTy = Math.max(0, (imageHeight * displayScale - viewport) / 2);
@@ -54,7 +63,7 @@ export function computeCropRect(input: {
     return { originX: 0, originY: 0, width: 0, height: 0 };
   }
 
-  const baseScale = Math.max(viewport / imageWidth, viewport / imageHeight);
+  const baseScale = baseScaleFor(imageWidth, imageHeight, viewport);
   const displayScale = baseScale * transform.scale;
   const cropSize = Math.min(imageWidth, imageHeight, viewport / displayScale);
   const width = Math.max(1, Math.round(cropSize));

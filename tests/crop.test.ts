@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clampTransform, computeCropRect, type CropTransform } from '../src/lib/crop.ts';
+import {
+  baseScaleFor,
+  clampTransform,
+  computeCropRect,
+  type CropTransform,
+} from '../src/lib/crop.ts';
 
 function transform(scale = 1, translateX = 0, translateY = 0): CropTransform {
   return { scale, translateX, translateY };
@@ -107,4 +112,28 @@ test('keeps the crop rect inside an odd-sized image at the edge', () => {
   assert.ok(rect.originY >= 0);
   assert.ok(rect.originX + rect.width <= 1001);
   assert.ok(rect.originY + rect.height <= 1001);
+});
+
+test('tall image keeps a centered square at scale 1', () => {
+  assert.deepEqual(
+    computeCropRect({ imageWidth: 1000, imageHeight: 3000, viewport: 300, transform: transform() }),
+    { originX: 0, originY: 1000, width: 1000, height: 1000 },
+  );
+});
+
+test('baseScaleFor fits the shorter side and is shared by preview and crop', () => {
+  assert.equal(baseScaleFor(2000, 1000, 300), 0.3);
+  assert.equal(baseScaleFor(1000, 3000, 300), 0.3);
+  assert.equal(baseScaleFor(0, 1000, 300), 0);
+});
+
+test('edge pan on a tall image keeps the crop inside the bitmap', () => {
+  const rect = computeCropRect({
+    imageWidth: 1000,
+    imageHeight: 3000,
+    viewport: 300,
+    transform: transform(2, 0, 99999),
+  });
+  assert.ok(rect.originY >= 0);
+  assert.ok(rect.originY + rect.height <= 3000);
 });

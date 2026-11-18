@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { SquareImageCropper } from '../components/SquareImageCropper';
+import { ArtworkSourceSheet } from '../components/ArtworkSourceSheet';
+import { pickImageFromFiles, pickImageFromGallery } from '../library/imageInput';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagEditor } from '../components/TagEditor';
 import { validateArtworkInput, type ArtworkInput } from '../lib/artworkInput';
@@ -90,6 +92,7 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
   const [form, setForm] = useState<EditForm>(() => formFromTrack(track));
   const [artwork, setArtwork] = useState<ArtworkSelection | null>(null);
   const [cropUri, setCropUri] = useState<string | null>(null);
+  const [artworkSourceOpen, setArtworkSourceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileSize = fileSizeOf(track.uri);
@@ -106,19 +109,22 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
     setError(null);
   }
 
-  async function chooseArtwork() {
+  async function pickArtwork(source: 'gallery' | 'files') {
     setError(null);
     try {
-      const picked = await File.pickFileAsync({ mimeTypes: ['image/*'] });
-      if (picked.canceled) return;
-      const file = picked.result;
-      const input: ArtworkInput = { mimeType: artworkMime(file), sizeBytes: file.size };
+      const picked =
+        source === 'gallery' ? await pickImageFromGallery() : await pickImageFromFiles();
+      if (!picked) return;
+      const input: ArtworkInput = {
+        mimeType: picked.mimeType,
+        sizeBytes: picked.sizeBytes,
+      };
       const validation = validateArtworkInput(input);
       if (!validation.ok) {
         setError(validation.errors.join(' '));
         return;
       }
-      setCropUri(file.uri);
+      setCropUri(picked.uri);
     } catch {
       setError('Could not open the artwork picker.');
     }
@@ -242,7 +248,7 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
             />
             <View style={styles.artworkActions}>
               <Pressable
-                onPress={() => void chooseArtwork()}
+                onPress={() => setArtworkSourceOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Choose artwork"
                 style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
@@ -350,6 +356,12 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
         }
       />
       {editing ? renderEditor() : renderDetails()}
+      <ArtworkSourceSheet
+        visible={artworkSourceOpen}
+        onGallery={() => void pickArtwork('gallery')}
+        onFiles={() => void pickArtwork('files')}
+        onClose={() => setArtworkSourceOpen(false)}
+      />
       <SquareImageCropper
         visible={cropUri !== null}
         uri={cropUri}

@@ -1,3 +1,5 @@
+import type { SelectionState } from '../lib/selection';
+
 export type TagCount = { id: string; name: string; count: number };
 
 const byName = (a: { name: string }, b: { name: string }) => {
@@ -57,4 +59,18 @@ export function setAssignment(
   if (filtered.length === 0) next.delete(trackId);
   else next.set(trackId, filtered);
   return next;
+}
+
+export function tagCoverage(
+  assignments: ReadonlyMap<string, readonly string[]>,
+  trackIds: readonly string[],
+  tagId: string,
+): SelectionState {
+  if (trackIds.length === 0) return 'none';
+  let covered = 0;
+  for (const id of trackIds) {
+    if (assignments.get(id)?.includes(tagId) === true) covered += 1;
+  }
+  if (covered === 0) return 'none';
+  return covered === trackIds.length ? 'all' : 'partial';
 }

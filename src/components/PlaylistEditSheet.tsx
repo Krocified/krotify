@@ -1,5 +1,4 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -23,6 +22,8 @@ import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
 import { Sheet } from './Sheet';
 import { SquareImageCropper } from './SquareImageCropper';
+import { ArtworkSourceSheet } from './ArtworkSourceSheet';
+import { pickImageFromFiles, pickImageFromGallery } from '../library/imageInput';
 
 type Props = {
   visible: boolean;
@@ -45,6 +46,7 @@ export function PlaylistEditSheet({
   const [coverRemoved, setCoverRemoved] = useState(false);
   const [stagedUri, setStagedUri] = useState<string | null>(null);
   const [cropUri, setCropUri] = useState<string | null>(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,19 +103,15 @@ export function PlaylistEditSheet({
     onClose();
   }
 
-  async function chooseCover() {
+  async function chooseCover(source: 'gallery' | 'files') {
     if (!playlist || picking || busy) return;
     setPicking(true);
     setError(null);
     try {
-      const picked = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: true,
-      });
-      if (picked.canceled) return;
-      const asset = picked.assets[0];
-      if (!asset) return;
-      setCropUri(asset.uri);
+      const picked =
+        source === 'gallery' ? await pickImageFromGallery() : await pickImageFromFiles();
+      if (!picked) return;
+      setCropUri(picked.uri);
     } catch {
       setError('Could not open the cover picker.');
     } finally {
@@ -224,7 +222,7 @@ export function PlaylistEditSheet({
         />
         <View style={styles.coverActions}>
           <Pressable
-            onPress={() => void chooseCover()}
+            onPress={() => setSourceOpen(true)}
             disabled={picking || busy}
             accessibilityRole="button"
             accessibilityLabel="Choose cover"
@@ -323,6 +321,14 @@ export function PlaylistEditSheet({
         </Pressable>
       </View>
       </Sheet>
+      <ArtworkSourceSheet
+        visible={sourceOpen}
+        canRemove={!coverRemoved && Boolean(coverUri)}
+        onGallery={() => void chooseCover('gallery')}
+        onFiles={() => void chooseCover('files')}
+        onRemove={removeCover}
+        onClose={() => setSourceOpen(false)}
+      />
       <SquareImageCropper
         visible={cropUri !== null}
         uri={cropUri}

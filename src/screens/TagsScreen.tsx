@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
+import {
+  clearSelection,
+  selectionBackHandler,
+  selectionState,
+  toggleAllVisible,
+  toggleId,
+} from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { normalizeTagName } from '../tags/name';
 import { useTags } from '../tags/TagProvider';
@@ -22,13 +29,14 @@ import { colors, radius, space, type } from '../theme';
 type Props = {
   visible: boolean;
   onBack: () => void;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 const INVALID_NAME = 'Enter a tag name of 32 characters or less.';
 const DUPLICATE_NAME = 'That tag already exists.';
 const WRITE_FAILED = 'Could not update tags. Try again.';
 
-export function TagsScreen({ visible, onBack }: Props) {
+export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) {
   const insets = useSafeAreaInsets();
   const { tags, loaded, refresh } = useTags();
   const [draft, setDraft] = useState('');
@@ -43,19 +51,26 @@ export function TagsScreen({ visible, onBack }: Props) {
   const selectedCount = sorted.filter((tag) => selectedIds.has(tag.id)).length;
   const selectable = sorted.length > 0;
 
+  if (!visible && (selecting || selectedIds.size > 0)) {
+    setSelecting(false);
+    setSelectedIds(clearSelection());
+  }
+
+
   function exitSelection() {
     setSelecting(false);
-    setSelectedIds(new Set());
+    setSelectedIds(clearSelection());
   }
 
   function toggleSelection(id: string) {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelectedIds((previous) => toggleId(previous, id));
   }
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(selectionBackHandler(selecting, exitSelection));
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selecting]);
 
   async function add() {
     if (busy) return;
@@ -115,17 +130,9 @@ export function TagsScreen({ visible, onBack }: Props) {
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>{selecting ? `${selectedCount} selected` : 'Tags'}</Text>
+        <Text style={styles.title}>Tags</Text>
         {selecting ? (
-          <Pressable
-            onPress={exitSelection}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel selection"
-            hitSlop={space.sm}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
-          >
-            <Text style={styles.headerActionText}>Cancel</Text>
-          </Pressable>
+          <View style={styles.iconButton} />
         ) : selectable ? (
           <Pressable
             onPress={() => setSelecting(true)}
@@ -144,6 +151,12 @@ export function TagsScreen({ visible, onBack }: Props) {
       {selecting ? (
         <SelectionBar
           count={selectedCount}
+          allState={selectionState(selectedIds, sorted.map((tag) => tag.id))}
+          onToggleAll={() =>
+            setSelectedIds((previous) =>
+              toggleAllVisible(previous, sorted.map((tag) => tag.id)),
+            )
+          }
           actions={[
             {
               key: 'delete',

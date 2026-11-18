@@ -10,6 +10,7 @@ Source of truth for what gets built. Intent lives in `docs/intent.md`.
 | Language | TypeScript | Default for Expo templates |
 | Scan | `expo-media-library` | Reads every device audio file + permissions |
 | Import | `expo-document-picker` | Real provider filename, MIME and size; `File.pickFileAsync` returns document ids |
+| Artwork picker | `expo-image-picker` (v8) | System photo picker for gallery covers; no camera or microphone permission |
 | File ops | `expo-file-system` | Delete, copy imported files |
 | Playlist reorder | `react-native-sortables` with Reanimated 4, Worklets and Gesture Handler | Drag rows with auto-scroll and persisted order |
 | Playback | `expo-audio` (all versions) | Ships background playback + lock-screen/notification controls itself |
@@ -364,7 +365,8 @@ About Tech stack page and credit; per-layer tab-bar blur targets. LRCLIB is not 
   `docs/research/v7-lrclib-exploration.md`.
 - **Ambient color from the art.** The Now Playing backdrop uses the dominant color
   of the real cover, cached per artwork URI. The generated hue is only a fallback
-  when there is no real art or extraction fails.
+  when there is no real art or extraction fails. The static color is the base that
+  v8's ambient motion builds on.
 - **Library is the song list.** The Library lists every song plus the tag pills,
   nothing else. The Recently played rail, the Liked Songs row and the Playlists
   rail leave the Library in v7. A Collections control in the header opens a
@@ -405,6 +407,138 @@ About Tech stack page and credit; per-layer tab-bar blur targets. LRCLIB is not 
   Tech stack page both carry a "Created by Krocified" watermark.
 - **Hidden tracks row.** The Settings row drops its trailing track count; the
   Hidden tracks page keeps the count.
+
+### v8: Everyday gestures (planned)
+
+Focus: make the gestures a daily user repeats trustworthy — selection, import,
+artwork, playlists, artist pages and the player — before adding another surface.
+One new screen (the playlist song picker); everything else is a fix or a
+completion of something already shipped.
+
+- **One selection indicator.** Starting a selection never reshapes the top
+  header. The header keeps its wordmark or back pill, its title and its normal
+  trailing controls; the selection bar under it is the only place for the count,
+  the actions and Cancel. This replaces the current double indicator (count in
+  the header plus count in the bar) on Library, Hidden tracks and Tags.
+- **Back exits selection.** Android back, while a selection is active on Library,
+  Hidden tracks or Tags, clears the selection and stays on the screen. It does
+  not close the page, change tab or arm app exit. A sheet opened from a
+  selection still closes first. Selection is screen-owned state reported to the
+  shell's existing back interceptor; predictive back stays off.
+- **Selection actions grow up.** Library selection keeps Hide and Delete and
+  gains Tag and Add to playlist. Hidden tracks keeps Restore, Clear and Delete.
+  Tags keeps Delete.
+  - Tag opens the tag picker in bulk mode. Each tag toggles on or off for every
+    selected track in one pass, and the toast reports "Tagged N tracks" or
+    "Removed from N tracks". A new tag can be created and assigned in the same
+    sheet, with the track editor's validation.
+  - Add to playlist opens the playlist picker in bulk mode. Selected tracks are
+    appended in library-list order to every checked playlist, creating a new
+    playlist inline works as it does for one track, and the toast reports
+    "Added N tracks to M playlists". A per-playlist partial failure is named,
+    not silent.
+  - Actions are disabled at zero selected. The action row scrolls horizontally
+    when the labels do not fit; nothing hides behind a second overflow menu.
+  - The mode survives scrolling and tag filtering. Deselecting the last track
+    stays in selection at "0 selected" until Cancel or back, so a mis-tap does
+    not drop the mode.
+- **Import: one copy, honest progress.** The complaint is both ends: the system
+  picker feels slow and clunky, and the wait after picking is invisible.
+  - Pick without the cache copy (`copyToCacheDirectory: false`) and copy once
+    into the storage folder. Today every pick is written twice — once to cache,
+    once to storage — and that doubling is most of the wait for album-sized
+    files.
+  - Report as it goes: a determinate bar, "Importing 3 of 12 — Song.mp3", the
+    current file name and a Cancel that stops after the file in flight. Rows
+    appear in the library as each file lands instead of after the whole batch.
+  - Tag reads are batched per pick in one native call before copying (the
+    metadata retriever exposes no duration). Duration and embedded artwork run
+    after the row is inserted, one file at a time: the row lands at 0:00 with the
+    generated cover, then fills in. A file whose duration cannot be read stays
+    playable and never blocks the next file.
+  - Duplicate, hidden and failure reports keep their current per-file reasons.
+    A cancelled import keeps what already landed.
+  - The system picker stays. There is no in-app file browser: "slow" is answered
+    by removing the second copy and by progress, not by replacing Android's
+    picker.
+- **Artwork from the gallery.** Track artwork and playlist covers each offer two
+  sources before the cropper: Gallery and Files. Gallery uses `expo-image-picker`
+  with `mediaTypes: ['images']`, no editing and quality 1, which opens the system
+  photo picker; Files keeps the document picker. Both feed the same square
+  cropper and the same app-owned artwork file; audio files are never touched. The
+  config plugin blocks `CAMERA` and `RECORD_AUDIO`.
+- **Cropper that matches its preview.** The saved square is the square in the
+  frame at every zoom and edge pan, for wide, tall and already-square sources.
+  One model — intrinsic size, fitted display size, zoom, offset — drives both the
+  preview and the crop rectangle, so the two cannot drift; the saved offsets come
+  from the settled transform, not a stale JS copy. Reset returns to fit. Failures
+  say which step failed (read the image, crop it) instead of one generic message.
+  Verified against a wide photo, a tall photo, a square photo, a 1x crop, a
+  zoomed crop and an edge-pan crop.
+- **Notification player you can trust.** The media notification always shows
+  artwork, title and artist, working transport and a seek bar with elapsed and
+  remaining time: after a cold start, after next or previous from the app or the
+  notification, after the queue window is rebuilt, and after returning from
+  background. Device acceptance: the bar is present on the first track after a
+  cold start without touching anything, timestamps advance, scrubbing in the
+  notification moves playback, and the bar is correct for both a five-minute
+  track and a thirty-second track. Diagnosis first, then fix: confirm a local
+  file is never reported as a live stream (that option hides the bar), confirm
+  the session knows the duration when the first notification posts, re-assert the
+  lock-screen state once when a loaded duration first appears rather than on
+  every tick, and stop rebuilding the engine while a notification is live.
+- **Sheets stay above the keyboard.** No text field is ever under the keyboard.
+  The shared bottom sheet lifts so the focused field, its hint and its submit row
+  stay visible, capped below the top inset, and long content scrolls inside the
+  shorter sheet instead of hiding the field. This covers New playlist, Edit
+  playlist, Paste lyrics, the tag picker and the playlist picker's inline New
+  playlist row. The fix lives in the shared sheet, so a new sheet inherits it. A
+  sweep verifies every text field in the app: sheets lift, and full-screen
+  editors (track details, Settings link service) keep the field and the submit
+  action visible. A hidden field is a bug, not a scrolling problem.
+- **A quiet playlist menu.** The playlist card overflow drops its black filled
+  circle: a bare ellipsis at 18–20px with the same 44px invisible hit target, dim
+  by default and brighter while pressed. It never competes with the cover.
+- **Build a playlist from the library.** Playlist detail gains Add songs, which
+  opens the new full-screen song picker over the playlist. It is a checkbox list
+  of the whole library with the Library's search field and tag pills, so a
+  playlist can be assembled by search or by tag without leaving it. Rows already
+  in the playlist read as added and cannot be selected. The confirm action reads
+  "Add N songs" and appends in the order shown. Back and Cancel leave the
+  playlist unchanged.
+- **Artist detail is a place.** Back from an artist returns to Collections with
+  the Artists list where it was; back from Collections still returns to Library.
+  The artist hero cover can be replaced by tapping it: Gallery or Files, then the
+  same square cropper as tracks and playlists. Artist art persists in
+  `artist_art`, keyed by the normalized artist name, survives a rescan, and shows
+  in the Artists list; the first track's art is the fallback and "Use default"
+  restores it. Album counts leave artist surfaces: the list row and hero read
+  "N songs", with no album mention.
+- **Select all, unselect all.** Every selection has one all-control at the
+  leading edge of the selection bar, shaped like a MUI checkbox: checked when
+  every visible row is selected, mixed when some are, empty when none. Pressing
+  it selects every visible row — scoped to the active tag filter or search query
+  — or clears the selection when all visible rows are already selected. The
+  label and accessibility state follow ("Select all", "Unselect all", mixed).
+  Disabled and already-added rows are never included.
+- **Player controls: two, then more.** The Now Playing top-right keeps only the
+  heart and the lyrics toggle. Sleep timer, Tags, Save to playlist and Details
+  move behind one expand control that opens a compact labelled row; it collapses
+  on choose, on tap-away and on back. An active sleep timer shows only a small
+  "Sleep · 12:34" caption near the transport, so it stays visible without being a
+  control. The sleep timer feature stays; it leaves the player's primary row.
+- **Lyrics mode is the lyrics.** Lyrics mode stops being a second full player.
+  The large cover and the floating two-line title block give way to a compact
+  header row — a 48px rounded cover, title and artist on one line each — so the
+  transcript gets the height. Paste leaves the empty state: Import .lrc, Paste
+  lyrics and Reload move into an overflow on the lyrics header, and the empty
+  state keeps a single Import .lrc action. Timed highlight, auto-scroll and
+  tap-to-seek stay. Artwork mode keeps the large cover, with title and artist in
+  one left-aligned block under it instead of centered floating text.
+- **Not in v8.** No new navigation model and no new tabs; the playlist song
+  picker is the only new screen. No custom notification layout. No in-app file
+  browser and no folder-recursive scan. No change to what an import or a delete
+  does to files. No removal of the sleep timer feature.
 
 ## Library management
 
@@ -465,12 +599,13 @@ hydration runs from the library after metadata enrichment so Library and Now
 Playing keep real covers.
 
 **Library** — shared header (`Krotify` wordmark, search, settings), tag filter
-pills above a Liked Songs row with a margin between them, a playlists rail, an
-Artists rail, optional Recently played rail, and the track list. Song rows show
-cover, title, `artist · duration`, and an ellipsis button that opens the same
-action sheet as a long press (details, tags, save to playlist, favorite, exclude,
-delete). Scrolling shows a thin blue scrollbar from below the header to the
-mini-player.
+pills, a Collections control (Liked Songs, Playlists, Artists, Albums) and the
+track list. Song rows show cover, title, `artist · duration`, and an ellipsis
+button that opens the same action sheet as a long press (details, tags, save to
+playlist, favorite, exclude, delete). Scrolling shows a thin blue scrollbar from
+below the header to the mini-player. A long press starts a selection; the header
+does not change, the selection bar carries the count, Hide, Delete, Tag, Add to
+playlist and Cancel, and Android back cancels the selection.
 
 **Catalog / Albums (unwired)**: kept for the later redesign. Segmented control;
 artist section headers; rows with cover, album title, and "N tracks · M min".
@@ -482,10 +617,19 @@ artist name, "N albums · M tracks". Artist detail mirrors the album detail with
 a circular hero.
 
 **Playlists**: a two-column cover grid with Create, per-card overflow (edit,
-delete), count and an empty state. Detail keeps the hero, cover editing through
-the cropper, title, description, meta, Play and Shuffle. Rows drag to reorder with
-auto-scroll, and the order persists and matches playback. Entry from Library. The
-bottom nav and mini-player stay visible.
+delete), count and an empty state. The card overflow is a bare ellipsis, no filled
+circle. Detail keeps the hero, cover editing through the cropper, title,
+description, meta, Play, Shuffle and Add songs. Add songs opens the full-screen
+song picker: checkbox rows over the whole library with search and tag pills,
+Select all, and "Add N songs". Rows drag to reorder with auto-scroll, and the
+order persists and matches playback. Entry from Library. The bottom nav and
+mini-player stay visible.
+
+**Collections** — a card with Liked Songs and Playlists, then the Artists list
+with circular covers ("N songs") and a search/settings header. Opening an artist
+shows a circular hero, the artist name, "N songs", Play, Shuffle and the artist's
+track list; the hero can be tapped to change the artist cover. Back from an
+artist returns to Collections; back from Collections returns to Library.
 
 **Liked Songs** — favorites list with the same rows and action sheet.
 
@@ -495,27 +639,48 @@ duration, format and file size. A pencil in the header toggles inline editing of
 title, artist, album, year, genre and artwork only; duration, format and file size
 stay read-only. Edit metadata and Rename are no longer separate menu items.
 
-**Artist detail** — circular hero art, artist name, `N albums · M tracks`, and the
-artist's track list. The artist art can be replaced and cropped. Reached from the
-Library Artists rail.
+**Artist detail** — circular hero art, artist name, `N songs`, and the artist's
+track list. No album count or album grouping. Tapping the hero lets the user pick
+art from the gallery or files and crop it square, with Use default to fall back
+to the first track's art. Reached from Collections; back returns to Collections.
+
+**Hidden tracks** — a layer over Settings that slides in and keeps the count in
+its header. Multi-select offers Restore, Clear and Delete. The header keeps its
+back pill and title during a selection; the selection bar is the only count and
+Cancel, and Android back exits the selection instead of closing the layer.
+
+**Tags** — its own layer over Settings. Lists every tag with its active track
+count, creates a tag with the editor's validation, and deletes one tag or many
+after confirmation. Multi-select offers Delete. The header keeps its back pill
+and title during a selection; the selection bar is the only count and Cancel, and
+Android back exits the selection instead of closing the layer.
 
 **Import**: a dedicated tab, not a Settings row. The local import card expands to
-take most of the screen and uses a striped drop-field border. System document
-picker with per-file failure reasons, progress, empty and error states. There is
-no recent-imports list; a successful import returns to Library. Link import always
-requests 320 kbps, posts to the ytmp3.ge API, verifies the downloaded bytes are
-audio, and downloads into the chosen storage folder.
+take most of the screen and uses a striped drop-field border. The system document
+picker is the only picker. Picks are copied once, straight into the storage
+folder, and the screen reports a determinate progress bar, "Importing 3 of 12 —
+Song.mp3" and a Cancel that stops after the file in flight, with rows appearing
+as files land. Per-file duplicate, hidden and failure reasons are kept. There is
+no recent-imports list; a successful import returns to Library. Link import is
+behind `LINK_IMPORT_ENABLED` and, when enabled, posts to the self-hosted link
+service, verifies the downloaded bytes are audio, and downloads into the chosen
+storage folder. A web page is never added as a track.
 
 **Search** — slide-in overlay with a borderless field (accent cursor) and
 incremental results across title, artist and album.
 
 **Now Playing** — plain back/down control aligned with the other back pills, no
-black pill. The backdrop is the dominant color of the real cover, dimmed; the
-generated hue is only a fallback. Draggable progress with previous/play/next
-centered on play and repeat at the right. The transport row holds details, tags,
-a save-to-playlist bookmark, the heart and the sleep timer. Lyrics mode returns
-with local `.lrc` only: an Import .lrc action, timed highlight, auto-scroll and
-tap-to-seek. Local `.lrc` is the baseline; an optional LRCLIB lookup is an
+black pill. The backdrop is a slow ambient field built from the cover's palette,
+seeded per track; the static dominant color is the first paint, and the generated
+hue is the no-art fallback. Cover, then a left-aligned title and artist block, then
+draggable progress with previous/play/next centered on play and repeat at the
+right. The top-right holds only the heart and the lyrics toggle; an expand control
+opens a labelled row with Sleep timer, Tags, Save to playlist and Details. An
+active sleep timer appears only as a small "Sleep · 12:34" caption near the
+transport. Lyrics mode compacts the header to a 48px cover with title and artist on
+one line each, hands the height to the transcript, and keeps Import .lrc, Paste
+lyrics and Reload in the header overflow; timed highlight, auto-scroll and
+tap-to-seek stay. Local `.lrc` is the baseline; an optional LRCLIB lookup is an
 off-by-default exploration. Closing is instant and returns to the screen it was
 opened from.
 
@@ -552,15 +717,20 @@ Art is the product. The chrome stays quiet so covers carry the screen.
 metadata. Tabular numerals for durations.
 
 **Cover art** — follows Spotify art rules: original form, never cropped, never
-overlaid, never distorted, animated or blurred.
+overlaid, never distorted, animated or blurred. The ambient backdrop is not the
+art.
 - Real art when available (v2). Otherwise generate a deterministic gradient from
   the album/title hash — two hues blended diagonally, a soft grain overlay, the
   album's initial in 800-weight white at 40% opacity. Generated art is ours, so
   it may also carry the grain.
 - 1:1, 4px radius on phone, 8px on large screens, subtle outer shadow.
-- Now Playing backdrop = the dominant color extracted from the current cover,
-  dimmed to ~35% (`#191414` fallback), filling the screen behind the content. The
-  generated hue is only a fallback when there is no real art. No blur of real art.
+- Now Playing backdrop = an ambient field from the current cover's palette: two or
+  three soft color pools drifting on independent 60–120s loops, brightened toward
+  the cover's lightest tone at the top and darkened toward `bg` at the bottom, over
+  the static dominant-color gradient (`#191414` fallback). Motion is seeded by
+  track, pauses with playback, when backgrounded, and under reduce-motion. The
+  generated hue is the no-art fallback. The cover itself is never blurred,
+  distorted, filtered or animated.
 - No logo, wordmark or playback controls on top of artwork.
 
 **Metadata** — always legible, never manipulated; truncate with ellipsis and let
@@ -583,7 +753,8 @@ hovered, draggable. Runs from below the header to the mini-player bottom.
 **Motion** — Now Playing opens with a 300ms ease-out slide; closing is instant.
 Album/artist detail and tab changes are instant. Settings slides in/out over
 280ms. Progress glides 500ms while playing, snaps on track changes and swipes.
-List rows use a light press-scale. No gratuitous bounces.
+List rows use a light press-scale. The ambient backdrop moves on 60–120s loops and
+is the only continuous background motion. No gratuitous bounces.
 
 ## Data model
 ```ts
@@ -619,7 +790,8 @@ SQLite tables (`krotify.db`, `PRAGMA user_version` migrations):
 - `favorites`
 - `play_history`
 - `lyrics_cache` (local `.lrc` text keyed by track; no network source)
-- `artist_art` (`artistKey`, `artworkUri`, `updatedAt`) for cropped artist art
+- `artist_art` (`artistKey`, `artworkUri`, `updatedAt`) for cropped artist art;
+  `artistKey` is the normalized artist name, so a rescan keeps the cover
 - `artwork_colors` (cache of dominant color per artwork URI)
 
 ## Demo data
@@ -654,17 +826,29 @@ claims.
 - Scrollbar: custom accent-blue thumb, active only while scrolling, draggable,
   ends level with the bottom player.
 - Grain: still deferred; covers are gradient plus initial when no real art.
-- Version: 0.3.1 (`versionCode` 301). Releases `v0.1.0` through `v0.3.1` exist;
+- Sheets: every bottom sheet lifts above the keyboard so the focused field and its
+  submit row stay visible. Every full-screen form keeps its field and submit action
+  visible too. No text field may sit under the keyboard.
+- Selection: every multi-select has Select all / Unselect all scoped to the rows
+  currently visible, with a mixed state when only some are selected.
+- Artist art: stored in `artist_art` keyed by the normalized artist name; the first
+  track's art is the fallback, and a custom cover survives a rescan. Artist meta
+  reads "N songs" — no album counts on artist surfaces.
+- Player controls: two primary actions (liked, lyrics) plus one expandable
+  secondary row. Sleep timer is secondary, with a caption when active.
+- Back: artist detail returns to Collections, Collections to Library; a selection
+  clears before the page changes.
+- Ambient backdrop: one animated palette field per track, seeded by track id and
+  paused with playback or reduce-motion. Cover art itself never moves.
+- Version: 0.7.4 (`versionCode` 704); v8 targets 0.8.0 (`versionCode` 800).
   `.github/workflows/release.yml` bumps and publishes on every push to `main`.
 
 ## Remaining after v2
 
-1. **Notification next/previous.** A single `AudioPlayer` ignores these commands
-   (`supportsNextTrack = false` in expo-audio). Move the audio engine to
-   `AudioPlaylist` with a resolved window around the current track, `skipTo` for
-   app buttons, `trackChanged` to sync index/track, and
-   `showNextTrack/showPreviousTrack: true`. Rebuild the window at its edges; mock
-   demo playback keeps its own timer.
+1. **Notification next/previous.** Done in v3: playback moved to `AudioPlaylist`
+   with a resolved window, `skipTo`, `trackChanged` and
+   `showNextTrack/showPreviousTrack: true`. v8 covers the remaining gap — the
+   notification seek bar and timestamps.
 2. **Scan opt-in.** First launch asks "Scan this device for audio?" with Scan and
    Not now. Persist in AsyncStorage (`krotify.scanEnabled.v1`), expose a Settings
    switch, and keep imports visible regardless. Folder-level scanning is not

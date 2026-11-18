@@ -11,10 +11,12 @@ import {
 import { assignmentsFromRows, setAssignment, type TagCount } from './filter';
 import {
   assignTag,
+  assignTagToTracks,
   createTag,
   listTagAssignments,
   listTagsWithCounts,
   unassignTag,
+  unassignTagFromTracks,
   type Tag,
 } from './repo';
 
@@ -26,6 +28,9 @@ export type TagContextValue = {
   createAndAssign: (trackId: string, name: string) => Promise<Tag | null>;
   assign: (trackId: string, tagId: string) => Promise<void>;
   unassign: (trackId: string, tagId: string) => Promise<void>;
+  assignMany: (trackIds: readonly string[], tagId: string) => Promise<void>;
+  unassignMany: (trackIds: readonly string[], tagId: string) => Promise<void>;
+  createAndAssignMany: (trackIds: readonly string[], name: string) => Promise<Tag | null>;
   tagsFor: (trackId: string) => Tag[];
 };
 
@@ -83,6 +88,31 @@ export function TagProvider({ children }: PropsWithChildren) {
     [],
   );
 
+  const mutateMany = useCallback(
+    async (
+      trackIds: readonly string[],
+      tagId: string,
+      assigned: boolean,
+      write: () => Promise<void>,
+    ) => {
+      setState((previous) => {
+        let assignments = previous.assignments;
+        for (const trackId of trackIds) {
+          assignments = setAssignment(assignments, trackId, tagId, assigned);
+        }
+        return { ...previous, assignments };
+      });
+      try {
+        await write();
+      } catch (error) {
+        await refresh().catch(() => {});
+        throw error;
+      }
+      await refresh();
+    },
+    [refresh],
+  );
+
   const mutate = useCallback(
     async (trackId: string, tagId: string, assigned: boolean, write: () => Promise<void>) => {
       applyOptimistic(trackId, tagId, assigned);
@@ -107,6 +137,28 @@ export function TagProvider({ children }: PropsWithChildren) {
     (trackId: string, tagId: string) =>
       mutate(trackId, tagId, false, () => unassignTag(trackId, tagId)),
     [mutate],
+  );
+
+  const assignMany = useCallback(
+    (trackIds: readonly string[], tagId: string) =>
+      mutateMany(trackIds, tagId, true, () => assignTagToTracks(trackIds, tagId)),
+    [mutateMany],
+  );
+
+  const unassignMany = useCallback(
+    (trackIds: readonly string[], tagId: string) =>
+      mutateMany(trackIds, tagId, false, () => unassignTagFromTracks(trackIds, tagId)),
+    [mutateMany],
+  );
+
+  const createAndAssignMany = useCallback(
+    async (trackIds: readonly string[], name: string) => {
+      const tag = await createTag(name);
+      if (!tag) return null;
+      await mutateMany(trackIds, tag.id, true, () => assignTagToTracks(trackIds, tag.id));
+      return tag;
+    },
+    [mutateMany],
   );
 
   const createAndAssign = useCallback(
@@ -147,9 +199,24 @@ export function TagProvider({ children }: PropsWithChildren) {
       createAndAssign,
       assign,
       unassign,
+      assignMany,
+      unassignMany,
+      createAndAssignMany,
       tagsFor,
     }),
-    [assign, createAndAssign, loaded, refresh, state.assignments, state.tags, tagsFor, unassign],
+    [
+      assign,
+      assignMany,
+      createAndAssign,
+      createAndAssignMany,
+      loaded,
+      refresh,
+      state.assignments,
+      state.tags,
+      tagsFor,
+      unassign,
+      unassignMany,
+    ],
   );
 
   return <TagContext.Provider value={value}>{children}</TagContext.Provider>;

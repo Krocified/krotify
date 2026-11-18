@@ -48,7 +48,7 @@ export function PlaylistCard({ summary, onOpen, onMenu }: Props) {
         hitSlop={4}
         style={({ pressed }) => [styles.menu, pressed && styles.pressed]}
       >
-        <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+        <Ionicons name="ellipsis-horizontal" size={18} color={colors.textDim} />
       </Pressable>
     </View>
   );
@@ -79,8 +79,6 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   pressed: {
     opacity: 0.75,

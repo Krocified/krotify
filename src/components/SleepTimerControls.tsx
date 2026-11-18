@@ -1,8 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SLEEP_PRESETS, type SleepPreset } from '../lib/sleepTimer';
+import { SLEEP_PRESETS, formatSleepRemaining, type SleepMode, type SleepPreset } from '../lib/sleepTimer';
 import { colors, radius, space, type } from '../theme';
 
-export type SleepMode = 'off' | 'timer' | 'end';
 
 type Props = {
   mode: SleepMode;
@@ -13,13 +12,6 @@ type Props = {
 
 function presetLabel(preset: SleepPreset): string {
   return preset === 'end' ? 'End of track' : `${preset} min`;
-}
-
-export function formatSleepRemaining(mode: SleepMode, remainingMs: number): string {
-  if (mode === 'end') return 'End of track';
-  if (mode === 'off') return 'Off';
-  const minutes = Math.max(1, Math.ceil(remainingMs / 60_000));
-  return `${minutes} min left`;
 }
 
 export function SleepTimerControls({ mode, remainingMs, onSelect, onCancel }: Props) {

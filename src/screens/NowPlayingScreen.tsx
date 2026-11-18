@@ -1,6 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -12,18 +11,19 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { CoverArt } from '../components/CoverArt';
-import { LyricsPanel } from '../components/LyricsPanel';
+import { LyricsStage } from '../components/LyricsStage';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
-import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
+import { PlayerTopActions } from '../components/PlayerTopActions';
+import { sleepCaption, type SleepPreset } from '../lib/sleepTimer';
 import { TagAssignSheet } from '../components/TagAssignSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
-import { coverColors } from '../lib/cover';
+import { ambientTheme } from '../lib/ambient';
 import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
-import type { SleepPreset } from '../lib/sleepTimer';
 import { useFavorites } from '../library/FavoritesProvider';
 import { importLyricsText, pickLyricsFile } from '../library/lyricsImport';
 import { getCoverColor } from '../library/palette';
@@ -43,7 +43,6 @@ type Props = {
 
 const SLIDE_MS = 300;
 const CROSSFADE_MS = 200;
-const LYRICS_COVER_SIZE = 180;
 
 export function NowPlayingScreen({
   onClose,
@@ -86,7 +85,7 @@ export function NowPlayingScreen({
     color: null,
   });
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
-  const [sleepOpen, setSleepOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
@@ -146,29 +145,27 @@ export function NowPlayingScreen({
 
   useEffect(() => {
     if (!registerBackInterceptor) return;
-    if (!sleepOpen) {
+    if (!actionsOpen) {
       registerBackInterceptor(null);
       return;
     }
     registerBackInterceptor(() => {
-      setSleepOpen(false);
+      setActionsOpen(false);
       return true;
     });
     return () => registerBackInterceptor(null);
-  }, [registerBackInterceptor, sleepOpen]);
+  }, [registerBackInterceptor, actionsOpen]);
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {
       if (preset === 'end') setSleep('end');
       else setSleep('timer', preset);
-      setSleepOpen(false);
     },
     [setSleep],
   );
 
   const cancelSleep = useCallback(() => {
     setSleep('off');
-    setSleepOpen(false);
   }, [setSleep]);
 
   const importLyrics = useCallback(async () => {
@@ -192,15 +189,23 @@ export function NowPlayingScreen({
     }
   }, [track, reloadLyrics]);
 
+  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
+  const ambient = useMemo(
+    () =>
+      ambientTheme({
+        seed: track?.id ?? 'none',
+        coverColor,
+        hue: track?.artworkHue ?? 0,
+      }),
+    [track?.id, track?.artworkHue, coverColor],
+  );
+
   if (!track) return null;
 
   const liked = favoriteIds.has(track.id);
   const missing = isMissingTrack(track);
-  const gradient = coverColors(track.artworkHue);
-  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const sleepLabel = sleep.mode === 'off' ? 'Sleep timer' : `Sleep timer, ${formatSleepRemaining(sleep.mode, sleep.remainingMs)}`;
 
   const toggleLike = () => {
     setLikeNote(null);
@@ -214,16 +219,15 @@ export function NowPlayingScreen({
       style={[styles.root, { transform: [{ translateY: slide }] }]}
       accessibilityViewIsModal
     >
-      <LinearGradient
-        colors={
-          coverColor
-            ? [`${coverColor}59`, `${coverColor}00`]
-            : [`${gradient[0]}59`, `${gradient[1]}59`]
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <AmbientBackdrop theme={ambient} playing={isPlaying && !lyricsMode} />
+      {actionsOpen ? (
+        <Pressable
+          onPress={() => setActionsOpen(false)}
+          style={StyleSheet.absoluteFill}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : null}
       <View
         style={[
           styles.content,
@@ -232,101 +236,25 @@ export function NowPlayingScreen({
       >
         <View style={styles.topBar}>
           <BackPill onPress={close} icon="chevron-down" label="Close" plain />
-          <View style={styles.topActions}>
-            <Pressable
-              onPress={() => setSleepOpen((open) => !open)}
-              accessibilityRole="button"
-              accessibilityLabel={sleepLabel}
-              accessibilityState={{ selected: sleep.mode !== 'off' }}
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name={sleep.mode === 'off' ? 'moon-outline' : 'moon'}
-                size={22}
-                color={sleep.mode === 'off' ? colors.textDim : colors.accent}
-              />
-              {sleep.mode !== 'off' ? (
-                <Text style={styles.sleepBadge}>
-                  {formatSleepRemaining(sleep.mode, sleep.remainingMs)}
-                </Text>
-              ) : null}
-            </Pressable>
-            <Pressable
-              onPress={() => setTagOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Tags"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons name="pricetags-outline" size={22} color={colors.textDim} />
-            </Pressable>
-            <Pressable
-              onPress={() => setPlaylistOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Save to playlist"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons name="bookmark-outline" size={22} color={colors.textDim} />
-            </Pressable>
-            <Pressable
-              onPress={() => onDetails?.(track)}
-              accessibilityRole="button"
-              accessibilityLabel="Track details"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name="information-circle-outline"
-                size={22}
-                color={colors.textDim}
-              />
-            </Pressable>
-            <Pressable
-              onPress={toggleLike}
-              accessibilityRole="button"
-              accessibilityLabel={
-                liked
-                  ? `Remove ${track.title} from Liked Songs`
-                  : `Add ${track.title} to Liked Songs`
-              }
-              accessibilityState={{ selected: liked }}
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name={liked ? 'heart' : 'heart-outline'}
-                size={22}
-                color={liked ? colors.accent : colors.textDim}
-              />
-            </Pressable>
-            {LYRICS_ENABLED ? (
-              <Pressable
-                onPress={() => {
-                  setLyricsNote(null);
-                  setLyricsMode((active) => !active);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Lyrics"
-                accessibilityState={{ selected: lyricsMode }}
-                style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-              >
-                <Ionicons
-                  name="document-text-outline"
-                  size={22}
-                  color={lyricsMode ? colors.accent : colors.textDim}
-                />
-              </Pressable>
-            ) : null}
-          </View>
+          <PlayerTopActions
+            liked={liked}
+            onToggleLike={toggleLike}
+            lyricsEnabled={LYRICS_ENABLED}
+            lyricsMode={lyricsMode}
+            onToggleLyrics={() => {
+              setLyricsNote(null);
+              setLyricsMode((active) => !active);
+            }}
+            sleep={sleep}
+            onSelectSleep={selectSleepPreset}
+            onCancelSleep={cancelSleep}
+            onTags={() => setTagOpen(true)}
+            onPlaylist={() => setPlaylistOpen(true)}
+            onDetails={() => onDetails?.(track)}
+            open={actionsOpen}
+            onOpenChange={setActionsOpen}
+          />
         </View>
-
-        {sleepOpen ? (
-          <View style={styles.sleepPanel}>
-            <SleepTimerControls
-              mode={sleep.mode}
-              remainingMs={sleep.remainingMs}
-              onSelect={selectSleepPreset}
-              onCancel={cancelSleep}
-            />
-          </View>
-        ) : null}
 
         <View style={styles.stage}>
           <Animated.View
@@ -342,14 +270,16 @@ export function NowPlayingScreen({
               radius={radius.cover}
               uri={track.artworkUri}
             />
-            <Text style={styles.title} numberOfLines={2}>
-              {track.title}
-            </Text>
-            {track.artist ? (
-              <Text style={styles.artist} numberOfLines={1}>
-                {track.artist}
+            <View style={styles.artTitles}>
+              <Text style={styles.title} numberOfLines={2}>
+                {track.title}
               </Text>
-            ) : null}
+              {track.artist ? (
+                <Text style={styles.artist} numberOfLines={1}>
+                  {track.artist}
+                </Text>
+              ) : null}
+            </View>
           </Animated.View>
 
           <Animated.View
@@ -358,47 +288,22 @@ export function NowPlayingScreen({
             accessibilityElementsHidden={!lyricsMode}
             importantForAccessibility={lyricsMode ? 'auto' : 'no-hide-descendants'}
           >
-            <View style={styles.lyricsHeader}>
-              <CoverArt
-                hue={track.artworkHue}
-                title={track.title}
-                size={LYRICS_COVER_SIZE}
-                radius={radius.cover}
-                uri={track.artworkUri}
-              />
-              <View style={styles.lyricsTitles}>
-                <Text style={styles.lyricsTitle} numberOfLines={2}>
-                  {track.title}
-                </Text>
-                {track.artist ? (
-                  <Text style={styles.artist} numberOfLines={2}>
-                    {track.artist}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <View style={styles.lyricsPanel}>
-              <LyricsPanel
-                state={lyrics.state}
-                lines={lyrics.lines}
-                plain={lyrics.plain}
-                positionMs={positionMs}
-                onSeek={(ms) => {
-                  void seek(ms);
-                }}
-                onImport={
-                  Platform.OS === 'web'
-                    ? undefined
-                    : () => {
-                        void importLyrics();
-                      }
-                }
-                onPaste={
-                  Platform.OS === 'web' ? undefined : () => setPasteLyricsOpen(true)
-                }
-                importing={importingLyrics}
-              />
-            </View>
+            <LyricsStage
+              track={track}
+              lyrics={lyrics}
+              positionMs={positionMs}
+              onSeek={(ms) => void seek(ms)}
+              onImport={
+                Platform.OS === 'web'
+                  ? undefined
+                  : () => {
+                      void importLyrics();
+                    }
+              }
+              onPaste={Platform.OS === 'web' ? undefined : () => setPasteLyricsOpen(true)}
+              onReload={reloadLyrics}
+              importing={importingLyrics}
+            />
           </Animated.View>
         </View>
 
@@ -458,6 +363,11 @@ export function NowPlayingScreen({
             }}
             resetToken={resetToken}
           />
+          {sleepCaption(sleep.mode, sleep.remainingMs) ? (
+            <Text style={styles.sleepCaption}>
+              {sleepCaption(sleep.mode, sleep.remainingMs)}
+            </Text>
+          ) : null}
           <View style={styles.transport}>
             <View style={styles.shuffleSlot}>
               <Pressable
@@ -556,7 +466,7 @@ export function NowPlayingScreen({
       />
       <PlaylistPickerSheet
         visible={playlistOpen}
-        track={track}
+        tracks={[track]}
         onClose={() => setPlaylistOpen(false)}
       />
     </Animated.View>
@@ -648,17 +558,27 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     marginBottom: space.sm,
   },
+  artTitles: {
+    alignSelf: 'stretch',
+    marginTop: space.lg,
+    paddingHorizontal: space.lg,
+    gap: 2,
+  },
   title: {
     ...type.display,
     color: colors.text,
-    textAlign: 'center',
+    textAlign: 'left',
     letterSpacing: -0.5,
-    marginTop: space.lg,
   },
   artist: {
     ...type.meta,
     color: colors.textDim,
-    marginTop: space.xs,
+  },
+  sleepCaption: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
+    marginTop: space.sm,
   },
   transport: {
     alignItems: 'center',
