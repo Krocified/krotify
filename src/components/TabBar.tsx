@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   shadow: {
     height: TAB_BAR_HEIGHT,
-    borderRadius: TAB_BAR_HEIGHT / 2,
+    borderRadius: 20,
     shadowColor: '#000000',
     shadowOpacity: 0.35,
     shadowRadius: 18,
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    borderRadius: TAB_BAR_HEIGHT / 2,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#ffffff14',
     overflow: 'hidden',

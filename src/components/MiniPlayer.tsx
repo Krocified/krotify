@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
 import {
   Animated,
   Easing,
@@ -9,20 +9,23 @@ import {
   Text,
   View,
 } from 'react-native';
-import { usePlayer } from '../player/PlayerProvider';
-import { colors, radius, space, type } from '../theme';
+import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
+import { coverColors } from '../lib/cover';
+import { adjustColor } from '../lib/ambient';
+import { useCoverColor } from '../library/useCoverColor';
+import { colors, space, type } from '../theme';
+import { BlurPill } from './BlurPill';
 import { CoverArt } from './CoverArt';
+import { WavyVisualizer } from './WavyVisualizer';
 
 type Props = {
   onExpand: () => void;
+  blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
-export function MiniPlayer({ onExpand }: Props) {
-  const { track, isPlaying, positionMs, durationMs, queueLength, toggle, skipNext, skipPrevious, stop } =
-    usePlayer();
-  const [progress] = useState(() =>
-    new Animated.Value(durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0),
-  );
+export function MiniPlayer({ onExpand, blurTarget }: Props) {
+  const { track, isPlaying, queueLength } = usePlayerStatus();
+  const { toggle, skipNext, skipPrevious, stop } = usePlayerActions();
   const [contentX] = useState(() => new Animated.Value(0));
   const [contentOpacity] = useState(() => new Animated.Value(1));
   const canSkipRef = useRef(queueLength > 1);
@@ -35,17 +38,6 @@ export function MiniPlayer({ onExpand }: Props) {
     skipNextRef.current = skipNext;
     skipPreviousRef.current = skipPrevious;
   }, [queueLength, skipNext, skipPrevious]);
-
-  useEffect(() => {
-    if (animatingRef.current) return;
-    const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
-    Animated.timing(progress, {
-      toValue: ratio,
-      duration: 500,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-  }, [positionMs, durationMs, progress]);
 
   const panResponder = useMemo(
     () =>
@@ -91,8 +83,6 @@ export function MiniPlayer({ onExpand }: Props) {
               useNativeDriver: true,
             }),
           ]).start(() => {
-            progress.stopAnimation();
-            progress.setValue(0);
             if (forward) skipNextRef.current();
             else skipPreviousRef.current();
             contentX.setValue(-direction * 40);
@@ -126,16 +116,25 @@ export function MiniPlayer({ onExpand }: Props) {
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [contentX, contentOpacity, progress],
+    [contentX, contentOpacity],
   );
+
+  const coverColor = useCoverColor(track?.artworkUri);
+  const visualizerColors: readonly [string, string] = coverColor
+    ? [adjustColor(coverColor, 0.22), adjustColor(coverColor, -0.24)]
+    : coverColors(track?.artworkHue ?? 0);
+  const visualizerKey = track?.id ?? 'none';
 
   if (!track) return null;
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.progressTrack} pointerEvents="none">
-        <Animated.View style={[styles.progressFill, { transform: [{ scaleX: progress }] }]} />
-      </View>
+    <BlurPill
+      style={styles.wrap}
+      contentStyle={styles.pillContent}
+      blurTarget={blurTarget}
+      intensity={45}
+    >
+      <WavyVisualizer key={visualizerKey} colors={visualizerColors} />
       <View style={styles.bar}>
         <View style={styles.contentClip}>
           <Animated.View
@@ -154,8 +153,8 @@ export function MiniPlayer({ onExpand }: Props) {
               <CoverArt
                 hue={track.artworkHue}
                 title={track.title}
-                size={44}
-                radius={4}
+                size={50}
+                radius={25}
                 uri={track.artworkUri}
               />
               <View style={styles.texts}>
@@ -188,7 +187,7 @@ export function MiniPlayer({ onExpand }: Props) {
           <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={colors.text} />
         </Pressable>
       </View>
-    </View>
+    </BlurPill>
   );
 }
 
@@ -196,20 +195,12 @@ const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 12,
     marginBottom: 8,
-    borderRadius: radius.cover,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceHi,
+    borderRadius: 32,
   },
-  progressTrack: {
-    height: 2,
-    marginHorizontal: radius.cover,
-    backgroundColor: '#ffffff1f',
-  },
-  progressFill: {
-    width: '100%',
-    height: 2,
-    backgroundColor: colors.accentBright,
-    transformOrigin: 'left',
+  pillContent: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
   },
   bar: {
     height: 64,
@@ -230,7 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    paddingLeft: space.md,
+    paddingLeft: 8,
   },
   pressed: {
     backgroundColor: '#262633',
