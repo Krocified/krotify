@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SelectionBar } from '../components/SelectionBar';
+import { selectionState, toggleAllVisible } from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
@@ -68,6 +69,7 @@ export function LibraryScreen({
     () => tracks.filter((track) => selectedIds.has(track.id)),
     [tracks, selectedIds],
   );
+  const visibleIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
   const selectedCount = selectedTracks.length;
 
   function startSelection(track: Track) {
@@ -126,6 +128,8 @@ export function LibraryScreen({
       {selecting ? (
         <SelectionBar
           count={selectedCount}
+          allState={selectionState(selectedIds, visibleIds)}
+          onToggleAll={() => setSelectedIds((previous) => toggleAllVisible(previous, visibleIds))}
           actions={[
             {
               key: 'hide',

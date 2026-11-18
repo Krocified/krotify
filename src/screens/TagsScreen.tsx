@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
+import { selectionState, toggleAllVisible } from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { normalizeTagName } from '../tags/name';
 import { useTags } from '../tags/TagProvider';
@@ -144,6 +145,12 @@ export function TagsScreen({ visible, onBack }: Props) {
       {selecting ? (
         <SelectionBar
           count={selectedCount}
+          allState={selectionState(selectedIds, sorted.map((tag) => tag.id))}
+          onToggleAll={() =>
+            setSelectedIds((previous) =>
+              toggleAllVisible(previous, sorted.map((tag) => tag.id)),
+            )
+          }
           actions={[
             {
               key: 'delete',

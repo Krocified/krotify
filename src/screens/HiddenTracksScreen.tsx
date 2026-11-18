@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
+import { selectionState, toggleAllVisible } from '../lib/selection';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ScrollBar } from '../components/ScrollBar';
 import { useScrollProgress } from '../components/useScrollProgress';
@@ -132,6 +133,12 @@ export function HiddenTracksScreen({
       {selecting ? (
         <SelectionBar
           count={selectedCount}
+          allState={selectionState(selectedIds, tracks.map((track) => track.id))}
+          onToggleAll={() =>
+            setSelectedIds((previous) =>
+              toggleAllVisible(previous, tracks.map((track) => track.id)),
+            )
+          }
           actions={[
             {
               key: 'restore',
