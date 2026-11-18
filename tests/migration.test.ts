@@ -40,7 +40,7 @@ test('partially migrated metadata only adds the missing column', () => {
 });
 
 test('playlist schema is v4', () => {
-  assert.equal(DB_VERSION, 4);
+  assert.equal(DB_VERSION, 5);
 });
 
 test('v2 playlists produce the missing detail columns', () => {

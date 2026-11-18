@@ -60,8 +60,8 @@ function trackRow(fixture: Fixture, id: string): TrackRow {
   return found[0];
 }
 
-test('schema version is four', () => {
-  assert.equal(DB_VERSION, 4);
+test('schema version is five', () => {
+  assert.equal(DB_VERSION, 5);
 });
 
 test('v4 schema creates tracks tags track_tags and settings', () => {
