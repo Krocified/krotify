@@ -24,6 +24,7 @@ import {
 import { recordPlay } from './db/repo';
 import { getScanSummary, type ScanSummary } from './db/settings';
 import { pickAndImportTracks, type ImportFailure } from './imports/local';
+import type { ImportProgress } from './lib/importProgress';
 import { DEMO_TRACKS } from './library/demo';
 import { useFavorites } from './library/FavoritesProvider';
 import { grantAudioPermission, readAudioPermissionState } from './library/permissions';
@@ -102,6 +103,8 @@ export function AppShell() {
   const [excluded, setExcluded] = useState<Track[]>([]);
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<ImportFailure[]>([]);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const importAbortRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<LibraryStatus>('scanning');
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [scanId, setScanId] = useState(0);
@@ -748,7 +751,27 @@ export function AppShell() {
           return;
         }
       }
-      const { added, skipped, failures } = await pickAndImportTracks();
+      const controller = new AbortController();
+      importAbortRef.current = controller;
+      const { added, skipped, failures } = await pickAndImportTracks({
+        signal: controller.signal,
+        onProgress: setImportProgress,
+        onAdded: (record) => {
+          const uiTrack = toUiTrack(record);
+          setLibraryTracks((prev) =>
+            mergeLibrary(
+              prev.filter((item) => item.source !== 'demo'),
+              [uiTrack],
+              new Set(),
+            ),
+          );
+          setStatus('ready');
+        },
+        onUpdated: (record) => {
+          const uiTrack = toUiTrack(record);
+          setLibraryTracks((prev) => mergeLibrary(prev, [uiTrack], new Set()));
+        },
+      });
       setImportFailures(failures);
       const skippedNote =
         skipped.length > 0
@@ -772,8 +795,14 @@ export function AppShell() {
       selectTab('library');
       showToast(importResultMessage(added.length, failures.length));
     } finally {
+      importAbortRef.current = null;
+      setImportProgress(null);
       setImporting(false);
     }
+  }
+
+  function cancelImport() {
+    importAbortRef.current?.abort();
   }
 
   const fullScreenOverlay = editTarget !== null;
@@ -875,6 +904,8 @@ export function AppShell() {
             active={screen === 'import'}
             importing={importing}
             importFailures={importFailures}
+            progress={importProgress}
+            onCancelImport={cancelImport}
             onImport={handleImport}
             onLinkImported={handleLinkImported}
             onOpenSearch={openSearch}

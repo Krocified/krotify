@@ -21,6 +21,8 @@ import {
 } from '../imports/link';
 import { loadLinkServerConfig } from '../imports/serverConfig';
 import type { ImportFailure } from '../imports/local';
+import type { ImportProgress } from '../lib/importProgress';
+import { ImportProgressBar } from '../components/ImportProgressBar';
 import { LINK_IMPORT_ENABLED } from '../lib/features';
 import { colors, radius, space, type } from '../theme';
 import type { TrackRecord } from '../tracks/types';
@@ -29,7 +31,9 @@ type Props = {
   active: boolean;
   importing: boolean;
   importFailures: ImportFailure[];
+  progress: ImportProgress | null;
   onImport: () => Promise<void>;
+  onCancelImport: () => void;
   onLinkImported: (record: TrackRecord) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
@@ -39,7 +43,9 @@ export function ImportScreen({
   active,
   importing,
   importFailures,
+  progress,
   onImport,
+  onCancelImport,
   onLinkImported,
   onOpenSearch,
   onOpenSettings,
@@ -178,6 +184,10 @@ export function ImportScreen({
               MP3 · M4A/AAC · FLAC · OGG/Opus · WAV · WebM
             </Text>
           </Pressable>
+
+          {progress ? (
+            <ImportProgressBar progress={progress} onCancel={onCancelImport} />
+          ) : null}
 
           {error ? (
             <View style={styles.error}>
