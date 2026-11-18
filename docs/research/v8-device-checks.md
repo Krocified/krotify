@@ -29,3 +29,15 @@ web preview.
 | Keyboard | Sheet field and submit row stay above the keyboard after the ScrollView shrinks |  | pending |
 | Notification | Pause from the notification, open the app, then Play starts playback |  | pending |
 | Notification | Determinate progress bar advances for a five-minute and a thirty-second track |  | pending |
+
+## v8.2
+
+| Area | Check | Build | Result |
+|---|---|---|---|
+| Crash | Open the player and play a song; no ambient pool crash |  | pending |
+| Keyboard | New playlist, Paste lyrics and tag picker bottom field sit on the keyboard top |  | pending |
+| Settings | Library settings page opens, back returns to Settings, Hidden returns to Library settings |  | pending |
+| Liked | Long-press selects, Remove unlikes the selected songs, back clears selection |  | pending |
+| Liked | Swipe left reveals trash, one row open, tap/swipe right closes, confirm removes |  | pending |
+| Playlist | Compact hero and Play/Shuffle/Edit/Add row; picker and drag reorder still work |  | pending |
+| Blur | Player buttons and tag chips render as glass pills; no crash without a target |  | pending |

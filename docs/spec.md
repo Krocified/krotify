@@ -588,6 +588,46 @@ Targets version 0.8.1 (`versionCode` 801).
   the notification bar, keyboard lift and ambient motion are recorded in
   `docs/research/v8-device-checks.md`.
 
+### v8.2: Second feedback pass (built, device verification pending)
+
+Focus: make the second round of 0.8.1 feedback land without new crashes.
+Targets version 0.8.2 (`versionCode` 802).
+
+- **No ambient crash.** The backdrop owns exactly as many animated values as
+  `ambientTheme` produces (`AMBIENT_POOL_COUNT`) and skips a pool rather than
+  reading an undefined value. This is the 0.8.1 crash when the player opened.
+- **Sheets anchor to the keyboard top.** The shared sheet measures the keyboard
+  top from `endCoordinates.screenY` as well as its height, so it lifts to the
+  keyboard top whether the Android window resized or not, without double-lifting.
+  After the keyboard opens it also scrolls the sheet to the end so the focused
+  field and its submit row are visible even when the field is at the bottom of a
+  long sheet.
+- **Library settings is its own page.** Settings keeps Tags, Storage, Playback
+  and About. A Library settings row opens a page owning Permission (+ Grant),
+  Scan this device, Rescan, Hidden tracks and Exclude all scanned tracks. Back
+  from it returns to Settings; Hidden tracks remembers it came from Library
+  settings and returns there.
+- **Liked Songs supports bulk and swipe.** Long-press starts a selection with
+  the same count/select-all/Cancel bar as Library, plus a destructive Remove
+  action that unlikes every selected song. Swiping a row left reveals a red
+  trash action; only one row is open at a time, swiping right or touching
+  elsewhere closes it, and the trash opens the existing confirmation sheet
+  before anything changes. Swipe is disabled while selecting.
+- **The playlist detail is compact.** The playlist hero is a 92px cover beside
+  the name, description and count. Play, Shuffle, Edit and Add songs move into
+  one 44px action row instead of a full-width hero action block. Queue play,
+  shuffle, cover/name editing, the song picker, drag reorder and per-row remove
+  are unchanged.
+- **Blur pills are a shared component.** `BlurPill` wraps the tab bar's glass
+  recipe — target-backed `BlurView`, translucent fill, hairline border,
+  overflow-clipped radius — for reuse. Player primary and overflow buttons and
+  the library tag chips use it; a selected tag keeps the accent fill. Missing
+  targets degrade to the translucent fill, never a crash.
+- **Not in v8.2.** No new third-party dependencies. No change to audio files,
+  tag storage or the import path. No custom notification layout. Device checks
+  for keyboard anchoring, swipe rows, the settings split and blur pills are
+  recorded in `docs/research/v8-device-checks.md`.
+
 
 ## Library management
 
@@ -889,9 +929,9 @@ claims.
   clears before the page changes.
 - Ambient backdrop: one animated palette field per track, seeded by track id and
   animated whenever the player is visible. Cover art itself never moves.
-- Version: 0.8.1 (`versionCode` 801). `v8` shipped as 0.8.0 and `v8.1` is the
-  feedback pass. `.github/workflows/release.yml` bumps and publishes on every
-  push to `main`.
+- Version: 0.8.2 (`versionCode` 802). `v8` shipped as 0.8.0, `v8.1` was the
+  first feedback pass and `v8.2` is the second. `.github/workflows/release.yml`
+  bumps and publishes on every push to `main`.
 
 ## Remaining after v2
 
