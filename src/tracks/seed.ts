@@ -13,25 +13,34 @@ const FIELDS = [
   'genre',
 ] as const;
 
-export async function readTrackSeed(location: string): Promise<TrackSeed> {
-  const seed: TrackSeed = {};
+function seedFromTags(tags: Partial<Record<(typeof FIELDS)[number], unknown>>): TrackSeed {
+  return {
+    title: (tags.title as string | null | undefined) ?? undefined,
+    artist: (tags.artist as string | null | undefined) ?? undefined,
+    album: (tags.albumTitle as string | null | undefined) ?? undefined,
+    albumArtist: (tags.albumArtist as string | null | undefined) ?? undefined,
+    trackNumber: (tags.trackNumber as number | null | undefined) ?? undefined,
+    discNumber: (tags.discNumber as number | null | undefined) ?? undefined,
+    year: (tags.year as number | null | undefined) ?? undefined,
+    genre: (tags.genre as string | null | undefined) ?? undefined,
+  };
+}
 
+export async function readTrackSeeds(
+  locations: readonly string[],
+): Promise<Map<string, TrackSeed>> {
+  const seeds = new Map<string, TrackSeed>();
+  if (locations.length === 0) return seeds;
   try {
-    const { results } = await getBulkMetadata([location], FIELDS);
-    const tags = results[0]?.data;
-    if (tags) {
-      seed.title = tags.title ?? undefined;
-      seed.artist = tags.artist ?? undefined;
-      seed.album = tags.albumTitle ?? undefined;
-      seed.albumArtist = tags.albumArtist ?? undefined;
-      seed.trackNumber = tags.trackNumber ?? undefined;
-      seed.discNumber = tags.discNumber ?? undefined;
-      seed.year = tags.year ?? undefined;
-      seed.genre = tags.genre ?? undefined;
+    const { results } = await getBulkMetadata([...locations], FIELDS);
+    for (const result of results) {
+      seeds.set(result.uri, seedFromTags(result.data ?? {}));
     }
-  } catch {
-  }
+  } catch {}
+  return seeds;
+}
 
+export async function saveSeedArtwork(location: string): Promise<string | undefined> {
   try {
     const directory = new Directory(Paths.document, 'artwork');
     directory.create({ intermediates: true, idempotent: true });
@@ -39,9 +48,16 @@ export async function readTrackSeed(location: string): Promise<TrackSeed> {
       saveDirectory: directory.uri,
       knownHashes: [],
     });
-    if (saved) seed.artworkUri = saved.uri;
+    return saved?.uri;
   } catch {
+    return undefined;
   }
+}
 
+export async function readTrackSeed(location: string): Promise<TrackSeed> {
+  const seeds = await readTrackSeeds([location]);
+  const seed = seeds.get(location) ?? {};
+  const artworkUri = await saveSeedArtwork(location);
+  if (artworkUri) seed.artworkUri = artworkUri;
   return seed;
 }
