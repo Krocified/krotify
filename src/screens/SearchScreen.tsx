@@ -5,7 +5,6 @@ import {
   Easing,
   FlatList,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,8 @@ import { TrackRow } from '../components/TrackRow';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { searchTracks } from '../lib/search';
 import { colors, space, type } from '../theme';
+import { IconButton } from '../ui/IconButton';
+import { ui } from '../ui/styles';
 import type { Track } from '../types';
 
 type Props = {
@@ -72,7 +73,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
   return (
     <Animated.View
       style={[
-        styles.root,
+        ui.overlay,
         {
           transform: [
             { translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [width, 0] }) },
@@ -83,16 +84,14 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Pressable
+      <View style={[ui.header, { paddingTop: insets.top + space.sm }]}>
+        <IconButton
+          icon="chevron-back"
+          label="Close search"
           onPress={close}
-          accessibilityRole="button"
-          accessibilityLabel="Close search"
-          hitSlop={space.sm}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
-        >
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+          size={26}
+          color={colors.text}
+        />
         <View style={styles.inputWrap}>
           <Ionicons name="search-outline" size={18} color={colors.textDim} />
           <TextInput
@@ -144,31 +143,6 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  iconPressed: {
-    backgroundColor: colors.surfaceHi,
-  },
   inputWrap: {
     flex: 1,
     flexDirection: 'row',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, space, type } from '../theme';
+import { colors, space, type } from '../theme';
+import { ui } from '../ui/styles';
 import { Sheet } from './Sheet';
 
 type Props = {
@@ -52,18 +53,18 @@ export function PasteLyricsSheet({ visible, onClose, onSubmit }: Props) {
         placeholderTextColor={colors.textDim}
         editable={!busy}
         accessibilityLabel="Paste lyrics text"
-        style={styles.input}
+        style={[ui.input, styles.input]}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.actions}>
+      <View style={[ui.actions, styles.actions]}>
         <Pressable
           onPress={close}
           disabled={busy}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
-          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+          style={({ pressed }) => [ui.secondaryButton, styles.action, pressed && ui.pressed]}
         >
-          <Text style={styles.secondaryText}>Cancel</Text>
+          <Text style={ui.secondaryButtonText}>Cancel</Text>
         </Pressable>
         <Pressable
           onPress={() => void submit()}
@@ -71,15 +72,16 @@ export function PasteLyricsSheet({ visible, onClose, onSubmit }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Add lyrics"
           style={({ pressed }) => [
-            styles.primary,
-            (busy || text.trim().length === 0) && styles.disabled,
-            pressed && styles.pressed,
+            ui.primaryButton,
+            styles.action,
+            (busy || text.trim().length === 0) && ui.disabled,
+            pressed && ui.pressed,
           ]}
         >
           {busy ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.primaryText}>Add lyrics</Text>
+            <Text style={ui.primaryButtonText}>Add lyrics</Text>
           )}
         </Pressable>
       </View>
@@ -94,11 +96,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
   },
   input: {
-    ...type.body,
     minHeight: 180,
-    color: colors.text,
-    backgroundColor: colors.surfaceHi,
-    borderRadius: radius.screen,
     padding: space.md,
     marginHorizontal: space.sm,
   },
@@ -108,38 +106,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
   },
   actions: {
-    flexDirection: 'row',
-    gap: space.sm,
     padding: space.sm,
   },
-  secondary: {
+  action: {
     flex: 1,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
-  },
-  secondaryText: {
-    ...type.body,
-    color: colors.text,
-  },
-  primary: {
-    flex: 1,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.screen,
-    backgroundColor: colors.accent,
-  },
-  primaryText: {
-    ...type.body,
-    color: colors.text,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  pressed: {
-    opacity: 0.75,
   },
 });

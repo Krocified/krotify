@@ -35,25 +35,12 @@ export function BlurPill({
   fillColor = 'rgba(22,22,29,0.35)',
   style,
   contentStyle,
-  accessibilityRole = 'button',
+  accessibilityRole,
   accessibilityLabel,
   accessibilityState,
 }: Props) {
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      disabled={disabled}
-      accessibilityRole={accessibilityRole}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={accessibilityState ?? (disabled ? { disabled: true } : undefined)}
-      style={({ pressed }) => [
-        styles.pill,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-        style,
-      ]}
-    >
+  const body = (
+    <>
       {blurTarget ? (
         <BlurView
           pointerEvents="none"
@@ -69,6 +56,38 @@ export function BlurPill({
         style={[styles.fill, { backgroundColor: fillColor }]}
       />
       <View style={[styles.content, contentStyle]}>{children}</View>
+    </>
+  );
+
+  if (!onPress && !onLongPress) {
+    return (
+      <View
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={accessibilityState}
+        style={[styles.pill, disabled && styles.disabled, style]}
+      >
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      disabled={disabled}
+      accessibilityRole={accessibilityRole ?? 'button'}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState ?? (disabled ? { disabled: true } : undefined)}
+      style={({ pressed }) => [
+        styles.pill,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
+        style,
+      ]}
+    >
+      {body}
     </Pressable>
   );
 }

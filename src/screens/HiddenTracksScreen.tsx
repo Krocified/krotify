@@ -26,6 +26,8 @@ import { ScrollBar } from '../components/ScrollBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import { isMissingTrack } from '../lib/settingsView';
 import { colors, radius, space, type } from '../theme';
+import { EmptyState } from '../ui/EmptyState';
+import { ui } from '../ui/styles';
 import type { Track } from '../types';
 
 type Props = {
@@ -104,7 +106,7 @@ export function HiddenTracksScreen({
   return (
     <Animated.View
       style={[
-        styles.root,
+        ui.overlay,
         {
           transform: [
             {
@@ -117,23 +119,23 @@ export function HiddenTracksScreen({
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
+      <View style={[ui.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>Hidden tracks</Text>
+        <Text style={ui.title}>Hidden tracks</Text>
         {selecting ? (
-          <View style={styles.iconButton} />
+          <View style={ui.iconButton} />
         ) : tracks.length > 0 ? (
           <Pressable
             onPress={() => setSelecting(true)}
             accessibilityRole="button"
             accessibilityLabel="Select hidden tracks"
             hitSlop={space.sm}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.actionPressed]}
+            style={({ pressed }) => [styles.headerAction, pressed && ui.pressed]}
           >
             <Text style={styles.headerActionText}>Select</Text>
           </Pressable>
         ) : (
-          <View style={styles.iconButton} />
+          <View style={ui.iconButton} />
         )}
       </View>
 
@@ -191,7 +193,7 @@ export function HiddenTracksScreen({
           showsVerticalScrollIndicator={false}
           {...scrollHandlers}
           contentContainerStyle={[
-            styles.content,
+            ui.content,
             {
               paddingBottom:
                 insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
@@ -199,22 +201,23 @@ export function HiddenTracksScreen({
           ]}
         >
           {tracks.length === 0 ? (
-            <Text style={styles.empty}>
-              No hidden tracks. Tracks you hide from the library appear here.
-            </Text>
+            <EmptyState
+              icon="eye-off-outline"
+              text="No hidden tracks. Tracks you hide from the library appear here."
+            />
           ) : (
             <>
               {selecting ? null : (
-                <View style={styles.card}>
+                <View style={ui.card}>
                   <Pressable
                     onPress={onRestoreAll}
                     accessibilityRole="button"
                     accessibilityLabel="Restore all hidden tracks"
-                    style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                    style={({ pressed }) => [ui.row, pressed && ui.rowPressed]}
                   >
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle}>Restore all</Text>
-                      <Text style={styles.rowMeta}>
+                    <View style={ui.rowText}>
+                      <Text style={ui.rowTitle}>Restore all</Text>
+                      <Text style={ui.rowMeta}>
                         {tracks.length} hidden {tracks.length === 1 ? 'track' : 'tracks'}
                       </Text>
                     </View>
@@ -223,7 +226,7 @@ export function HiddenTracksScreen({
                 </View>
               )}
 
-              <View style={styles.card}>
+              <View style={ui.card}>
                 {tracks.map((track) => {
                   const missing = isMissingTrack(track);
                   return (
@@ -253,7 +256,7 @@ export function HiddenTracksScreen({
                           uri={track.artworkUri}
                         />
                         <View style={styles.trackText}>
-                          <Text style={styles.rowTitle} numberOfLines={1}>
+                          <Text style={ui.rowTitle} numberOfLines={1}>
                             {track.title}
                           </Text>
                           {missing ? (
@@ -268,7 +271,7 @@ export function HiddenTracksScreen({
                               </Text>
                             </View>
                           ) : track.artist ? (
-                            <Text style={styles.rowMeta} numberOfLines={1}>
+                            <Text style={ui.rowMeta} numberOfLines={1}>
                               {track.artist}
                             </Text>
                           ) : null}
@@ -291,7 +294,7 @@ export function HiddenTracksScreen({
                             onPress={() => onRestore(track.id)}
                             accessibilityRole="button"
                             accessibilityLabel={`Restore ${track.title}`}
-                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
                           >
                             <Text style={styles.actionRestore}>Restore</Text>
                           </Pressable>
@@ -299,7 +302,7 @@ export function HiddenTracksScreen({
                             onPress={() => onClear(track)}
                             accessibilityRole="button"
                             accessibilityLabel={`Clear ${track.title} from the library`}
-                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
                           >
                             <Text style={styles.actionText}>Clear</Text>
                           </Pressable>
@@ -307,7 +310,7 @@ export function HiddenTracksScreen({
                             onPress={() => onDelete(track)}
                             accessibilityRole="button"
                             accessibilityLabel={`Delete ${track.title} and its file`}
-                            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
                           >
                             <Text style={styles.actionDanger}>Delete</Text>
                           </Pressable>
@@ -332,25 +335,6 @@ export function HiddenTracksScreen({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-  },
   headerAction: {
     minHeight: 36,
     justifyContent: 'center',
@@ -358,47 +342,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   headerActionText: {
-    ...type.meta,
-    color: colors.textDim,
-  },
-  title: {
-    ...type.body,
-    color: colors.text,
-  },
-  content: {
-    paddingHorizontal: space.md,
-    gap: space.md,
-  },
-  empty: {
-    ...type.meta,
-    color: colors.textDim,
-    lineHeight: 20,
-    paddingTop: space.xl,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-    padding: space.md,
-  },
-  rowPressed: {
-    backgroundColor: colors.surfaceHi,
-  },
-  rowText: {
-    flex: 1,
-    gap: space.xs,
-  },
-  rowTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  rowMeta: {
     ...type.meta,
     color: colors.textDim,
   },
@@ -436,9 +379,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.xs,
     borderRadius: radius.screen,
     backgroundColor: colors.surfaceHi,
-  },
-  actionPressed: {
-    opacity: 0.7,
   },
   actionText: {
     ...type.meta,

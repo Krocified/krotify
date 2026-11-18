@@ -23,6 +23,8 @@ import {
 } from '../lib/selection';
 import type { TagCount } from '../tags/filter';
 import { colors, space, type } from '../theme';
+import { EmptyState } from '../ui/EmptyState';
+import { ui } from '../ui/styles';
 import type { Track } from '../types';
 
 type Props = {
@@ -105,13 +107,13 @@ export function PlaylistSongPicker({
 
   return (
     <View
-      style={[styles.root, { paddingTop: insets.top + space.sm }]}
+      style={[ui.overlay, { paddingTop: insets.top + space.sm }]}
       accessibilityViewIsModal
     >
-      <View style={styles.header}>
+      <View style={ui.header}>
         <BackPill onPress={close} label="Back to playlist" />
         <View style={styles.headerText}>
-          <Text style={styles.title}>Add songs</Text>
+          <Text style={ui.title}>Add songs</Text>
           <Text style={styles.subtitle} numberOfLines={1}>
             {playlistName}
           </Text>
@@ -171,9 +173,10 @@ export function PlaylistSongPicker({
           paddingBottom: insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl,
         }}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {query ? 'No songs match that search.' : 'No songs with this tag.'}
-          </Text>
+          <EmptyState
+            icon={query ? 'search-outline' : 'pricetag-outline'}
+            text={query ? 'No songs match that search.' : 'No songs with this tag.'}
+          />
         }
         renderItem={({ item }) => {
           const added = existing.has(item.id);
@@ -196,27 +199,8 @@ export function PlaylistSongPicker({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
   headerText: {
     flex: 1,
-  },
-  title: {
-    ...type.body,
-    color: colors.text,
   },
   subtitle: {
     ...type.meta,
@@ -243,11 +227,5 @@ const styles = StyleSheet.create({
     color: colors.danger,
     paddingHorizontal: space.md,
     paddingBottom: space.xs,
-  },
-  empty: {
-    ...type.meta,
-    color: colors.textDim,
-    textAlign: 'center',
-    paddingVertical: space.xl,
   },
 });

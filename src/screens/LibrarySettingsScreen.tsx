@@ -4,7 +4,6 @@ import {
   Animated,
   Platform,
   Pressable,
-  StyleSheet,
   Switch,
   Text,
   View,
@@ -22,7 +21,9 @@ import {
   scanResultLabel,
   type PermissionState,
 } from '../lib/settingsView';
-import { colors, radius, space, type } from '../theme';
+import { colors, space } from '../theme';
+import { SettingsRow, SettingsSection } from '../ui/Settings';
+import { ui } from '../ui/styles';
 import type { LibraryStatus } from '../types';
 
 type Props = {
@@ -71,128 +72,107 @@ export function LibrarySettingsScreen({
 
   return (
     <View
-      style={[styles.root, !visible && styles.hidden]}
+      style={[ui.overlay, !visible && ui.hidden]}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
+      <View style={[ui.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>Library settings</Text>
-        <View style={styles.iconButton} />
+        <Text style={ui.title}>Library settings</Text>
+        <View style={ui.iconButton} />
       </View>
 
-      <View style={styles.flex}>
+      <View style={ui.flex}>
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
           {...scrollHandlers}
-          contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
+          contentContainerStyle={[ui.content, { paddingBottom: bottomPad }]}
         >
-          <Text style={styles.sectionTitle}>Library</Text>
-          <View style={styles.card}>
-            <View
-              style={styles.row}
-              accessible
+          <SettingsSection title="Library">
+            <SettingsRow
+              title="Permission"
+              meta="Needed to scan this device for audio"
               accessibilityLabel={`Permission: ${permissionText}`}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Permission</Text>
-                <Text style={styles.rowMeta}>Needed to scan this device for audio</Text>
-              </View>
-              <View style={styles.rowActions}>
-                <Text style={styles.rowValue}>{permissionText}</Text>
-                {permission !== null && permission !== 'granted' ? (
-                  <Pressable
-                    onPress={onGrant}
-                    accessibilityRole="button"
-                    accessibilityLabel="Grant audio permission"
-                    style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                  >
-                    <Text style={styles.actionText}>Grant</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
+              trailing={
+                <View style={ui.rowActions}>
+                  <Text style={ui.rowValue}>{permissionText}</Text>
+                  {permission !== null && permission !== 'granted' ? (
+                    <Pressable
+                      onPress={onGrant}
+                      accessibilityRole="button"
+                      accessibilityLabel="Grant audio permission"
+                      style={({ pressed }) => [ui.action, pressed && ui.actionPressed]}
+                    >
+                      <Text style={ui.actionText}>Grant</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              }
+            />
 
             {Platform.OS !== 'web' ? (
-              <View style={styles.row}>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>Scan this device</Text>
-                  <Text style={styles.rowMeta}>
-                    {scanEnabled
-                      ? 'Scanning for audio files on this device'
-                      : 'Off. Imported files stay in your library.'}
-                  </Text>
-                </View>
-                <Switch
-                  value={scanEnabled}
-                  onValueChange={onToggleScan}
-                  disabled={scanning}
-                  accessibilityLabel="Scan this device for audio"
-                  trackColor={{ false: colors.surfaceHi, true: colors.accent }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+              <SettingsRow
+                title="Scan this device"
+                meta={
+                  scanEnabled
+                    ? 'Scanning for audio files on this device'
+                    : 'Off. Imported files stay in your library.'
+                }
+                trailing={
+                  <Switch
+                    value={scanEnabled}
+                    onValueChange={onToggleScan}
+                    disabled={scanning}
+                    accessibilityLabel="Scan this device for audio"
+                    trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                    thumbColor="#FFFFFF"
+                  />
+                }
+              />
             ) : null}
 
-            <Pressable
+            <SettingsRow
+              title="Rescan device audio"
+              meta={
+                scanDisabledReason ? (
+                  <>
+                    <Text style={ui.rowMeta}>{rescanMeta}</Text>
+                    <Text style={ui.rowMeta}>{scanDisabledReason}</Text>
+                  </>
+                ) : (
+                  rescanMeta
+                )
+              }
               onPress={onRescan}
               disabled={!canRescan}
-              accessibilityRole="button"
               accessibilityLabel="Rescan device audio"
-              accessibilityState={{ disabled: !canRescan }}
-              style={({ pressed }) => [
-                styles.row,
-                !canRescan && !scanning && styles.rowDisabled,
-                pressed && canRescan && styles.rowPressed,
-              ]}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Rescan device audio</Text>
-                <Text style={styles.rowMeta}>{rescanMeta}</Text>
-                {scanDisabledReason ? (
-                  <Text style={styles.rowMeta}>{scanDisabledReason}</Text>
-                ) : null}
-              </View>
-              {scanning ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
-              )}
-            </Pressable>
+              trailing={
+                scanning ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
+                )
+              }
+            />
 
-            <Pressable
+            <SettingsRow
+              title={hiddenTracksLabel()}
+              meta="Restore or remove hidden tracks"
               onPress={onOpenHiddenTracks}
-              accessibilityRole="button"
               accessibilityLabel={hiddenTracksLabel()}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{hiddenTracksLabel()}</Text>
-                <Text style={styles.rowMeta}>Restore or remove hidden tracks</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
-            </Pressable>
+              trailing={<Ionicons name="chevron-forward" size={22} color={colors.textDim} />}
+            />
 
-            <Pressable
+            <SettingsRow
+              title="Exclude all scanned tracks"
+              meta={excludeAllMeta(scanExcludeCount)}
               onPress={onExcludeAll}
               disabled={scanExcludeCount === 0}
-              accessibilityRole="button"
               accessibilityLabel="Exclude all scanned tracks"
-              accessibilityState={{ disabled: scanExcludeCount === 0 }}
-              style={({ pressed }) => [
-                styles.row,
-                scanExcludeCount === 0 && styles.rowDisabled,
-                pressed && scanExcludeCount > 0 && styles.rowPressed,
-              ]}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Exclude all scanned tracks</Text>
-                <Text style={styles.rowMeta}>{excludeAllMeta(scanExcludeCount)}</Text>
-              </View>
-              <Ionicons name="eye-off-outline" size={22} color={colors.textDim} />
-            </Pressable>
-          </View>
+              trailing={<Ionicons name="eye-off-outline" size={22} color={colors.textDim} />}
+            />
+          </SettingsSection>
         </Animated.ScrollView>
         <ScrollBar
           scrollY={scrollY}
@@ -204,96 +184,3 @@ export function LibrarySettingsScreen({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  hidden: {
-    display: 'none',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-  },
-  title: {
-    ...type.body,
-    color: colors.text,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: space.md,
-    gap: space.md,
-  },
-  sectionTitle: {
-    ...type.meta,
-    color: colors.textDim,
-    marginTop: space.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-    padding: space.md,
-  },
-  rowPressed: {
-    backgroundColor: colors.surfaceHi,
-  },
-  rowDisabled: {
-    opacity: 0.4,
-  },
-  rowText: {
-    flex: 1,
-    gap: space.xs,
-  },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-  },
-  rowTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  rowMeta: {
-    ...type.meta,
-    color: colors.textDim,
-  },
-  rowValue: {
-    ...type.meta,
-    color: colors.textDim,
-  },
-  action: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
-  },
-  actionPressed: {
-    opacity: 0.7,
-  },
-  actionText: {
-    ...type.meta,
-    color: colors.accent2,
-  },
-});

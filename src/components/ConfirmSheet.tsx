@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space, type } from '../theme';
+import { colors, space, type } from '../theme';
+import { ui } from '../ui/styles';
 import { Sheet } from './Sheet';
 
 type Props = {
@@ -24,27 +25,28 @@ export function ConfirmSheet({
   return (
     <Sheet visible={visible} title={title} onClose={onCancel}>
       <Text style={styles.message}>{message}</Text>
-      <View style={styles.actions}>
+      <View style={ui.actions}>
         <Pressable
           onPress={onCancel}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          style={({ pressed }) => [ui.secondaryButton, styles.button, pressed && ui.pressed]}
         >
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={ui.secondaryButtonText}>Cancel</Text>
         </Pressable>
         <Pressable
           onPress={onConfirm}
           accessibilityRole="button"
           accessibilityLabel={confirmLabel}
           style={({ pressed }) => [
+            ui.secondaryButton,
             styles.button,
             styles.confirm,
             destructive && styles.destructive,
-            pressed && styles.pressed,
+            pressed && ui.pressed,
           ]}
         >
-          <Text style={[styles.confirmText, destructive && styles.destructiveText]}>
+          <Text style={[ui.primaryButtonText, destructive && styles.destructiveText]}>
             {confirmLabel}
           </Text>
         </Pressable>
@@ -61,34 +63,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingBottom: space.sm,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: space.sm,
-  },
   button: {
     flex: 1,
     height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
   },
   confirm: {
     backgroundColor: colors.accent,
   },
   destructive: {
     backgroundColor: '#3A1418',
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  cancelText: {
-    ...type.body,
-    color: colors.text,
-  },
-  confirmText: {
-    ...type.body,
-    color: colors.text,
   },
   destructiveText: {
     color: '#FF6B6B',

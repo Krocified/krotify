@@ -24,7 +24,8 @@ import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { normalizeTagName } from '../tags/name';
 import { useTags } from '../tags/TagProvider';
 import { createTag, deleteTag } from '../tags/repo';
-import { colors, radius, space, type } from '../theme';
+import { colors, space, type } from '../theme';
+import { ui } from '../ui/styles';
 
 type Props = {
   visible: boolean;
@@ -123,28 +124,28 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
 
   return (
     <View
-      style={[styles.root, !visible && styles.hidden]}
+      style={[ui.overlay, !visible && ui.hidden]}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
+      <View style={[ui.header, { paddingTop: insets.top + space.sm }]}>
         <BackPill onPress={onBack} />
-        <Text style={styles.title}>Tags</Text>
+        <Text style={ui.title}>Tags</Text>
         {selecting ? (
-          <View style={styles.iconButton} />
+          <View style={ui.iconButton} />
         ) : selectable ? (
           <Pressable
             onPress={() => setSelecting(true)}
             accessibilityRole="button"
             accessibilityLabel="Select tags"
             hitSlop={space.sm}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.headerAction, pressed && ui.pressed]}
           >
             <Text style={styles.headerActionText}>Select</Text>
           </Pressable>
         ) : (
-          <View style={styles.iconButton} />
+          <View style={ui.iconButton} />
         )}
       </View>
 
@@ -175,12 +176,12 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
-          styles.content,
+          ui.content,
           { paddingBottom: TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl },
         ]}
       >
         {selecting ? null : (
-          <View style={styles.card}>
+          <View style={ui.card}>
             <View style={styles.inputRow}>
               <TextInput
                 value={draft}
@@ -203,7 +204,7 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
                 accessibilityRole="button"
                 accessibilityLabel="Add tag"
                 accessibilityState={{ disabled: busy, busy }}
-                style={({ pressed }) => [styles.add, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.add, pressed && ui.pressed]}
               >
                 {busy ? (
                   <ActivityIndicator color={colors.text} />
@@ -216,7 +217,7 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
           </View>
         )}
 
-        <View style={styles.card}>
+        <View style={ui.card}>
           {!loaded ? (
             <View style={styles.loading}>
               <ActivityIndicator color={colors.accent} />
@@ -245,13 +246,13 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
                   accessibilityLabel={
                     selecting ? `${tag.name}${selected ? ', selected' : ''}` : tag.name
                   }
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                  style={({ pressed }) => [ui.row, styles.rowBorder, pressed && ui.rowPressed]}
                 >
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
+                  <View style={ui.rowText}>
+                    <Text style={ui.rowTitle} numberOfLines={1}>
                       {tag.name}
                     </Text>
-                    <Text style={styles.rowMeta}>
+                    <Text style={ui.rowMeta}>
                       {tag.count} {tag.count === 1 ? 'track' : 'tracks'}
                     </Text>
                   </View>
@@ -269,7 +270,7 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
                       accessibilityLabel={`Delete ${tag.name}`}
                       accessibilityState={{ disabled: busy }}
                       hitSlop={space.sm}
-                      style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
+                      style={({ pressed }) => [styles.delete, pressed && ui.pressed]}
                     >
                       <Ionicons name="trash-outline" size={20} color={colors.danger} />
                     </Pressable>
@@ -302,32 +303,6 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
 }
 
 const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  hidden: {
-    display: 'none',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-  },
-  title: {
-    ...type.body,
-    color: colors.text,
-  },
   headerAction: {
     minHeight: 36,
     justifyContent: 'center',
@@ -338,15 +313,6 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
   },
-  content: {
-    paddingHorizontal: space.md,
-    gap: space.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    overflow: 'hidden',
-  },
   loading: {
     paddingVertical: space.lg,
     alignItems: 'center',
@@ -356,29 +322,9 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     padding: space.md,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-    padding: space.md,
+  rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ffffff10',
-  },
-  rowPressed: {
-    backgroundColor: colors.surfaceHi,
-  },
-  rowText: {
-    flex: 1,
-    gap: space.xs,
-  },
-  rowTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  rowMeta: {
-    ...type.meta,
-    color: colors.textDim,
   },
   delete: {
     width: 40,
@@ -418,8 +364,5 @@ const styles = StyleSheet.create({
     color: colors.danger,
     paddingHorizontal: space.md,
     paddingBottom: space.md,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });
