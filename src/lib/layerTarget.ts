@@ -5,6 +5,7 @@ export type BlurLayer =
   | 'techStack'
   | 'tags'
   | 'hidden'
+  | 'librarySettings'
   | 'settings'
   | 'search'
   | 'base';
@@ -16,6 +17,7 @@ export type LayerState = {
   techStack?: boolean;
   tags?: boolean;
   hidden: boolean;
+  librarySettings?: boolean;
   settings: boolean;
   search: boolean;
 };
@@ -27,6 +29,7 @@ export function resolveBlurLayer(state: LayerState): BlurLayer {
   if (state.techStack) return 'techStack';
   if (state.tags) return 'tags';
   if (state.hidden) return 'hidden';
+  if (state.librarySettings) return 'librarySettings';
   if (state.settings) return 'settings';
   if (state.search) return 'search';
   return 'base';

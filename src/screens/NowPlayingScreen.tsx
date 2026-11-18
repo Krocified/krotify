@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
   Easing,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurTargetView } from 'expo-blur';
 import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { CoverArt } from '../components/CoverArt';
 import { LyricsStage } from '../components/LyricsStage';
@@ -89,6 +90,7 @@ export function NowPlayingScreen({
   const [tagOpen, setTagOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
+  const playerBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
   const reloadLyrics = lyrics.reload;
 
@@ -219,7 +221,9 @@ export function NowPlayingScreen({
       style={[styles.root, { transform: [{ translateY: slide }] }]}
       accessibilityViewIsModal
     >
-      <AmbientBackdrop theme={ambient} />
+      <BlurTargetView ref={playerBlurRef} style={StyleSheet.absoluteFill}>
+        <AmbientBackdrop theme={ambient} />
+      </BlurTargetView>
       {actionsOpen ? (
         <Pressable
           onPress={() => setActionsOpen(false)}
@@ -253,6 +257,7 @@ export function NowPlayingScreen({
             onDetails={() => onDetails?.(track)}
             open={actionsOpen}
             onOpenChange={setActionsOpen}
+            blurTarget={playerBlurRef}
           />
         </View>
 

@@ -24,6 +24,7 @@ export type ScreenName =
   | 'search'
   | 'nowPlaying'
   | 'settings'
+  | 'librarySettings'
   | 'hiddenTracks'
   | 'tags';
 

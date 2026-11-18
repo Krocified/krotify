@@ -1,5 +1,6 @@
 export function sheetKeyboardMetrics(input: {
   keyboardHeight: number;
+  keyboardScreenY?: number | null;
   bottomInset: number;
   viewportHeight: number;
 }): { lift: number; maxHeight: number } {
@@ -8,7 +9,12 @@ export function sheetKeyboardMetrics(input: {
   const viewportHeight = Number.isFinite(input.viewportHeight)
     ? Math.max(0, input.viewportHeight)
     : 0;
-  const lift = Math.max(0, keyboardHeight - bottomInset);
+  const screenY = Number.isFinite(input.keyboardScreenY)
+    ? Math.max(0, input.keyboardScreenY as number)
+    : null;
+  const visibleHeight =
+    screenY === null ? keyboardHeight : Math.min(keyboardHeight, viewportHeight - screenY);
+  const lift = Math.max(0, visibleHeight - bottomInset);
   const capped = Math.min(viewportHeight * 0.88, viewportHeight - lift - 96);
   return { lift, maxHeight: Math.max(240, capped) };
 }

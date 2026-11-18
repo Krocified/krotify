@@ -69,6 +69,7 @@ import { LikedScreen } from './screens/LikedScreen';
 import { NowPlayingScreen } from './screens/NowPlayingScreen';
 import { PlaylistsScreen } from './screens/PlaylistsScreen';
 import { SearchScreen } from './screens/SearchScreen';
+import { LibrarySettingsScreen } from './screens/LibrarySettingsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { TagsScreen } from './screens/TagsScreen';
 import { TechStackScreen } from './components/TechStackScreen';
@@ -138,6 +139,7 @@ export function AppShell() {
   const blurTargetRef = useRef<ComponentRef<typeof View> | null>(null);
   const searchBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const settingsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
+  const librarySettingsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const hiddenBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const playlistsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const likedBlurRef = useRef<ComponentRef<typeof View> | null>(null);
@@ -155,6 +157,7 @@ export function AppShell() {
   const openPlaylistIdRef = useRef<string | null>(null);
   const returnScreenRef = useRef<ScreenName>('library');
   const settingsReturnRef = useRef<ScreenName>('library');
+  const hiddenReturnRef = useRef<ScreenName>('settings');
   const searchReturnRef = useRef<ScreenName>('library');
   const pendingRootRef = useRef<StorageRoot | null>(null);
   const previousRootRef = useRef<StorageRoot | null>(null);
@@ -190,6 +193,10 @@ export function AppShell() {
   );
   const registerPlaylistsBack = useCallback(
     (handler: (() => boolean) | null) => registerBackFor('playlists', handler),
+    [registerBackFor],
+  );
+  const registerLikedBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('liked', handler),
     [registerBackFor],
   );
   const showToast = useCallback(
@@ -442,6 +449,9 @@ export function AppShell() {
           else setScreen(returnScreenRef.current);
           return true;
         case 'close-hidden-tracks':
+          setScreen(hiddenReturnRef.current);
+          return true;
+        case 'close-library-settings':
           setScreen('settings');
           return true;
         case 'close-tags':
@@ -852,7 +862,12 @@ export function AppShell() {
     techStack: techStackOpen,
     tags: screen === 'tags',
     hidden: screen === 'hiddenTracks',
-    settings: screen === 'settings' || screen === 'hiddenTracks',
+    librarySettings:
+      screen === 'librarySettings' ||
+      (screen === 'hiddenTracks' && hiddenReturnRef.current === 'librarySettings'),
+    settings:
+      screen === 'settings' ||
+      (screen === 'hiddenTracks' && hiddenReturnRef.current === 'settings'),
     search: screen === 'search',
   });
   const activeBlurTarget = {
@@ -862,6 +877,7 @@ export function AppShell() {
     techStack: techStackBlurRef,
     tags: tagsBlurRef,
     hidden: hiddenBlurRef,
+    librarySettings: librarySettingsBlurRef,
     settings: settingsBlurRef,
     search: searchBlurRef,
     base: blurTargetRef,
@@ -877,11 +893,20 @@ export function AppShell() {
     setScreen('settings');
   }
 
-  function openHiddenTracks() {
+  function openHiddenTracks(returnTo: ScreenName) {
+    hiddenReturnRef.current = returnTo;
     setScreen('hiddenTracks');
   }
 
   function closeHiddenTracks() {
+    setScreen(hiddenReturnRef.current);
+  }
+
+  function openLibrarySettings() {
+    setScreen('librarySettings');
+  }
+
+  function closeLibrarySettings() {
     setScreen('settings');
   }
 
@@ -985,36 +1010,59 @@ export function AppShell() {
         ref={settingsBlurRef}
         style={[
           StyleSheet.absoluteFill,
-          screen !== 'settings' && screen !== 'hiddenTracks' && styles.layerHidden,
+          (screen !== 'settings' &&
+            !(screen === 'hiddenTracks' && hiddenReturnRef.current === 'settings')) &&
+            styles.layerHidden,
         ]}
         pointerEvents={screen === 'settings' ? 'auto' : 'none'}
       >
-      <SettingsScreen
-        visible={screen === 'settings' || screen === 'hiddenTracks'}
-        status={status}
-        scanEnabled={scanEnabled === true}
-        permission={permission}
-        scanSummary={scanSummary}
-        hiddenCount={excluded.length}
-        scanExcludeCount={scanExcludeCount}
-        storage={storage}
-        storageBusy={storageBusy}
-        onBack={() => {
-          setTechStackOpen(false);
-          setScreen(settingsReturnRef.current);
-        }}
-        onToggleScan={(enabled) => void handleScanToggle(enabled)}
-        onGrant={() => void handleGrant()}
-        onRescan={handleRescan}
-        onOpenHiddenTracks={openHiddenTracks}
-        onExcludeAll={() => setExcludeAllConfirm(true)}
-        onChangeFolder={() => void handleChangeFolder()}
-        onMoveFiles={() => void handleMoveFiles()}
-        moveFailures={moveFailures}
-        onCleanStorage={() => setCleanPrompt(true)}
-        onOpenTags={() => setScreen('tags')}
-        onOpenTechStack={() => setTechStackOpen(true)}
-      />
+        <SettingsScreen
+          visible={
+            screen === 'settings' ||
+            (screen === 'hiddenTracks' && hiddenReturnRef.current === 'settings')
+          }
+          storage={storage}
+          storageBusy={storageBusy}
+          onBack={() => {
+            setTechStackOpen(false);
+            setScreen(settingsReturnRef.current);
+          }}
+          onChangeFolder={() => void handleChangeFolder()}
+          onMoveFiles={() => void handleMoveFiles()}
+          moveFailures={moveFailures}
+          onCleanStorage={() => setCleanPrompt(true)}
+          onOpenTags={() => setScreen('tags')}
+          onOpenTechStack={() => setTechStackOpen(true)}
+          onOpenLibrarySettings={openLibrarySettings}
+        />
+      </BlurTargetView>
+      <BlurTargetView
+        ref={librarySettingsBlurRef}
+        style={[
+          StyleSheet.absoluteFill,
+          (screen !== 'librarySettings' &&
+            !(screen === 'hiddenTracks' && hiddenReturnRef.current === 'librarySettings')) &&
+            styles.layerHidden,
+        ]}
+        pointerEvents={screen === 'librarySettings' ? 'auto' : 'none'}
+      >
+        <LibrarySettingsScreen
+          visible={
+            screen === 'librarySettings' ||
+            (screen === 'hiddenTracks' && hiddenReturnRef.current === 'librarySettings')
+          }
+          status={status}
+          scanEnabled={scanEnabled === true}
+          permission={permission}
+          scanSummary={scanSummary}
+          scanExcludeCount={scanExcludeCount}
+          onBack={closeLibrarySettings}
+          onToggleScan={(enabled) => void handleScanToggle(enabled)}
+          onGrant={() => void handleGrant()}
+          onRescan={handleRescan}
+          onOpenHiddenTracks={() => openHiddenTracks('librarySettings')}
+          onExcludeAll={() => setExcludeAllConfirm(true)}
+        />
       </BlurTargetView>
       <BlurTargetView
         ref={tagsBlurRef}
@@ -1075,6 +1123,8 @@ export function AppShell() {
             onClose={() => setLikedOpen(false)}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
+            onNotify={showToast}
+            registerBackInterceptor={registerLikedBack}
           />
         </BlurTargetView>
       ) : null}

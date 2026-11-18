@@ -39,9 +39,10 @@ function focusableElements(panel: HTMLElement): HTMLElement[] {
 export function Sheet({ visible, title, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
-  const keyboardHeight = useKeyboardHeight();
+  const keyboard = useKeyboardHeight();
   const metrics = sheetKeyboardMetrics({
-    keyboardHeight,
+    keyboardHeight: keyboard.height,
+    keyboardScreenY: keyboard.screenY,
     bottomInset: insets.bottom,
     viewportHeight,
   });
@@ -65,19 +66,18 @@ export function Sheet({ visible, title, onClose, children }: Props) {
   }, [anim, visible]);
 
   useEffect(() => {
-    if (!visible || keyboardHeight <= 0) return;
+    if (!visible || keyboard.height <= 0) return;
     const timer = setTimeout(() => {
       const handle = TextInput.State.currentlyFocusedInput();
       if (handle) {
         try {
           scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(handle, 24, true);
-          return;
         } catch {}
       }
       scrollRef.current?.scrollToEnd({ animated: true });
-    }, 80);
+    }, 100);
     return () => clearTimeout(timer);
-  }, [keyboardHeight, visible]);
+  }, [keyboard.height, visible]);
 
   useEffect(() => {
     if (!visible || Platform.OS !== 'web') return;
@@ -143,7 +143,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
           style={[
             styles.panel,
             {
-              paddingBottom: keyboardHeight > 0 ? space.md : insets.bottom + space.md,
+              paddingBottom: keyboard.height > 0 ? space.md : insets.bottom + space.md,
               maxHeight: metrics.maxHeight,
               marginBottom: metrics.lift,
               transform: [

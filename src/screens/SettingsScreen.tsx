@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -20,15 +19,9 @@ import { ScrollBar } from '../components/ScrollBar';
 import { SleepTimerControls } from '../components/SleepTimerControls';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
-import type { ScanSummary } from '../db/settings';
 import {
-  excludeAllMeta,
-  hiddenTracksLabel,
   moveFilesLabel,
-  permissionLabel,
   reclaimableLabel,
-  scanResultLabel,
-  type PermissionState,
   type StorageView,
 } from '../lib/settingsView';
 import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverConfig';
@@ -36,60 +29,35 @@ import { LINK_IMPORT_ENABLED } from '../lib/features';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { usePlayer } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
-import type { LibraryStatus } from '../types';
 
 type Props = {
   visible: boolean;
-  status: LibraryStatus;
-  scanEnabled: boolean;
-  permission: PermissionState | null;
-  scanSummary: ScanSummary | null;
-  hiddenCount: number;
-  scanExcludeCount: number;
   storage: StorageView | null;
   storageBusy: boolean;
   onBack: () => void;
-  onToggleScan: (enabled: boolean) => void;
-  onGrant: () => void;
-  onRescan: () => void;
-  onOpenHiddenTracks: () => void;
-  onExcludeAll: () => void;
   onChangeFolder: () => void;
   onMoveFiles: () => void;
   moveFailures?: { name: string; reason: string }[];
   onCleanStorage: () => void;
   onOpenTags: () => void;
   onOpenTechStack?: () => void;
+  onOpenLibrarySettings: () => void;
 };
 
 const RELEASE_ABI = 'arm64-v8a';
 
-function scanSummaryLabel(summary: ScanSummary): string {
-  const result = scanResultLabel(summary.found, summary.newTracks, summary.missing);
-  return `${result} · ${new Date(summary.lastScanAt).toLocaleString()}`;
-}
-
 export function SettingsScreen({
   visible,
-  status,
-  scanEnabled,
-  permission,
-  scanSummary,
-  scanExcludeCount,
   storage,
   storageBusy,
   onBack,
-  onToggleScan,
-  onGrant,
-  onRescan,
-  onOpenHiddenTracks,
-  onExcludeAll,
   onChangeFolder,
   onMoveFiles,
   moveFailures = [],
   onCleanStorage,
   onOpenTags,
   onOpenTechStack,
+  onOpenLibrarySettings,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -99,12 +67,6 @@ export function SettingsScreen({
   const [linkNote, setLinkNote] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
-  const scanning = status === 'scanning';
-  const canRescan = scanEnabled && !scanning;
-  const permissionText = permission === null ? 'Checking' : permissionLabel(permission);
-  const rescanMeta =
-    scanSummary === null ? 'No scan yet' : scanSummaryLabel(scanSummary);
-  const scanDisabledReason = scanEnabled ? null : 'Turn on scanning to rescan.';
   const noFilesToMove = storage !== null && storage.fileCount === 0;
   const nothingToClean = storage !== null && storage.reclaimableBytes === 0;
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
@@ -173,107 +135,17 @@ export function SettingsScreen({
         >
           <Text style={styles.sectionTitle}>Library</Text>
           <View style={styles.card}>
-            <View
-              style={styles.row}
-              accessible
-              accessibilityLabel={`Permission: ${permissionText}`}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Permission</Text>
-                <Text style={styles.rowMeta}>Needed to scan this device for audio</Text>
-              </View>
-              <View style={styles.rowActions}>
-                <Text style={styles.rowValue}>{permissionText}</Text>
-                {permission !== null && permission !== 'granted' ? (
-                  <Pressable
-                    onPress={onGrant}
-                    accessibilityRole="button"
-                    accessibilityLabel="Grant audio permission"
-                    style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                  >
-                    <Text style={styles.actionText}>Grant</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-
-            {Platform.OS !== 'web' ? (
-              <View style={styles.row}>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>Scan this device</Text>
-                  <Text style={styles.rowMeta}>
-                    {scanEnabled
-                      ? 'Scanning for audio files on this device'
-                      : 'Off. Imported files stay in your library.'}
-                  </Text>
-                </View>
-                <Switch
-                  value={scanEnabled}
-                  onValueChange={onToggleScan}
-                  disabled={scanning}
-                  accessibilityLabel="Scan this device for audio"
-                  trackColor={{ false: colors.surfaceHi, true: colors.accent }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            ) : null}
-
             <Pressable
-              onPress={onRescan}
-              disabled={!canRescan}
+              onPress={onOpenLibrarySettings}
               accessibilityRole="button"
-              accessibilityLabel="Rescan device audio"
-              accessibilityState={{ disabled: !canRescan }}
-              style={({ pressed }) => [
-                styles.row,
-                !canRescan && !scanning && styles.rowDisabled,
-                pressed && canRescan && styles.rowPressed,
-              ]}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Rescan device audio</Text>
-                <Text style={styles.rowMeta}>{rescanMeta}</Text>
-                {scanDisabledReason ? (
-                  <Text style={styles.rowMeta}>{scanDisabledReason}</Text>
-                ) : null}
-              </View>
-              {scanning ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
-              )}
-            </Pressable>
-
-            <Pressable
-              onPress={onOpenHiddenTracks}
-              accessibilityRole="button"
-              accessibilityLabel={hiddenTracksLabel()}
+              accessibilityLabel="Library settings"
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{hiddenTracksLabel()}</Text>
-                <Text style={styles.rowMeta}>Restore or remove hidden tracks</Text>
+                <Text style={styles.rowTitle}>Library settings</Text>
+                <Text style={styles.rowMeta}>Permission, scanning, hidden tracks</Text>
               </View>
               <Ionicons name="chevron-forward" size={22} color={colors.textDim} />
-            </Pressable>
-
-            <Pressable
-              onPress={onExcludeAll}
-              disabled={scanExcludeCount === 0}
-              accessibilityRole="button"
-              accessibilityLabel="Exclude all scanned tracks"
-              accessibilityState={{ disabled: scanExcludeCount === 0 }}
-              style={({ pressed }) => [
-                styles.row,
-                scanExcludeCount === 0 && styles.rowDisabled,
-                pressed && scanExcludeCount > 0 && styles.rowPressed,
-              ]}
-            >
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Exclude all scanned tracks</Text>
-                <Text style={styles.rowMeta}>{excludeAllMeta(scanExcludeCount)}</Text>
-              </View>
-              <Ionicons name="eye-off-outline" size={22} color={colors.textDim} />
             </Pressable>
           </View>
 
@@ -557,11 +429,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: space.xs,
   },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-  },
   rowTitle: {
     ...type.body,
     color: colors.text,
@@ -573,12 +440,6 @@ const styles = StyleSheet.create({
   rowValue: {
     ...type.meta,
     color: colors.textDim,
-  },
-  action: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
   },
   actionPressed: {
     opacity: 0.7,

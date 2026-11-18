@@ -1,9 +1,10 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useState, type ComponentProps } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState, type ComponentProps, type ComponentRef, type RefObject } from 'react';
+import { StyleSheet, View } from 'react-native';
 import type { SleepState } from '../player/PlayerProvider';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { colors, radius, space } from '../theme';
+import { BlurPill } from './BlurPill';
 import { SleepTimerControls } from './SleepTimerControls';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -22,6 +23,7 @@ type Props = {
   onDetails?: () => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
 export function PlayerTopActions({
@@ -38,6 +40,7 @@ export function PlayerTopActions({
   onDetails,
   open,
   onOpenChange,
+  blurTarget,
 }: Props) {
   const [sleepOpen, setSleepOpen] = useState(false);
 
@@ -60,66 +63,70 @@ export function PlayerTopActions({
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        <Pressable
+        <BlurPill
           onPress={onToggleLike}
-          accessibilityRole="button"
           accessibilityLabel={liked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}
           accessibilityState={{ selected: liked }}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          blurTarget={blurTarget}
+          intensity={35}
+          style={styles.iconButton}
         >
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
             size={22}
             color={liked ? colors.accent : colors.textDim}
           />
-        </Pressable>
+        </BlurPill>
         {lyricsEnabled ? (
-          <Pressable
+          <BlurPill
             onPress={onToggleLyrics}
-            accessibilityRole="button"
             accessibilityLabel="Lyrics"
             accessibilityState={{ selected: lyricsMode }}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            blurTarget={blurTarget}
+            intensity={35}
+            style={styles.iconButton}
           >
             <Ionicons
               name="document-text-outline"
               size={22}
               color={lyricsMode ? colors.accent : colors.textDim}
             />
-          </Pressable>
+          </BlurPill>
         ) : null}
-        <Pressable
+        <BlurPill
           onPress={() => onOpenChange(!open)}
-          accessibilityRole="button"
           accessibilityLabel={open ? 'Hide more actions' : 'More player actions'}
           accessibilityState={{ expanded: open }}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          blurTarget={blurTarget}
+          intensity={35}
+          style={styles.iconButton}
         >
           <Ionicons
             name={open ? 'chevron-up' : 'ellipsis-vertical'}
             size={22}
             color={open ? colors.text : colors.textDim}
           />
-        </Pressable>
+        </BlurPill>
       </View>
 
       {open ? (
         <View style={styles.popover}>
           <View style={styles.secondaryRow}>
             {secondary.map((action) => (
-              <Pressable
+              <BlurPill
                 key={action.key}
                 onPress={() => {
                   action.onPress();
                   if (action.key !== 'sleep') onOpenChange(false);
                 }}
-                accessibilityRole="button"
                 accessibilityLabel={action.label}
                 accessibilityState={action.key === 'sleep' ? { expanded: sleepOpen } : undefined}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+                blurTarget={blurTarget}
+                intensity={35}
+                style={styles.secondaryButton}
               >
                 <Ionicons name={action.icon} size={20} color={colors.text} />
-              </Pressable>
+              </BlurPill>
             ))}
           </View>
           {sleepOpen ? (
@@ -162,9 +169,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 22,
   },
-  pressed: {
-    backgroundColor: '#ffffff14',
-  },
   popover: {
     position: 'absolute',
     top: 50,
@@ -186,7 +190,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.screen,
-    backgroundColor: colors.surfaceHi,
   },
   sleepPanel: {
     alignSelf: 'stretch',

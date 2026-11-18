@@ -32,3 +32,23 @@ test('maxHeight has a floor and never exceeds the viewport', () => {
     240,
   );
 });
+
+test('screenY keeps the sheet at the keyboard top when the window is not resized', () => {
+  const metrics = sheetKeyboardMetrics({
+    keyboardHeight: 320,
+    keyboardScreenY: 680,
+    bottomInset: 0,
+    viewportHeight: 1000,
+  });
+  assert.equal(metrics.lift, 320);
+});
+
+test('screenY does not double-lift when adjustResize already shrank the window', () => {
+  const metrics = sheetKeyboardMetrics({
+    keyboardHeight: 320,
+    keyboardScreenY: 680,
+    bottomInset: 0,
+    viewportHeight: 680,
+  });
+  assert.equal(metrics.lift, 0);
+});

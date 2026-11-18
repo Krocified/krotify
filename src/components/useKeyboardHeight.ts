@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
 
-export function useKeyboardHeight(): number {
-  const [height, setHeight] = useState(0);
+export type KeyboardState = {
+  height: number;
+  screenY: number | null;
+};
+
+export function useKeyboardHeight(): KeyboardState {
+  const [state, setState] = useState<KeyboardState>({ height: 0, screenY: null });
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const showSub = Keyboard.addListener(showEvent, (event) => {
-      setHeight(event.endCoordinates.height);
+      setState({
+        height: event.endCoordinates.height,
+        screenY: event.endCoordinates.screenY ?? null,
+      });
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
-      setHeight(0);
+      setState({ height: 0, screenY: null });
     });
     return () => {
       showSub.remove();
@@ -19,5 +27,5 @@ export function useKeyboardHeight(): number {
     };
   }, []);
 
-  return height;
+  return state;
 }

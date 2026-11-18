@@ -22,6 +22,7 @@ test('the top visible layer owns back', () => {
 test('screens without an interceptor own nothing', () => {
   assert.equal(activeBackOwner({ ...base, screen: 'search' }), 'none');
   assert.equal(activeBackOwner({ ...base, screen: 'settings' }), 'none');
+  assert.equal(activeBackOwner({ ...base, screen: 'librarySettings' }), 'none');
   assert.equal(activeBackOwner({ ...base, screen: 'import', tab: 'import' }), 'none');
   assert.equal(activeBackOwner({ ...base, screen: 'collections', tab: 'library' }), 'none');
 });

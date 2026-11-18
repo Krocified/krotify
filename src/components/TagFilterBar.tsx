@@ -1,14 +1,17 @@
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import type { ComponentRef, RefObject } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { tagBarVisible, visibleTags, type TagCount } from '../tags/filter';
 import { colors, space, type } from '../theme';
+import { BlurPill } from './BlurPill';
 
 type Props = {
   tags: TagCount[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
-export function TagFilterBar({ tags, selectedId, onSelect }: Props) {
+export function TagFilterBar({ tags, selectedId, onSelect, blurTarget }: Props) {
   if (!tagBarVisible(tags)) return null;
 
   const items: { id: string | null; name: string }[] = [
@@ -25,22 +28,21 @@ export function TagFilterBar({ tags, selectedId, onSelect }: Props) {
       {items.map((item) => {
         const selected = selectedId === item.id;
         return (
-          <Pressable
+          <BlurPill
             key={item.id ?? 'all'}
             onPress={() => onSelect(item.id)}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
             accessibilityLabel={
               item.id === null ? 'Show all tracks' : `Filter by ${item.name}`
             }
-            style={({ pressed }) => [
-              styles.chip,
-              selected && styles.chipSelected,
-              pressed && styles.chipPressed,
-            ]}
+            accessibilityState={{ selected }}
+            blurTarget={blurTarget}
+            intensity={35}
+            fillColor={selected ? colors.accent : undefined}
+            style={styles.chip}
+            contentStyle={styles.chipContent}
           >
             <Text style={styles.label}>{item.name}</Text>
-          </Pressable>
+          </BlurPill>
         );
       })}
     </ScrollView>
@@ -56,16 +58,12 @@ const styles = StyleSheet.create({
   },
   chip: {
     height: 34,
-    justifyContent: 'center',
+    minHeight: 34,
     borderRadius: 999,
+  },
+  chipContent: {
+    height: '100%',
     paddingHorizontal: space.md,
-    backgroundColor: colors.surfaceHi,
-  },
-  chipSelected: {
-    backgroundColor: colors.accent,
-  },
-  chipPressed: {
-    opacity: 0.8,
   },
   label: {
     ...type.meta,

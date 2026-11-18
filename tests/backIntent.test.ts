@@ -26,6 +26,7 @@ test('leaves a tab for Library before arming exit', () => {
 test('closes full-screen routes before tab navigation', () => {
   assert.equal(resolveBack(state({ screen: 'nowPlaying' })), 'close-now-playing');
   assert.equal(resolveBack(state({ screen: 'settings' })), 'close-settings');
+  assert.equal(resolveBack(state({ screen: 'librarySettings' })), 'close-library-settings');
   assert.equal(resolveBack(state({ screen: 'search' })), 'close-search');
 });
 

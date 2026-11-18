@@ -8,6 +8,7 @@ const none = {
   playlists: false,
   techStack: false,
   hidden: false,
+  librarySettings: false,
   settings: false,
   search: false,
 };
@@ -20,6 +21,14 @@ test('visual stacking wins over open order', () => {
   assert.equal(
     resolveBlurLayer({ ...none, search: true, hidden: true, settings: true }),
     'hidden',
+  );
+  assert.equal(
+    resolveBlurLayer({ ...none, hidden: true, librarySettings: true }),
+    'hidden',
+  );
+  assert.equal(
+    resolveBlurLayer({ ...none, librarySettings: true, settings: true }),
+    'librarySettings',
   );
   assert.equal(
     resolveBlurLayer({ ...none, search: true, playlists: true, liked: true }),
@@ -37,6 +46,7 @@ test('each layer resolves on its own', () => {
   assert.equal(resolveBlurLayer({ ...none, playlists: true }), 'playlists');
   assert.equal(resolveBlurLayer({ ...none, techStack: true }), 'techStack');
   assert.equal(resolveBlurLayer({ ...none, hidden: true }), 'hidden');
+  assert.equal(resolveBlurLayer({ ...none, librarySettings: true }), 'librarySettings');
   assert.equal(resolveBlurLayer({ ...none, settings: true }), 'settings');
   assert.equal(resolveBlurLayer({ ...none, search: true }), 'search');
 });
@@ -49,6 +59,7 @@ test('every layer set resolves to the top of the stack', () => {
       playlists: true,
       techStack: true,
       hidden: true,
+      librarySettings: true,
       settings: true,
       search: true,
     }),

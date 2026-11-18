@@ -20,6 +20,7 @@ export type BackAction =
   | 'close-playlists'
   | 'close-now-playing'
   | 'close-hidden-tracks'
+  | 'close-library-settings'
   | 'close-tags'
   | 'close-settings'
   | 'close-search'
@@ -35,6 +36,7 @@ export function resolveBack(state: BackState): BackAction {
   if (state.screen === 'nowPlaying') return 'close-now-playing';
   if (state.screen === 'tags') return 'close-tags';
   if (state.screen === 'hiddenTracks') return 'close-hidden-tracks';
+  if (state.screen === 'librarySettings') return 'close-library-settings';
   if (state.screen === 'settings') return 'close-settings';
   if (state.screen === 'search') return 'close-search';
   if (state.screen !== 'library' || state.tab !== 'library') return 'tab-to-library';

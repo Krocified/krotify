@@ -11,7 +11,6 @@ import {
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
-import { CollectionHeader } from '../components/CollectionHeader';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CoverArt } from '../components/CoverArt';
 import { PlaylistActionsSheet } from '../components/PlaylistActionsSheet';
@@ -382,37 +381,90 @@ export function PlaylistsScreen({
           }}
         >
           <View style={styles.detailTop}>
-            <CollectionHeader
-              title={name}
-              description={selectedPlaylist?.description}
-              meta={meta}
-              artworkUri={artwork.uri}
-              fallbackHue={artwork.hue}
-              onPlay={playAll}
-              onShuffle={shuffleAll}
-              onEdit={
-                selectedPlaylist
-                  ? () => startEdit(selectedPlaylist, queue)
-                  : undefined
-              }
-              disabled={queue.length === 0}
-            />
+            <View style={styles.identity}>
+              <CoverArt
+                hue={artwork.hue}
+                title={name}
+                size={92}
+                radius={radius.coverLarge}
+                uri={artwork.uri}
+              />
+              <View style={styles.identityText}>
+                <Text style={styles.detailTitle} numberOfLines={2}>
+                  {name}
+                </Text>
+                {selectedPlaylist?.description ? (
+                  <Text style={styles.detailDescription} numberOfLines={2}>
+                    {selectedPlaylist.description}
+                  </Text>
+                ) : null}
+                <Text style={styles.detailMeta} numberOfLines={1}>
+                  {meta}
+                </Text>
+              </View>
+            </View>
             <View style={styles.detailActions}>
+              <Pressable
+                onPress={playAll}
+                disabled={queue.length === 0}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${name}`}
+                accessibilityState={{ disabled: queue.length === 0 }}
+                style={({ pressed }) => [
+                  styles.play,
+                  queue.length === 0 && styles.disabled,
+                  pressed && queue.length > 0 && styles.pressed,
+                ]}
+              >
+                <Ionicons name="play" size={18} color={colors.text} />
+                <Text style={styles.playLabel}>Play</Text>
+              </Pressable>
+              <Pressable
+                onPress={shuffleAll}
+                disabled={queue.length === 0}
+                accessibilityRole="button"
+                accessibilityLabel={`Shuffle ${name}`}
+                accessibilityState={{ disabled: queue.length === 0 }}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  queue.length === 0 && styles.disabled,
+                  pressed && queue.length > 0 && styles.pressed,
+                ]}
+              >
+                <Ionicons name="shuffle" size={20} color={colors.text} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (selectedPlaylist) startEdit(selectedPlaylist, queue);
+                }}
+                disabled={!selectedPlaylist}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${name}`}
+                accessibilityState={{ disabled: !selectedPlaylist }}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  !selectedPlaylist && styles.disabled,
+                  pressed && selectedPlaylist !== null && styles.pressed,
+                ]}
+              >
+                <Ionicons name="pencil" size={19} color={colors.text} />
+              </Pressable>
               <Pressable
                 onPress={() => setPickerOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel={`Add songs to ${name}`}
-                style={({ pressed }) => [styles.addSongs, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.addAction,
+                  pressed && styles.pressed,
+                ]}
               >
-                <Ionicons name="add" size={18} color={colors.text} />
-                <Text style={styles.addSongsText}>Add songs</Text>
+                <Ionicons name="add" size={22} color={colors.text} />
               </Pressable>
             </View>
-            {message ? (
-              <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
-            ) : null}
+            {message ? <Text style={styles.message}>{message}</Text> : null}
             {missing > 0 ? (
-              <Text style={[styles.message, styles.detailMessage]}>
+              <Text style={styles.message}>
                 {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
               </Text>
             ) : null}
@@ -642,8 +694,60 @@ const styles = StyleSheet.create({
   },
   detailActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  identity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  identityText: {
+    flex: 1,
+    gap: 2,
+  },
+  detailTitle: {
+    ...type.display,
+    fontSize: 22,
+    color: colors.text,
+    letterSpacing: -0.5,
+  },
+  detailDescription: {
+    ...type.meta,
+    color: colors.textDim,
+    lineHeight: 18,
+  },
+  detailMeta: {
+    ...type.meta,
+    color: colors.textDim,
+    fontVariant: ['tabular-nums'],
+  },
+  play: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
     paddingHorizontal: space.md,
-    paddingBottom: space.sm,
+    borderRadius: 22,
+    backgroundColor: colors.accent,
+  },
+  playLabel: {
+    ...type.body,
+    color: colors.text,
+  },
+  actionButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: colors.surfaceHi,
+  },
+  addAction: {
+    marginLeft: 'auto',
+  },
+  disabled: {
+    opacity: 0.4,
   },
   addSongs: {
     minHeight: 40,
@@ -691,11 +795,10 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   detailTop: {
+    paddingHorizontal: space.md,
+    paddingTop: space.sm,
     paddingBottom: space.sm,
     gap: space.sm,
-  },
-  detailMessage: {
-    paddingHorizontal: space.md,
   },
   trackRow: {
     height: 64,
