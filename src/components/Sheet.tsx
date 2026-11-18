@@ -46,6 +46,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
     bottomInset: insets.bottom,
     viewportHeight,
   });
+  const keyboardGap = keyboard.height > 0 ? space.sm : 0;
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -144,8 +145,8 @@ export function Sheet({ visible, title, onClose, children }: Props) {
             styles.panel,
             {
               paddingBottom: keyboard.height > 0 ? space.md : insets.bottom + space.md,
-              maxHeight: metrics.maxHeight,
-              marginBottom: metrics.lift,
+              maxHeight: metrics.maxHeight - keyboardGap,
+              marginBottom: metrics.lift + keyboardGap,
               transform: [
                 {
                   translateY: anim.interpolate({
