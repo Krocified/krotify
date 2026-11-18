@@ -2,7 +2,7 @@
   "expo": {
     "name": "Krotify",
     "slug": "krotify",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -23,7 +23,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 800
+      "versionCode": 801
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,6 +46,7 @@
       "@react-native-vector-icons/ionicons",
       "expo-sqlite",
       "./plugins/with-notification-icon.js",
+      "./plugins/with-notification-progress.js",
       "./plugins/with-cleartext.js",
       "./plugins/with-media3-exclude.js",
       "./plugins/with-r8-rules.js",
