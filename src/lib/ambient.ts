@@ -20,6 +20,8 @@ export type AmbientTheme = {
   pools: AmbientPool[];
 };
 
+export const AMBIENT_POOL_COUNT = 4;
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 function channels(hex: string): [number, number, number] | null {
@@ -67,7 +69,7 @@ export function ambientTheme(input: {
     input.coverColor && HEX.test(input.coverColor) ? input.coverColor : fallback;
   const random = makeRandom(input.seed);
   const adjustments = [0.32, -0.26, 0.12, -0.42];
-  const pools: AmbientPool[] = Array.from({ length: 4 }, (_, index) => {
+  const pools: AmbientPool[] = Array.from({ length: AMBIENT_POOL_COUNT }, (_, index) => {
     const durationMs = 24000 + Math.floor(random() * 24000);
     return {
       color: adjustColor(base, adjustments[index] ?? 0.2),

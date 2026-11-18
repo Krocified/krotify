@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { adjustColor, ambientTheme } from '../src/lib/ambient.ts';
+import { adjustColor, ambientTheme, AMBIENT_POOL_COUNT } from '../src/lib/ambient.ts';
 import { isHexColor } from '../src/library/palette.ts';
 
 test('adjustColor lightens and darkens and clamps', () => {
@@ -25,7 +25,7 @@ test('ambientTheme stays in range with and without a cover color', () => {
     assert.ok(isHexColor(theme.base));
     assert.ok(isHexColor(theme.top));
     assert.ok(isHexColor(theme.bottom));
-    assert.equal(theme.pools.length, 4);
+    assert.equal(theme.pools.length, AMBIENT_POOL_COUNT);
     for (const pool of theme.pools) {
       assert.ok(isHexColor(pool.color));
       assert.ok(pool.size >= 1 && pool.size <= 1.9);

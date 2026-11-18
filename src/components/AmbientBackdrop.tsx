@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Animated, AppState, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
-import type { AmbientTheme } from '../lib/ambient';
+import { AMBIENT_POOL_COUNT, type AmbientTheme } from '../lib/ambient';
 import { colors } from '../theme';
 import { useReduceMotion } from './useReduceMotion';
 
@@ -13,11 +13,9 @@ export function AmbientBackdrop({ theme }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
-  const [values] = useState(() => [
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]);
+  const [values] = useState(() =>
+    Array.from({ length: AMBIENT_POOL_COUNT }, () => new Animated.Value(0)),
+  );
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -68,6 +66,7 @@ export function AmbientBackdrop({ theme }: Props) {
       {theme.pools.map((pool, index) => {
         const size = pool.size * width;
         const value = values[index];
+        if (!value) return null;
         return (
           <Animated.View
             key={`${pool.color}-${index}`}
