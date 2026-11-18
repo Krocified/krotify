@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { memo } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ type ActionsProps = {
   onOpenSettings: () => void;
 };
 
-export function ScreenHeader({ leading, title, trailing }: Props) {
+export const ScreenHeader = memo(function ScreenHeader({ leading, title, trailing }: Props) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + space.sm }]}>
@@ -32,9 +33,12 @@ export function ScreenHeader({ leading, title, trailing }: Props) {
       </View>
     </View>
   );
-}
+});
 
-export function HeaderActions({ onOpenSearch, onOpenSettings }: ActionsProps) {
+export const HeaderActions = memo(function HeaderActions({
+  onOpenSearch,
+  onOpenSettings,
+}: ActionsProps) {
   return (
     <>
       <Pressable
@@ -57,7 +61,7 @@ export function HeaderActions({ onOpenSearch, onOpenSettings }: ActionsProps) {
       </Pressable>
     </>
   );
-}
+});
 
 type BackPillProps = {
   onPress: () => void;
@@ -66,7 +70,7 @@ type BackPillProps = {
   plain?: boolean;
 };
 
-export function BackPill({
+export const BackPill = memo(function BackPill({
   onPress,
   icon = 'arrow-back',
   label = 'Back',
@@ -87,7 +91,7 @@ export function BackPill({
       <Ionicons name={icon} size={22} color={colors.text} />
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {

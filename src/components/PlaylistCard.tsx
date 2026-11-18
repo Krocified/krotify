@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { PlaylistSummary } from '../db/repo';
 import { hueFromSeed } from '../lib/hash';
@@ -11,7 +12,7 @@ type Props = {
   onMenu: () => void;
 };
 
-export function PlaylistCard({ summary, onOpen, onMenu }: Props) {
+export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu }: Props) {
   const { width } = useWindowDimensions();
   const size = Math.floor((width - space.md * 3) / 2);
   const count = summary.trackCount;
@@ -52,7 +53,7 @@ export function PlaylistCard({ summary, onOpen, onMenu }: Props) {
       </Pressable>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

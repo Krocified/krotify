@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ComponentRef, RefObject } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { tagBarVisible, visibleTags, type TagCount } from '../tags/filter';
@@ -11,7 +12,12 @@ type Props = {
   blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
-export function TagFilterBar({ tags, selectedId, onSelect, blurTarget }: Props) {
+export const TagFilterBar = memo(function TagFilterBar({
+  tags,
+  selectedId,
+  onSelect,
+  blurTarget,
+}: Props) {
   if (!tagBarVisible(tags)) return null;
 
   const items: { id: string | null; name: string }[] = [
@@ -47,7 +53,7 @@ export function TagFilterBar({ tags, selectedId, onSelect, blurTarget }: Props) 
       })}
     </ScrollView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   list: {

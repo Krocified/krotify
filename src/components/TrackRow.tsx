@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDuration } from '../lib/format';
 import { isMissingTrack } from '../lib/settingsView';
@@ -16,7 +17,7 @@ type Props = {
   disabled?: boolean;
 };
 
-export function TrackRow({
+export const TrackRow = memo(function TrackRow({
   track,
   onPress,
   onLongPress,
@@ -95,7 +96,7 @@ export function TrackRow({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   rowDisabled: {

@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { coverColors, coverInitial } from '../lib/cover';
 
@@ -11,7 +11,7 @@ type Props = {
   uri?: string;
 };
 
-export function CoverArt({ hue, title, size, radius, uri }: Props) {
+export const CoverArt = memo(function CoverArt({ hue, title, size, radius, uri }: Props) {
   const gradient = coverColors(hue);
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(uri));
@@ -58,7 +58,7 @@ export function CoverArt({ hue, title, size, radius, uri }: Props) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   frame: {
