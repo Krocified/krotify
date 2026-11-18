@@ -810,12 +810,15 @@ tap-to-seek stay. Local `.lrc` is the baseline; an optional LRCLIB lookup is an
 off-by-default exploration. Closing is instant and returns to the screen it was
 opened from.
 
-**Mini-player** — floating card inset from the edges, radius 4, 2px inset
-progress line, cover, title, artist, close and play/pause. It stacks above the
-tabs and is never dimmed by their fade. Horizontal swipe slides only the content
-and moves to the next or previous track with queue wrap; vertical swipe does
-nothing; the bar itself never moves. Closing the song page returns to this card
-at the current position with no slide.
+**Mini-player** — floating blur pill inset from the edges, fully rounded at
+`TAB_BAR_HEIGHT / 2`. A low-opacity line visualizer in the cover palette animates
+behind the content. Cover, title, artist, close and play/pause sit on the pill;
+the 50px circular cover sits 8px from the left and 7px from the top and bottom.
+ It stacks above
+the tabs and is never dimmed by their fade. Horizontal swipe slides only the
+content and moves to the next or previous track with queue wrap; vertical swipe
+does nothing; the bar itself never moves. Closing the song page returns to this
+card at the current position with no slide.
 
 **Settings** — an instant page, sectioned into Library, Tags, Storage, Playback
 and About. Library is one row that opens Library settings, its own page for
@@ -869,7 +872,7 @@ Explicit tracks get a badge next to the title (v2, when the tag exists).
 Spotify's: no Spotify Green, no circle-and-waves mark, no co-branding.
 
 **Tab bar** — a floating blur pill: 16px side margins, 12px above the system
-inset, 64px tall, fully rounded, `expo-blur` over a translucent `surface` fill
+inset, 64px tall, 20px radius, `expo-blur` over a translucent `surface` fill
 with a 1px `#ffffff14` border and a soft shadow. No gradient fade and no top
 border. Content scrolls underneath. Active tab: filled icon and white label;
 inactive: outline icon and dim label. The mini-player floats above the pill.
@@ -883,6 +886,12 @@ Album/artist detail and tab changes are instant. Settings slides in/out over
 280ms. Progress glides 500ms while playing, snaps on track changes and swipes.
 List rows use a light press-scale. The ambient backdrop moves on 16–30s loops and
 is the only continuous background motion. No gratuitous bounces.
+
+**Player state** — `PlayerProvider` exposes three contexts: actions (stable),
+status (track, playing, queue, repeat/shuffle, sleep) and progress (position and
+duration). The app shell subscribes to status and actions only, so the 5Hz
+position updates do not re-render the library tree. Row components are memoized
+and receive item-based handlers instead of per-row closures.
 
 **Shared UI** — `src/theme.ts` owns color, spacing, type and radius tokens.
 `src/ui/styles.ts` owns the cross-screen styles (overlay, header, card, row,
