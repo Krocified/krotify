@@ -16,7 +16,7 @@ import { useCoverColor } from '../library/useCoverColor';
 import { colors, space, type } from '../theme';
 import { BlurPill } from './BlurPill';
 import { CoverArt } from './CoverArt';
-import { WavyVisualizer } from './WavyVisualizer';
+import { Visualizer } from './Visualizer';
 
 type Props = {
   onExpand: () => void;
@@ -134,7 +134,12 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
       blurTarget={blurTarget}
       intensity={45}
     >
-      <WavyVisualizer key={visualizerKey} colors={visualizerColors} />
+      <Visualizer
+        key={visualizerKey}
+        seed={track.id}
+        colors={visualizerColors}
+        isPlaying={isPlaying}
+      />
       <View style={styles.bar}>
         <View style={styles.contentClip}>
           <Animated.View
