@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState, type ReactElement } from 'reac
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -18,7 +19,7 @@ import {
   Svg,
 } from 'react-native-svg';
 import { pickVisualizerStyle, type VisualizerStyleName } from '../lib/visualizerStyle';
-import { mirroredPath, sinePath } from '../lib/waveGeometry';
+import { mirroredPath, openSinePath } from '../lib/waveGeometry';
 import { useReduceMotion } from './useReduceMotion';
 
 type Props = {
@@ -110,7 +111,7 @@ function CurvesArt({ geometry, gradientId }: { geometry: Geometry; gradientId: s
       {CURVE_LAYERS.map((layer, index) => (
         <Path
           key={index}
-          d={sinePath(
+          d={openSinePath(
             waveInput(geometry, layer.periods * 2, layer.amplitude * geometry.height, layer.phase),
           )}
           fill="none"
@@ -194,7 +195,7 @@ function BlobsArt({
 function ThreadArt({ geometry, gradientId }: { geometry: Geometry; gradientId: string }) {
   return (
     <Path
-      d={sinePath(waveInput(geometry, 8, 0.26 * geometry.height, 0.9))}
+      d={openSinePath(waveInput(geometry, 8, 0.26 * geometry.height, 0.9))}
       fill="none"
       stroke={`url(#${gradientId})`}
       strokeWidth={1.5}
@@ -244,11 +245,17 @@ export function Visualizer({
     const duration = isPlaying ? PLAYING_DURATIONS[style] : PAUSED_DURATION;
     const phase = drift.value % 1;
     drift.value = phase;
-    drift.value = withRepeat(withTiming(1 + phase, { duration }), -1);
+    drift.value = withRepeat(
+      withTiming(1 + phase, { duration, easing: Easing.linear }),
+      -1,
+    );
     if (style === 'sheen') {
       const bandPhase = counter.value % 1;
       counter.value = bandPhase;
-      counter.value = withRepeat(withTiming(1 + bandPhase, { duration }), -1);
+      counter.value = withRepeat(
+        withTiming(1 + bandPhase, { duration, easing: Easing.linear }),
+        -1,
+      );
     }
     if (style === 'blobs') {
       cancelAnimation(breath);

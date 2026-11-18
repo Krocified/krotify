@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sinePath, mirroredPath } from '../src/lib/waveGeometry.ts';
+import { openSinePath, sinePath, mirroredPath } from '../src/lib/waveGeometry.ts';
 
 const base = { width: 800, height: 64, periods: 3, amplitude: 10, phase: 0 };
 
@@ -20,6 +20,23 @@ test('paths scale with amplitude and periods', () => {
 
 test('paths shift with phase', () => {
   assert.notEqual(sinePath(base), sinePath({ ...base, phase: Math.PI / 2 }));
+});
+
+test('openSinePath starts with M and stays open', () => {
+  const d = openSinePath(base);
+  assert.ok(d.startsWith('M'));
+  assert.ok(!d.includes('Z'));
+});
+
+test('openSinePath has no L commands', () => {
+  assert.ok(!openSinePath(base).split(' ').includes('L'));
+});
+
+test('openSinePath spans full amplitude range around centerY at phase 0', () => {
+  const centerY = base.height / 2;
+  const yValues = vertices(openSinePath({ ...base, phase: 0 })).map((point) => point.y);
+  assert.ok(Math.abs(Math.min(...yValues) - (centerY - base.amplitude)) < 0.05);
+  assert.ok(Math.abs(Math.max(...yValues) - (centerY + base.amplitude)) < 0.05);
 });
 
 type Vertex = { x: number; y: number };

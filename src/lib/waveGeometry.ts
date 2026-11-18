@@ -55,6 +55,11 @@ const move = (point: Point): string => `M ${num(point.x)} ${num(point.y)}`;
 
 const lineTo = (x: number, y: number): string => `L ${num(x)} ${num(y)}`;
 
+export function openSinePath(input: WavePathInput): string {
+  const points = samplePoints(input);
+  return [move(points[0]), ...cubicSegments(points)].join(' ');
+}
+
 export function sinePath(input: WavePathInput): string {
   const points = samplePoints(input);
   const first = points[0];
