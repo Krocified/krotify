@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { CoverArt } from '../components/CoverArt';
-import { LyricsPanel } from '../components/LyricsPanel';
+import { LyricsStage } from '../components/LyricsStage';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
@@ -43,7 +43,6 @@ type Props = {
 
 const SLIDE_MS = 300;
 const CROSSFADE_MS = 200;
-const LYRICS_COVER_SIZE = 180;
 
 export function NowPlayingScreen({
   onClose,
@@ -263,14 +262,16 @@ export function NowPlayingScreen({
               radius={radius.cover}
               uri={track.artworkUri}
             />
-            <Text style={styles.title} numberOfLines={2}>
-              {track.title}
-            </Text>
-            {track.artist ? (
-              <Text style={styles.artist} numberOfLines={1}>
-                {track.artist}
+            <View style={styles.artTitles}>
+              <Text style={styles.title} numberOfLines={2}>
+                {track.title}
               </Text>
-            ) : null}
+              {track.artist ? (
+                <Text style={styles.artist} numberOfLines={1}>
+                  {track.artist}
+                </Text>
+              ) : null}
+            </View>
           </Animated.View>
 
           <Animated.View
@@ -279,47 +280,22 @@ export function NowPlayingScreen({
             accessibilityElementsHidden={!lyricsMode}
             importantForAccessibility={lyricsMode ? 'auto' : 'no-hide-descendants'}
           >
-            <View style={styles.lyricsHeader}>
-              <CoverArt
-                hue={track.artworkHue}
-                title={track.title}
-                size={LYRICS_COVER_SIZE}
-                radius={radius.cover}
-                uri={track.artworkUri}
-              />
-              <View style={styles.lyricsTitles}>
-                <Text style={styles.lyricsTitle} numberOfLines={2}>
-                  {track.title}
-                </Text>
-                {track.artist ? (
-                  <Text style={styles.artist} numberOfLines={2}>
-                    {track.artist}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <View style={styles.lyricsPanel}>
-              <LyricsPanel
-                state={lyrics.state}
-                lines={lyrics.lines}
-                plain={lyrics.plain}
-                positionMs={positionMs}
-                onSeek={(ms) => {
-                  void seek(ms);
-                }}
-                onImport={
-                  Platform.OS === 'web'
-                    ? undefined
-                    : () => {
-                        void importLyrics();
-                      }
-                }
-                onPaste={
-                  Platform.OS === 'web' ? undefined : () => setPasteLyricsOpen(true)
-                }
-                importing={importingLyrics}
-              />
-            </View>
+            <LyricsStage
+              track={track}
+              lyrics={lyrics}
+              positionMs={positionMs}
+              onSeek={(ms) => void seek(ms)}
+              onImport={
+                Platform.OS === 'web'
+                  ? undefined
+                  : () => {
+                      void importLyrics();
+                    }
+              }
+              onPaste={Platform.OS === 'web' ? undefined : () => setPasteLyricsOpen(true)}
+              onReload={reloadLyrics}
+              importing={importingLyrics}
+            />
           </Animated.View>
         </View>
 
@@ -574,17 +550,21 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     marginBottom: space.sm,
   },
+  artTitles: {
+    alignSelf: 'stretch',
+    marginTop: space.lg,
+    paddingHorizontal: space.lg,
+    gap: 2,
+  },
   title: {
     ...type.display,
     color: colors.text,
-    textAlign: 'center',
+    textAlign: 'left',
     letterSpacing: -0.5,
-    marginTop: space.lg,
   },
   artist: {
     ...type.meta,
     color: colors.textDim,
-    marginTop: space.xs,
   },
   sleepCaption: {
     ...type.meta,
