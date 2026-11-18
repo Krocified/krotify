@@ -254,7 +254,7 @@ export function CollectionsScreen({
                     title={item.name}
                     size={48}
                     radius={24}
-                    uri={item.tracks[0]?.artworkUri}
+                    uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
                   />
                   <View style={styles.rowText}>
                     <Text style={styles.rowTitle} numberOfLines={1}>

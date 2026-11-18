@@ -220,6 +220,14 @@ export function NowPlayingScreen({
       accessibilityViewIsModal
     >
       <AmbientBackdrop theme={ambient} playing={isPlaying && !lyricsMode} />
+      {actionsOpen ? (
+        <Pressable
+          onPress={() => setActionsOpen(false)}
+          style={StyleSheet.absoluteFill}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : null}
       <View
         style={[
           styles.content,

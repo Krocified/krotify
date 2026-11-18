@@ -19,3 +19,10 @@ export function pickerSelectableIds(
   const existing = new Set(existingIds);
   return tracks.map((track) => track.id).filter((id) => !existing.has(id));
 }
+
+export function addableSelectedIds(
+  tracks: readonly Track[],
+  selected: ReadonlySet<string>,
+): string[] {
+  return tracks.map((track) => track.id).filter((id) => selected.has(id));
+}

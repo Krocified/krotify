@@ -20,7 +20,7 @@ export function validateArtworkInput(input: ArtworkInput): ArtworkValidation {
   if (
     typeof input.sizeBytes !== 'number' ||
     !Number.isInteger(input.sizeBytes) ||
-    input.sizeBytes <= 0
+    input.sizeBytes < 0
   ) {
     errors.push('Artwork size is invalid.');
   } else if (input.sizeBytes > MAX_ARTWORK_BYTES) {

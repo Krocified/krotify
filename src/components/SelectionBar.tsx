@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SelectionState } from '../lib/selection';
 import { colors, radius, space, type } from '../theme';
 
@@ -51,7 +51,12 @@ export function SelectionBar({ count, allState, onToggleAll, actions, onCancel }
         />
         <Text style={styles.count}>{count} selected</Text>
       </Pressable>
-      <View style={styles.actions}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.actionsScroll}
+        contentContainerStyle={styles.actions}
+      >
         {actions.map((action) => (
           <Pressable
             key={action.key}
@@ -81,15 +86,15 @@ export function SelectionBar({ count, allState, onToggleAll, actions, onCancel }
             </Text>
           </Pressable>
         ))}
-        <Pressable
-          onPress={onCancel}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel selection"
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-      </View>
+      </ScrollView>
+      <Pressable
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel selection"
+        style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
+      >
+        <Text style={styles.cancelText}>Cancel</Text>
+      </Pressable>
     </View>
   );
 }
@@ -115,6 +120,10 @@ const styles = StyleSheet.create({
     gap: space.xs,
     paddingHorizontal: space.xs,
     borderRadius: radius.screen,
+  },
+  actionsScroll: {
+    flex: 1,
+    flexGrow: 0,
   },
   actions: {
     flexDirection: 'row',

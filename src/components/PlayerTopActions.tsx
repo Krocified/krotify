@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SleepState } from '../player/PlayerProvider';
 import type { SleepPreset } from '../lib/sleepTimer';
@@ -39,8 +39,17 @@ export function PlayerTopActions({
   open,
   onOpenChange,
 }: Props) {
+  const [sleepOpen, setSleepOpen] = useState(false);
+
+  if (!open && sleepOpen) setSleepOpen(false);
+
   const secondary: { key: string; label: string; icon: IconName; onPress: () => void }[] = [
-    { key: 'sleep', label: 'Sleep timer', icon: 'moon-outline', onPress: () => {} },
+    {
+      key: 'sleep',
+      label: 'Sleep timer',
+      icon: 'moon-outline',
+      onPress: () => setSleepOpen((value) => !value),
+    },
     { key: 'tags', label: 'Tags', icon: 'pricetags-outline', onPress: onTags },
     { key: 'playlist', label: 'Save to playlist', icon: 'bookmark-outline', onPress: onPlaylist },
     ...(onDetails
@@ -106,6 +115,7 @@ export function PlayerTopActions({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
+                accessibilityState={action.key === 'sleep' ? { expanded: sleepOpen } : undefined}
                 style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
               >
                 <Ionicons name={action.icon} size={16} color={colors.text} />
@@ -113,17 +123,23 @@ export function PlayerTopActions({
               </Pressable>
             ))}
           </View>
-          <View style={styles.sleepPanel}>
-            <SleepTimerControls
-              mode={sleep.mode}
-              remainingMs={sleep.remainingMs}
-              onSelect={(preset) => {
-                onSelectSleep(preset);
-                onOpenChange(false);
-              }}
-              onCancel={onCancelSleep}
-            />
-          </View>
+          {sleepOpen ? (
+            <View style={styles.sleepPanel}>
+              <SleepTimerControls
+                mode={sleep.mode}
+                remainingMs={sleep.remainingMs}
+                onSelect={(preset) => {
+                  onSelectSleep(preset);
+                  setSleepOpen(false);
+                  onOpenChange(false);
+                }}
+                onCancel={() => {
+                  onCancelSleep();
+                  setSleepOpen(false);
+                }}
+              />
+            </View>
+          ) : null}
         </>
       ) : null}
     </View>

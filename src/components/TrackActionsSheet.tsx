@@ -12,10 +12,11 @@ import {
   addPlaylistTracks,
   createPlaylist,
   deletePlaylist,
+  listPlaylistTracks,
   listPlaylists,
   type Playlist,
 } from '../db/repo';
-import { bulkAddMessage } from '../lib/playlistAdd';
+import { bulkAddMessage, tracksToAppend } from '../lib/playlistAdd';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { Sheet } from './Sheet';
@@ -269,29 +270,31 @@ export function PlaylistPickerSheet({
     const addedPlaylists: string[] = [];
     const already: string[] = [];
     const failed: string[] = [];
-    let addedTracks = 0;
+    const addedSongs = new Set<string>();
+    const selectedIds = tracks.map((item) => item.id);
     for (const playlist of playlists) {
       if (!selected.has(playlist.id)) continue;
       try {
-        const added = await addPlaylistTracks(
-          playlist.id,
-          tracks.map((item) => item.id),
-        );
-        if (added === 0) {
+        const existing = await listPlaylistTracks(playlist.id);
+        const toAdd = tracksToAppend(existing, selectedIds);
+        if (toAdd.length === 0) {
           already.push(playlist.name);
           continue;
         }
-        addedTracks += added;
+        await addPlaylistTracks(playlist.id, toAdd);
+        for (const id of toAdd) addedSongs.add(id);
         addedPlaylists.push(playlist.name);
         onAdded?.(playlist);
       } catch {
         failed.push(playlist.name);
       }
     }
-    if (addedTracks === 0 && already.length > 0 && failed.length === 0) {
+    if (addedSongs.size === 0 && already.length > 0 && failed.length === 0) {
       report(`Already in ${already.join(', ')}.`);
     } else {
-      report(bulkAddMessage(addedTracks, addedPlaylists.length + failed.length, failed));
+      report(
+        bulkAddMessage(addedSongs.size, addedPlaylists.length + failed.length, failed),
+      );
     }
     setAdding(false);
   }

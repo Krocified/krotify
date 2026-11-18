@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -14,7 +14,7 @@ import { SelectionBar } from '../components/SelectionBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { TagFilterBar } from '../components/TagFilterBar';
 import { TrackRow } from '../components/TrackRow';
-import { pickerSelectableIds, pickerTracks } from '../lib/playlistPicker';
+import { addableSelectedIds, pickerSelectableIds, pickerTracks } from '../lib/playlistPicker';
 import {
   clearSelection,
   selectionState,
@@ -33,6 +33,7 @@ type Props = {
   assignments: ReadonlyMap<string, readonly string[]>;
   onClose: () => void;
   onAdd: (trackIds: string[]) => Promise<void>;
+  registerBackInterceptor?: (handler: (() => boolean) | null) => void;
 };
 
 export function PlaylistSongPicker({
@@ -43,6 +44,7 @@ export function PlaylistSongPicker({
   assignments,
   onClose,
   onAdd,
+  registerBackInterceptor,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
@@ -59,19 +61,38 @@ export function PlaylistSongPicker({
     () => pickerSelectableIds(visible, existingIds),
     [visible, existingIds],
   );
-  const selectedCount = selectedIds.size;
+  const ordered = useMemo(
+    () => addableSelectedIds(visible, selectedIds),
+    [visible, selectedIds],
+  );
+  const selectedCount = ordered.length;
+
+  useEffect(() => {
+    if (!registerBackInterceptor) return;
+    registerBackInterceptor(() => {
+      if (selectedIds.size > 0) {
+        setSelectedIds(clearSelection());
+        return true;
+      }
+      if (query !== '') {
+        setQuery('');
+        return true;
+      }
+      onClose();
+      return true;
+    });
+    return () => registerBackInterceptor(null);
+  }, [registerBackInterceptor, selectedIds, query, onClose]);
 
   async function add() {
     if (busy || selectedCount === 0) return;
-    const ordered = visible
-      .map((track) => track.id)
-      .filter((id) => selectedIds.has(id));
     setBusy(true);
     setMessage(null);
     try {
       await onAdd(ordered);
     } catch {
       setMessage('Could not add these songs.');
+    } finally {
       setBusy(false);
     }
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   Text,
   View,
   useWindowDimensions,
@@ -46,6 +47,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
   });
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -61,6 +63,16 @@ export function Sheet({ visible, title, onClose, children }: Props) {
     animation.start();
     return () => animation.stop();
   }, [anim, visible]);
+
+  useEffect(() => {
+    if (keyboardHeight <= 0) return;
+    const handle = TextInput.State.currentlyFocusedInput();
+    if (!handle) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(handle, 24, true);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [keyboardHeight]);
 
   useEffect(() => {
     if (!visible || Platform.OS !== 'web') return;
@@ -147,6 +159,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
             </Text>
           ) : null}
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pickerSelectableIds, pickerTracks } from '../src/lib/playlistPicker.ts';
+import {
+  addableSelectedIds,
+  pickerSelectableIds,
+  pickerTracks,
+} from '../src/lib/playlistPicker.ts';
 import type { Track } from '../src/types.ts';
 
 const track = (id: string, title: string, artist = ''): Track => ({
@@ -32,4 +36,10 @@ test('filters by search and tag together', () => {
 test('existing ids are not selectable and preserve order', () => {
   const tracks = [track('a', 'A'), track('b', 'B'), track('c', 'C')];
   assert.deepEqual(pickerSelectableIds(tracks, ['b']), ['a', 'c']);
+});
+
+test('addableSelectedIds keeps visible order and drops filtered-out selections', () => {
+  const visible = [track('a', 'A'), track('c', 'C')];
+  assert.deepEqual(addableSelectedIds(visible, new Set(['c', 'b', 'a'])), ['a', 'c']);
+  assert.deepEqual(addableSelectedIds(visible, new Set(['b'])), []);
 });

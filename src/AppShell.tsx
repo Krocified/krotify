@@ -31,6 +31,7 @@ import { grantAudioPermission, readAudioPermissionState } from './library/permis
 import { resolvePlaybackUri } from './library/playbackSource';
 import { ensureAudioPermission, scanLibrary } from './library/scan';
 import { readScanPref, saveScanPref } from './library/scanPrefs';
+import { activeBackOwner } from './lib/backOwner';
 import { resolveBack } from './lib/backIntent';
 import { resolveBlurLayer } from './lib/layerTarget';
 import { mergeLibrary, sortTracks } from './lib/library';
@@ -144,7 +145,7 @@ export function AppShell() {
   const techStackBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const tagsBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const closeNowPlayingRef = useRef<(() => void) | null>(null);
-  const backInterceptorRef = useRef<(() => boolean) | null>(null);
+  const backInterceptorsRef = useRef(new Map<string, () => boolean>());
   const exitArmedRef = useRef<number | null>(null);
   const screenRef = useRef<ScreenName>('library');
   const tabRef = useRef<TabName>('library');
@@ -160,11 +161,36 @@ export function AppShell() {
   const registerClose = useCallback((close: (() => void) | null) => {
     closeNowPlayingRef.current = close;
   }, []);
-  const registerBackInterceptor = useCallback(
-    (handler: (() => boolean) | null) => {
-      backInterceptorRef.current = handler;
+  const registerBackFor = useCallback(
+    (owner: string, handler: (() => boolean) | null) => {
+      if (handler) backInterceptorsRef.current.set(owner, handler);
+      else backInterceptorsRef.current.delete(owner);
     },
     [],
+  );
+  const registerLibraryBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('library', handler),
+    [registerBackFor],
+  );
+  const registerCollectionsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('collections', handler),
+    [registerBackFor],
+  );
+  const registerNowPlayingBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('nowPlaying', handler),
+    [registerBackFor],
+  );
+  const registerHiddenBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('hidden', handler),
+    [registerBackFor],
+  );
+  const registerTagsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('tags', handler),
+    [registerBackFor],
+  );
+  const registerPlaylistsBack = useCallback(
+    (handler: (() => boolean) | null) => registerBackFor('playlists', handler),
+    [registerBackFor],
   );
   const showToast = useCallback(
     (message: string) => setToast({ id: Date.now(), message }),
@@ -375,7 +401,14 @@ export function AppShell() {
         setTechStackOpen(false);
         return true;
       }
-      if (backInterceptorRef.current?.()) {
+      const owner = activeBackOwner({
+        screen: screenRef.current,
+        tab: tabRef.current,
+        likedOpen: likedOpenRef.current,
+        playlistsOpen: playlistsOpenRef.current,
+      });
+      const interceptor = owner === 'none' ? null : backInterceptorsRef.current.get(owner);
+      if (interceptor?.()) {
         exitArmedRef.current = null;
         return true;
       }
@@ -896,7 +929,7 @@ export function AppShell() {
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
-            registerBackInterceptor={registerBackInterceptor}
+            registerBackInterceptor={registerLibraryBack}
             onNotify={showToast}
           />
         ) : activeTab === 'import' ? (
@@ -922,7 +955,7 @@ export function AppShell() {
             onOpenPlaylists={() => openPlaylists(null)}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
-            registerBackInterceptor={registerBackInterceptor}
+            registerBackInterceptor={registerCollectionsBack}
           />
         )}
       </BlurTargetView>
@@ -933,7 +966,7 @@ export function AppShell() {
           onClearTrack={(track) => setClearTargets([track])}
           onDeleteFile={(track) => setDeleteTargets([track])}
           registerClose={registerClose}
-          registerBackInterceptor={registerBackInterceptor}
+          registerBackInterceptor={registerNowPlayingBack}
         />
       ) : null}
       <BlurTargetView
@@ -991,7 +1024,7 @@ export function AppShell() {
         <TagsScreen
           visible={screen === 'tags'}
           onBack={() => setScreen('settings')}
-          registerBackInterceptor={registerBackInterceptor}
+          registerBackInterceptor={registerTagsBack}
         />
       </BlurTargetView>
       <BlurTargetView
@@ -1010,7 +1043,7 @@ export function AppShell() {
           onDelete={(track) => setDeleteTargets([track])}
           onClearMany={setClearTargets}
           onDeleteMany={setDeleteTargets}
-          registerBackInterceptor={registerBackInterceptor}
+          registerBackInterceptor={registerHiddenBack}
         />
       </BlurTargetView>
       <BlurTargetView
@@ -1029,7 +1062,7 @@ export function AppShell() {
             onClose={closePlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
-            registerBackInterceptor={registerBackInterceptor}
+            registerBackInterceptor={registerPlaylistsBack}
             tags={tags}
             assignments={assignments}
           />

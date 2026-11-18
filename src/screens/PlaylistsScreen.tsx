@@ -244,19 +244,6 @@ export function PlaylistsScreen({
     onPlaylistsChanged?.();
   }
 
-  useEffect(() => {
-    if (!registerBackInterceptor) return;
-    if (!pickerOpen) {
-      registerBackInterceptor(null);
-      return;
-    }
-    registerBackInterceptor(() => {
-      setPickerOpen(false);
-      return true;
-    });
-    return () => registerBackInterceptor(null);
-  }, [registerBackInterceptor, pickerOpen]);
-
   function persistOrder(ids: string[]) {
     if (!selectedId) return;
     const playlistId = selectedId;
@@ -524,6 +511,7 @@ export function PlaylistsScreen({
           assignments={assignments}
           onClose={() => setPickerOpen(false)}
           onAdd={addSongs}
+          registerBackInterceptor={registerBackInterceptor}
         />
       ) : null}
     </View>
