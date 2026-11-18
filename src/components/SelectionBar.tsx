@@ -123,7 +123,6 @@ const styles = StyleSheet.create({
   },
   actionsScroll: {
     flex: 1,
-    flexGrow: 0,
   },
   actions: {
     flexDirection: 'row',

@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
+import { useFavorites } from '../library/FavoritesProvider';
 import { SelectionBar } from '../components/SelectionBar';
 import { TagBulkSheet } from '../components/TagBulkSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
@@ -71,6 +72,7 @@ export function LibraryScreen({
   onNotify,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const listRef = useRef<FlatList<Track>>(null);
   const statusMessage = STATUS_NOTE[status] ?? null;
@@ -85,6 +87,25 @@ export function LibraryScreen({
   );
   const visibleIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
   const selectedCount = selectedTracks.length;
+  const allSelectedLiked =
+    selectedCount > 0 && selectedTracks.every((track) => favoriteIds.has(track.id));
+
+  async function likeSelection() {
+    if (selectedCount === 0) return;
+    const targets = selectedTracks.filter((track) =>
+      allSelectedLiked ? favoriteIds.has(track.id) : !favoriteIds.has(track.id),
+    );
+    try {
+      for (const track of targets) await toggleFavorite(track.id);
+      onNotify?.(
+        allSelectedLiked
+          ? `Removed ${targets.length} from Liked Songs`
+          : `Added ${targets.length} to Liked Songs`,
+      );
+    } catch {
+      onNotify?.('Could not update Liked Songs');
+    }
+  }
 
   function startSelection(track: Track) {
     setSelecting(true);
@@ -128,6 +149,15 @@ export function LibraryScreen({
           allState={selectionState(selectedIds, visibleIds)}
           onToggleAll={() => setSelectedIds((previous) => toggleAllVisible(previous, visibleIds))}
           actions={[
+            {
+              key: 'like',
+              label: allSelectedLiked ? 'Unlike' : 'Like',
+              icon: allSelectedLiked ? 'heart' : 'heart-outline',
+              disabled: selectedCount === 0,
+              onPress: () => {
+                void likeSelection();
+              },
+            },
             {
               key: 'tag',
               label: 'Tag',
