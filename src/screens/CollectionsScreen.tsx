@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File } from 'expo-file-system';
 import { ArtworkSourceSheet } from '../components/ArtworkSourceSheet';
-import { CollectionHeader } from '../components/CollectionHeader';
+import { CollectionHero } from '../components/CollectionHero';
 import { SquareImageCropper } from '../components/SquareImageCropper';
 import { CoverArt } from '../components/CoverArt';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
@@ -16,7 +16,8 @@ import { buildArtists } from '../lib/groups';
 import { selectionBackHandler } from '../lib/selection';
 import { clearArtistArt, listArtistArt, saveArtistArt } from '../library/artistArtwork';
 import { pickImageFromFiles, pickImageFromGallery } from '../library/imageInput';
-import { colors, radius, space, type } from '../theme';
+import { colors, space, type } from '../theme';
+import { ui } from '../ui/styles';
 import type { Track } from '../types';
 
 type Props = {
@@ -152,7 +153,7 @@ export function CollectionsScreen({
 
   return (
     <View
-      style={[styles.root, !visible && styles.hidden]}
+      style={[ui.overlay, !visible && ui.hidden]}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
@@ -178,7 +179,7 @@ export function CollectionsScreen({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: bottomPad }}
         >
-          <CollectionHeader
+          <CollectionHero
             title={detailTitle}
             meta={detailMeta}
             artworkUri={artist?.artworkUri ?? detailTracks[0]?.artworkUri}
@@ -186,6 +187,7 @@ export function CollectionsScreen({
             onPlay={() => onPlay(detailTracks)}
             onShuffle={() => onPlay(shuffle(detailTracks))}
             onPressArtwork={() => setSourceOpen(true)}
+            disabled={detailTracks.length === 0}
           />
           {coverMessage ? <Text style={styles.coverMessage}>{coverMessage}</Text> : null}
           <View style={styles.list}>
@@ -201,21 +203,21 @@ export function CollectionsScreen({
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
+          contentContainerStyle={[ui.content, { paddingBottom: bottomPad }]}
         >
-          <View style={styles.card}>
+          <View style={ui.card}>
             <Pressable
               onPress={onOpenLiked}
               accessibilityRole="button"
               accessibilityLabel={`Liked Songs, ${countLabel(likedCount, 'song')}`}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.row, pressed && ui.rowPressed]}
             >
               <View style={styles.likedIcon}>
                 <Ionicons name="heart" size={22} color={colors.text} />
               </View>
               <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Liked Songs</Text>
-                <Text style={styles.rowMeta}>{countLabel(likedCount, 'song')}</Text>
+                <Text style={ui.rowTitle}>Liked Songs</Text>
+                <Text style={ui.rowMeta}>{countLabel(likedCount, 'song')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
             </Pressable>
@@ -223,21 +225,21 @@ export function CollectionsScreen({
               onPress={onOpenPlaylists}
               accessibilityRole="button"
               accessibilityLabel="Playlists"
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.row, pressed && ui.rowPressed]}
             >
               <View style={styles.plainIcon}>
                 <Ionicons name="musical-notes-outline" size={22} color={colors.text} />
               </View>
               <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>Playlists</Text>
-                <Text style={styles.rowMeta}>Collections you made</Text>
+                <Text style={ui.rowTitle}>Playlists</Text>
+                <Text style={ui.rowMeta}>Collections you made</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
             </Pressable>
           </View>
 
-          <Text style={styles.sectionTitle}>Artists</Text>
-          <View style={styles.card}>
+          <Text style={ui.sectionTitle}>Artists</Text>
+          <View style={ui.card}>
             {artists.length === 0 ? (
               <Text style={styles.empty}>No artists yet.</Text>
             ) : (
@@ -247,7 +249,7 @@ export function CollectionsScreen({
                   onPress={() => setSelection({ kind: 'artist', key: item.key })}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.name}, ${artistMeta(item)}`}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.row, pressed && ui.rowPressed]}
                 >
                   <CoverArt
                     hue={item.tracks[0]?.artworkHue ?? 0}
@@ -257,10 +259,10 @@ export function CollectionsScreen({
                     uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
                   />
                   <View style={styles.rowText}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
+                    <Text style={ui.rowTitle} numberOfLines={1}>
                       {item.name}
                     </Text>
-                    <Text style={styles.rowMeta}>{artistMeta(item)}</Text>
+                    <Text style={ui.rowMeta}>{artistMeta(item)}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
                 </Pressable>
@@ -297,28 +299,8 @@ function shuffle(queue: Track[]): Track[] {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.bg,
-  },
-  hidden: {
-    display: 'none',
-  },
-  content: {
-    paddingHorizontal: space.md,
-    gap: space.md,
-  },
   list: {
     paddingHorizontal: space.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.screen,
-    overflow: 'hidden',
   },
   row: {
     minHeight: 64,
@@ -328,9 +310,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ffffff10',
-  },
-  pressed: {
-    backgroundColor: colors.surfaceHi,
   },
   likedIcon: {
     width: 48,
@@ -351,22 +330,6 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     gap: 2,
-  },
-  rowTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  rowMeta: {
-    ...type.meta,
-    color: colors.textDim,
-  },
-  sectionTitle: {
-    ...type.meta,
-    color: colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingHorizontal: space.xs,
-    marginTop: space.sm,
   },
   coverMessage: {
     ...type.meta,

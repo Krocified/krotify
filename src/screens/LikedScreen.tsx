@@ -1,11 +1,11 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import Swipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CollectionHeader } from '../components/CollectionHeader';
+import { CollectionHero } from '../components/CollectionHero';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
@@ -22,7 +22,8 @@ import {
   toggleId,
 } from '../lib/selection';
 import { shuffleOrder } from '../lib/shuffle';
-import { colors, space, type } from '../theme';
+import { colors, space } from '../theme';
+import { EmptyState } from '../ui/EmptyState';
 import type { Track } from '../types';
 
 type Props = {
@@ -205,7 +206,7 @@ export function LikedScreen({
         extraData={selectedIds}
         onScrollBeginDrag={closeOpenRow}
         ListHeaderComponent={
-          <CollectionHeader
+          <CollectionHero
             title="Liked Songs"
             meta={`${favoriteTracks.length} ${
               favoriteTracks.length === 1 ? 'song' : 'songs'
@@ -235,13 +236,11 @@ export function LikedScreen({
             insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
         }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="heart-outline" size={34} color={colors.textDim} />
-            <Text style={styles.emptyTitle}>No liked songs yet</Text>
-            <Text style={styles.emptyText}>
-              {"Tap the heart in Now Playing or in a song's action sheet."}
-            </Text>
-          </View>
+          <EmptyState
+            icon="heart-outline"
+            title="No liked songs yet"
+            text="Tap the heart in Now Playing or in a song's action sheet."
+          />
         }
       />
       <ConfirmSheet
@@ -311,8 +310,7 @@ function LikedTrackRow({
           accessibilityLabel={`Remove ${track.title} from Liked Songs`}
           style={({ pressed }) => [styles.removeAction, pressed && styles.removeActionPressed]}
         >
-          <Ionicons name="trash-outline" size={22} color={colors.bg} />
-          <Text style={styles.removeActionText}>Remove</Text>
+          <Ionicons name="trash-outline" size={20} color={colors.bg} />
         </Pressable>
       )}
     >
@@ -339,34 +337,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   removeAction: {
-    width: 96,
+    width: 64,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.xs,
     backgroundColor: colors.danger,
   },
   removeActionPressed: {
     opacity: 0.8,
-  },
-  removeActionText: {
-    ...type.meta,
-    color: colors.bg,
-  },
-  empty: {
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.xl,
-    paddingTop: space.xl * 2,
-  },
-  emptyTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  emptyText: {
-    ...type.meta,
-    color: colors.textDim,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

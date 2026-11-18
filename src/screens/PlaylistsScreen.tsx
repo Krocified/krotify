@@ -12,6 +12,7 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
 import { ConfirmSheet } from '../components/ConfirmSheet';
+import { CollectionHero } from '../components/CollectionHero';
 import { CoverArt } from '../components/CoverArt';
 import { PlaylistActionsSheet } from '../components/PlaylistActionsSheet';
 import { PlaylistCard } from '../components/PlaylistCard';
@@ -39,6 +40,9 @@ import { deletePlaylistCoverFile } from '../library/playlistArtwork';
 import { playlistArtwork } from '../lib/playlistView';
 import { shuffleOrder } from '../lib/shuffle';
 import { colors, radius, space, type } from '../theme';
+import { EmptyState } from '../ui/EmptyState';
+import { IconButton } from '../ui/IconButton';
+import { ui } from '../ui/styles';
 import type { Track } from '../types';
 
 type Props = {
@@ -294,7 +298,7 @@ export function PlaylistsScreen({
 
   function renderIndex() {
     return (
-      <View style={styles.flex}>
+      <View style={ui.flex}>
         <ScreenHeader leading={<BackPill onPress={onClose} />} title="Playlists" />
         {loading ? (
           <View style={styles.loading}>
@@ -320,7 +324,7 @@ export function PlaylistsScreen({
                   onPress={() => setCreateOpen(true)}
                   accessibilityRole="button"
                   accessibilityLabel="New playlist"
-                  style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.newButton, pressed && ui.pressed]}
                 >
                   <Ionicons name="add" size={22} color={colors.text} />
                   <Text style={styles.newButtonText}>New playlist</Text>
@@ -329,12 +333,10 @@ export function PlaylistsScreen({
               </View>
             }
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
-                <Text style={styles.emptyText}>
-                  No playlists yet. Create one above to collect tracks.
-                </Text>
-              </View>
+              <EmptyState
+                icon="musical-notes-outline"
+                text="No playlists yet. Create one above to collect tracks."
+              />
             }
             renderItem={({ item }) => (
               <PlaylistCard
@@ -367,7 +369,7 @@ export function PlaylistsScreen({
     }
 
     return (
-      <View style={styles.flex}>
+      <View style={ui.flex}>
         <ScreenHeader
           leading={<BackPill onPress={closeDetail} label="Back to playlists" />}
           title={name}
@@ -381,108 +383,43 @@ export function PlaylistsScreen({
           }}
         >
           <View style={styles.detailTop}>
-            <View style={styles.identity}>
-              <CoverArt
-                hue={artwork.hue}
-                title={name}
-                size={92}
-                radius={radius.coverLarge}
-                uri={artwork.uri}
-              />
-              <View style={styles.identityText}>
-                <Text style={styles.detailTitle} numberOfLines={2}>
-                  {name}
-                </Text>
-                {selectedPlaylist?.description ? (
-                  <Text style={styles.detailDescription} numberOfLines={2}>
-                    {selectedPlaylist.description}
-                  </Text>
-                ) : null}
-                <Text style={styles.detailMeta} numberOfLines={1}>
-                  {meta}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.detailActions}>
-              <Pressable
-                onPress={playAll}
-                disabled={queue.length === 0}
-                accessibilityRole="button"
-                accessibilityLabel={`Play ${name}`}
-                accessibilityState={{ disabled: queue.length === 0 }}
-                style={({ pressed }) => [
-                  styles.play,
-                  queue.length === 0 && styles.disabled,
-                  pressed && queue.length > 0 && styles.pressed,
-                ]}
-              >
-                <Ionicons name="play" size={18} color={colors.text} />
-                <Text style={styles.playLabel}>Play</Text>
-              </Pressable>
-              <Pressable
-                onPress={shuffleAll}
-                disabled={queue.length === 0}
-                accessibilityRole="button"
-                accessibilityLabel={`Shuffle ${name}`}
-                accessibilityState={{ disabled: queue.length === 0 }}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  queue.length === 0 && styles.disabled,
-                  pressed && queue.length > 0 && styles.pressed,
-                ]}
-              >
-                <Ionicons name="shuffle" size={20} color={colors.text} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (selectedPlaylist) startEdit(selectedPlaylist, queue);
-                }}
-                disabled={!selectedPlaylist}
-                accessibilityRole="button"
-                accessibilityLabel={`Edit ${name}`}
-                accessibilityState={{ disabled: !selectedPlaylist }}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  !selectedPlaylist && styles.disabled,
-                  pressed && selectedPlaylist !== null && styles.pressed,
-                ]}
-              >
-                <Ionicons name="pencil" size={19} color={colors.text} />
-              </Pressable>
-              <Pressable
-                onPress={() => setPickerOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Add songs to ${name}`}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.addAction,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="add" size={22} color={colors.text} />
-              </Pressable>
-            </View>
-            {message ? <Text style={styles.message}>{message}</Text> : null}
+            <CollectionHero
+              title={name}
+              description={selectedPlaylist?.description}
+              meta={meta}
+              artworkUri={artwork.uri}
+              fallbackHue={artwork.hue}
+              onPlay={playAll}
+              onShuffle={shuffleAll}
+              onEdit={selectedPlaylist ? () => startEdit(selectedPlaylist, queue) : undefined}
+              onAdd={() => setPickerOpen(true)}
+              disabled={queue.length === 0}
+            />
+            {message ? (
+              <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
+            ) : null}
             {missing > 0 ? (
-              <Text style={styles.message}>
+              <Text style={[styles.message, styles.detailMessage]}>
                 {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
               </Text>
             ) : null}
           </View>
           {queue.length === 0 ? (
-            <View style={styles.detailEmpty}>
-              <Ionicons name="musical-notes-outline" size={34} color={colors.textDim} />
-              <Text style={styles.emptyTitle}>No songs yet</Text>
-              <Pressable
-                onPress={() => setPickerOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Add songs to ${name}`}
-                style={({ pressed }) => [styles.addSongs, pressed && styles.pressed]}
-              >
-                <Ionicons name="add" size={18} color={colors.text} />
-                <Text style={styles.addSongsText}>Add songs</Text>
-              </Pressable>
-            </View>
+            <EmptyState
+              icon="musical-notes-outline"
+              title="No songs yet"
+              action={
+                <Pressable
+                  onPress={() => setPickerOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add songs to ${name}`}
+                  style={({ pressed }) => [styles.addSongs, pressed && ui.pressed]}
+                >
+                  <Ionicons name="add" size={18} color={colors.text} />
+                  <Text style={styles.addSongsText}>Add songs</Text>
+                </Pressable>
+              }
+            />
           ) : (
             <Sortable.Grid
               columns={1}
@@ -604,7 +541,7 @@ function PlaylistTrackRow({
           if (event.nativeEvent.actionName === 'increment') onMove(-1);
           else if (event.nativeEvent.actionName === 'decrement') onMove(1);
         }}
-        style={({ pressed }) => [styles.trackMain, pressed && styles.trackPressed]}
+        style={({ pressed }) => [styles.trackMain, pressed && ui.pressed]}
       >
         <CoverArt
           hue={track.artworkHue}
@@ -614,11 +551,11 @@ function PlaylistTrackRow({
           uri={track.artworkUri}
         />
         <View style={styles.trackText}>
-          <Text style={styles.trackTitle} numberOfLines={1}>
+          <Text style={ui.rowTitle} numberOfLines={1}>
             {track.title}
           </Text>
           {track.artist ? (
-            <Text style={styles.trackMeta} numberOfLines={1}>
+            <Text style={ui.rowMeta} numberOfLines={1}>
               {track.artist}
             </Text>
           ) : null}
@@ -638,14 +575,12 @@ function PlaylistTrackRow({
         {busy ? (
           <ActivityIndicator color={colors.accent} />
         ) : (
-          <Pressable
+          <IconButton
+            icon="close"
+            label={`Remove ${track.title} from playlist`}
             onPress={onRemove}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${track.title} from playlist`}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="close" size={20} color={colors.textDim} />
-          </Pressable>
+            size={20}
+          />
         )}
       </View>
     </View>
@@ -656,9 +591,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  flex: {
-    flex: 1,
   },
   content: {
     paddingHorizontal: space.md,
@@ -692,63 +624,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.xl,
     alignItems: 'center',
   },
-  detailActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-  },
-  identity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-  },
-  identityText: {
-    flex: 1,
-    gap: 2,
-  },
-  detailTitle: {
-    ...type.display,
-    fontSize: 22,
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  detailDescription: {
-    ...type.meta,
-    color: colors.textDim,
-    lineHeight: 18,
-  },
-  detailMeta: {
-    ...type.meta,
-    color: colors.textDim,
-    fontVariant: ['tabular-nums'],
-  },
-  play: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.md,
-    borderRadius: 22,
-    backgroundColor: colors.accent,
-  },
-  playLabel: {
-    ...type.body,
-    color: colors.text,
-  },
-  actionButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    backgroundColor: colors.surfaceHi,
-  },
-  addAction: {
-    marginLeft: 'auto',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
   addSongs: {
     minHeight: 40,
     flexDirection: 'row',
@@ -762,43 +637,13 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.text,
   },
-  empty: {
-    alignItems: 'center',
-    gap: space.md,
-    paddingHorizontal: space.xl,
-    paddingTop: space.xl,
-  },
-  detailEmpty: {
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.xl,
-    paddingTop: space.xl * 2,
-  },
-  emptyTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  emptyText: {
-    ...type.meta,
-    color: colors.textDim,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  pressed: {
-    opacity: 0.75,
-  },
   detailTop: {
-    paddingHorizontal: space.md,
     paddingTop: space.sm,
-    paddingBottom: space.sm,
-    gap: space.sm,
+    paddingBottom: space.xs,
+    gap: space.xs,
+  },
+  detailMessage: {
+    paddingHorizontal: space.md,
   },
   trackRow: {
     height: 64,
@@ -815,20 +660,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.md,
   },
-  trackPressed: {
-    opacity: 0.75,
-  },
   trackText: {
     flex: 1,
     gap: 2,
-  },
-  trackTitle: {
-    ...type.body,
-    color: colors.text,
-  },
-  trackMeta: {
-    ...type.meta,
-    color: colors.textDim,
   },
   duration: {
     ...type.meta,
