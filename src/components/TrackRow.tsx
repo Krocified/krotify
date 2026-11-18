@@ -13,6 +13,7 @@ type Props = {
   onMore?: () => void;
   selectionMode?: boolean;
   selected?: boolean;
+  disabled?: boolean;
 };
 
 export function TrackRow({
@@ -22,6 +23,7 @@ export function TrackRow({
   onMore,
   selectionMode = false,
   selected = false,
+  disabled = false,
 }: Props) {
   const duration = formatDuration(track.durationMs);
   const missing = isMissingTrack(track);
@@ -30,14 +32,21 @@ export function TrackRow({
   const meta = track.artist ? `${track.artist} · ${duration}` : duration;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, disabled && styles.rowDisabled]}>
       <Pressable
-        onPress={() => onPress(track)}
+        onPress={() => {
+          if (!disabled) onPress(track);
+        }}
         onLongPress={onLongPress}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={missing ? `${label}, file missing` : label}
         accessibilityHint={onLongPress ? 'Long press for track options' : undefined}
-        accessibilityState={selectionMode ? { selected } : undefined}
+        accessibilityState={
+          selectionMode || disabled
+            ? { selected: disabled ? true : selected, disabled }
+            : undefined
+        }
         style={({ pressed }) => [styles.main, pressed && styles.pressed]}
       >
         <CoverArt
@@ -68,9 +77,9 @@ export function TrackRow({
       {selectionMode ? (
         <View style={styles.more}>
           <Ionicons
-            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+            name={disabled ? 'checkmark-circle' : selected ? 'checkmark-circle' : 'ellipse-outline'}
             size={22}
-            color={selected ? colors.accent : colors.textDim}
+            color={disabled ? colors.textDim : selected ? colors.accent : colors.textDim}
           />
         </View>
       ) : onMore ? (
@@ -89,6 +98,9 @@ export function TrackRow({
 }
 
 const styles = StyleSheet.create({
+  rowDisabled: {
+    opacity: 0.45,
+  },
   row: {
     minHeight: 72,
     flexDirection: 'row',
