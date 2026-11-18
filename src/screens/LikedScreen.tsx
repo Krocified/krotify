@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import Swipeable, {
   type SwipeableMethods,
@@ -110,29 +110,38 @@ export function LikedScreen({
     }
   };
 
-  function startSelection(track: Track) {
-    closeOpenRow();
-    setSelecting(true);
-    setSelectedIds(new Set([track.id]));
-  }
+  const startSelection = useCallback(
+    (track: Track) => {
+      closeOpenRow();
+      setSelecting(true);
+      setSelectedIds(new Set([track.id]));
+    },
+    [closeOpenRow],
+  );
 
-  function toggleSelection(track: Track) {
+  const toggleSelection = useCallback((track: Track) => {
     setSelectedIds((previous) => toggleId(previous, track.id));
-  }
+  }, []);
 
-  function pressTrack(track: Track) {
-    if (selecting) {
-      toggleSelection(track);
-      return;
-    }
-    if (onSelect) onSelect(track, favoriteTracks);
-    else onPlay(favoriteTracks);
-  }
+  const pressTrack = useCallback(
+    (track: Track) => {
+      if (selecting) {
+        toggleSelection(track);
+        return;
+      }
+      if (onSelect) onSelect(track, favoriteTracks);
+      else onPlay(favoriteTracks);
+    },
+    [favoriteTracks, onPlay, onSelect, selecting, toggleSelection],
+  );
 
-  function longPressTrack(track: Track) {
-    if (selecting) toggleSelection(track);
-    else startSelection(track);
-  }
+  const longPressTrack = useCallback(
+    (track: Track) => {
+      if (selecting) toggleSelection(track);
+      else startSelection(track);
+    },
+    [selecting, startSelection, toggleSelection],
+  );
 
   async function removeSelection() {
     const targets = selectedTracks;
@@ -156,10 +165,13 @@ export function LikedScreen({
     }
   }
 
-  function requestRemoval(track: Track) {
-    closeOpenRow();
-    setPendingRemoval(track);
-  }
+  const requestRemoval = useCallback(
+    (track: Track) => {
+      closeOpenRow();
+      setPendingRemoval(track);
+    },
+    [closeOpenRow],
+  );
 
   async function confirmRemoval() {
     const track = pendingRemoval;
@@ -176,6 +188,30 @@ export function LikedScreen({
       onNotify?.('Could not update Liked Songs');
     }
   }
+
+  const renderItem = useCallback(
+    ({ item }: { item: Track }) => (
+      <LikedTrackRow
+        track={item}
+        selecting={selecting}
+        selected={selectedIds.has(item.id)}
+        onPress={pressTrack}
+        onLongPress={longPressTrack}
+        onOpen={handleRowOpen}
+        onClose={handleRowClose}
+        onRequestRemove={requestRemoval}
+      />
+    ),
+    [
+      handleRowClose,
+      handleRowOpen,
+      longPressTrack,
+      pressTrack,
+      requestRemoval,
+      selectedIds,
+      selecting,
+    ],
+  );
 
   return (
     <View style={styles.root} onTouchStart={closeOpenRow}>
@@ -218,18 +254,7 @@ export function LikedScreen({
             disabled={favoriteTracks.length === 0}
           />
         }
-        renderItem={({ item }) => (
-          <LikedTrackRow
-            track={item}
-            selecting={selecting}
-            selected={selectedIds.has(item.id)}
-            onPress={pressTrack}
-            onLongPress={longPressTrack}
-            onOpen={handleRowOpen}
-            onClose={handleRowClose}
-            onRequestRemove={requestRemoval}
-          />
-        )}
+        renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingBottom:
@@ -273,7 +298,7 @@ type LikedTrackRowProps = {
   onRequestRemove: (track: Track) => void;
 };
 
-function LikedTrackRow({
+const LikedTrackRow = memo(function LikedTrackRow({
   track,
   selecting,
   selected,
@@ -319,11 +344,11 @@ function LikedTrackRow({
         selectionMode={selecting}
         selected={selected}
         onPress={onPress}
-        onLongPress={() => onLongPress(track)}
+        onLongPress={onLongPress}
       />
     </Swipeable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: {

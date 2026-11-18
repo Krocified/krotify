@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
   Easing,
@@ -43,7 +43,10 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const listRef = useRef<FlatList<Track>>(null);
-  const results = query.trim() ? searchTracks(tracks, query) : [];
+  const results = useMemo(
+    () => (query.trim() ? searchTracks(tracks, query) : []),
+    [query, tracks],
+  );
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -60,15 +63,25 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
     return () => clearTimeout(timer);
   }, [visible]);
 
-  function close() {
+  const close = useCallback(() => {
     setQuery('');
     onBack();
-  }
+  }, [onBack]);
 
-  function select(track: Track, queue: Track[]) {
-    setQuery('');
-    onSelect(track, queue);
-  }
+  const select = useCallback(
+    (track: Track, queue: Track[]) => {
+      setQuery('');
+      onSelect(track, queue);
+    },
+    [onSelect],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Track }) => (
+      <TrackRow track={item} onPress={(track) => select(track, results)} />
+    ),
+    [results, select],
+  );
 
   return (
     <Animated.View
@@ -121,9 +134,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             {...scrollHandlers}
-            renderItem={({ item }) => (
-              <TrackRow track={item} onPress={(track) => select(track, results)} />
-            )}
+            renderItem={renderItem}
             ListEmptyComponent={<Text style={styles.hint}>No matches</Text>}
             contentContainerStyle={{ paddingBottom: BOTTOM_PAD + insets.bottom }}
           />

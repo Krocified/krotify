@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -99,6 +99,14 @@ export function PlaylistSongPicker({
     }
   }
 
+  const toggleTrack = useCallback(
+    (track: Track) => {
+      if (existing.has(track.id)) return;
+      setSelectedIds((previous) => toggleId(previous, track.id));
+    },
+    [existing],
+  );
+
   function close() {
     if (busy) return;
     setSelectedIds(clearSelection());
@@ -186,10 +194,7 @@ export function PlaylistSongPicker({
               selectionMode
               selected={selectedIds.has(item.id)}
               disabled={added}
-              onPress={(track) => {
-                if (added) return;
-                setSelectedIds((previous) => toggleId(previous, track.id));
-              }}
+              onPress={toggleTrack}
             />
           );
         }}

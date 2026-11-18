@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -90,7 +90,7 @@ export function LibraryScreen({
   const allSelectedLiked =
     selectedCount > 0 && selectedTracks.every((track) => favoriteIds.has(track.id));
 
-  async function likeSelection() {
+  const likeSelection = useCallback(async () => {
     if (selectedCount === 0) return;
     const targets = selectedTracks.filter((track) =>
       allSelectedLiked ? favoriteIds.has(track.id) : !favoriteIds.has(track.id),
@@ -105,27 +105,57 @@ export function LibraryScreen({
     } catch {
       onNotify?.('Could not update Liked Songs');
     }
-  }
+  }, [allSelectedLiked, favoriteIds, onNotify, selectedCount, selectedTracks, toggleFavorite]);
 
-  function startSelection(track: Track) {
+  const startSelection = useCallback((track: Track) => {
     setSelecting(true);
     setSelectedIds(new Set([track.id]));
-  }
+  }, []);
 
-  function toggleSelection(track: Track) {
+  const toggleSelection = useCallback((track: Track) => {
     setSelectedIds((previous) => toggleId(previous, track.id));
-  }
+  }, []);
 
-  function exitSelection() {
+  const exitSelection = useCallback(() => {
     setSelecting(false);
     setSelectedIds(clearSelection());
-  }
+  }, []);
 
   useEffect(() => {
     if (!registerBackInterceptor) return;
     registerBackInterceptor(selectionBackHandler(selecting, exitSelection));
     return () => registerBackInterceptor(null);
-  }, [registerBackInterceptor, selecting]);
+  }, [exitSelection, registerBackInterceptor, selecting]);
+
+  const pressTrack = useCallback(
+    (track: Track) => {
+      if (selecting) toggleSelection(track);
+      else onSelect(track, tracks);
+    },
+    [onSelect, selecting, toggleSelection, tracks],
+  );
+
+  const longPressTrack = useCallback(
+    (track: Track) => {
+      if (selecting) toggleSelection(track);
+      else startSelection(track);
+    },
+    [selecting, startSelection, toggleSelection],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Track }) => (
+      <TrackRow
+        track={item}
+        selectionMode={selecting}
+        selected={selectedIds.has(item.id)}
+        onPress={pressTrack}
+        onLongPress={longPressTrack}
+        onMore={selecting ? undefined : onManage}
+      />
+    ),
+    [longPressTrack, onManage, pressTrack, selectedIds, selecting],
+  );
 
   return (
     <View style={styles.root}>
@@ -227,22 +257,7 @@ export function LibraryScreen({
               ref={listRef}
               data={tracks}
               keyExtractor={(t) => t.id}
-              renderItem={({ item }) => (
-                <TrackRow
-                  track={item}
-                  selectionMode={selecting}
-                  selected={selectedIds.has(item.id)}
-                  onPress={(track) => {
-                    if (selecting) toggleSelection(track);
-                    else onSelect(track, tracks);
-                  }}
-                  onLongPress={() => {
-                    if (selecting) toggleSelection(item);
-                    else startSelection(item);
-                  }}
-                  onMore={selecting ? undefined : () => onManage(item)}
-                />
-              )}
+              renderItem={renderItem}
               extraData={selectedIds}
               ListHeaderComponent={
                 selecting ? undefined : (

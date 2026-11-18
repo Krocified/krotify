@@ -10,8 +10,8 @@ import { CoverArt } from './CoverArt';
 type Props = {
   track: Track;
   onPress: (track: Track) => void;
-  onLongPress?: () => void;
-  onMore?: () => void;
+  onLongPress?: (track: Track) => void;
+  onMore?: (track: Track) => void;
   selectionMode?: boolean;
   selected?: boolean;
   disabled?: boolean;
@@ -38,7 +38,7 @@ export const TrackRow = memo(function TrackRow({
         onPress={() => {
           if (!disabled) onPress(track);
         }}
-        onLongPress={onLongPress}
+        onLongPress={() => onLongPress?.(track)}
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={missing ? `${label}, file missing` : label}
@@ -85,7 +85,7 @@ export const TrackRow = memo(function TrackRow({
         </View>
       ) : onMore ? (
         <Pressable
-          onPress={onMore}
+          onPress={() => onMore(track)}
           accessibilityRole="button"
           accessibilityLabel={`More options for ${track.title}`}
           hitSlop={space.sm}

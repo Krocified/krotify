@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File } from 'expo-file-system';
@@ -72,10 +72,14 @@ export function CollectionsScreen({
   const detail = artist;
   const detailTitle = artist ? artist.name : '';
   const detailMeta = artist ? artistMeta(artist) : '';
-  const detailTracks = artist ? artist.tracks : [];
+  const detailTracks = useMemo(() => (artist ? artist.tracks : []), [artist]);
   const detailHue = artist?.tracks[0]?.artworkHue ?? 0;
 
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl;
+  const selectTrack = useCallback(
+    (track: Track) => onSelect(track, detailTracks),
+    [detailTracks, onSelect],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -195,7 +199,7 @@ export function CollectionsScreen({
               <TrackRow
                 key={track.id}
                 track={track}
-                onPress={(item) => onSelect(item, detailTracks)}
+                onPress={selectTrack}
               />
             ))}
           </View>

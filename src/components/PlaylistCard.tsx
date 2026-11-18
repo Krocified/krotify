@@ -8,8 +8,8 @@ import { CoverArt } from './CoverArt';
 
 type Props = {
   summary: PlaylistSummary;
-  onOpen: () => void;
-  onMenu: () => void;
+  onOpen: (id: string) => void;
+  onMenu: (playlist: PlaylistSummary) => void;
 };
 
 export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu }: Props) {
@@ -21,7 +21,7 @@ export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu
   return (
     <View style={[styles.card, { width: size }]}>
       <Pressable
-        onPress={onOpen}
+        onPress={() => onOpen(summary.id)}
         accessibilityRole="button"
         accessibilityLabel={`Open ${summary.name}`}
         style={({ pressed }) => [pressed && styles.pressed]}
@@ -43,7 +43,7 @@ export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu
         </View>
       </Pressable>
       <Pressable
-        onPress={onMenu}
+        onPress={() => onMenu(summary)}
         accessibilityRole="button"
         accessibilityLabel={`More options for ${summary.name}`}
         hitSlop={4}

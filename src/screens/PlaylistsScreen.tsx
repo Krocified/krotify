@@ -1,5 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -151,12 +151,15 @@ export function PlaylistsScreen({
     };
   }, [selectedId]);
 
-  function openPlaylist(id: string) {
-    setMessage(null);
-    setTrackIds([]);
-    if (onOpenPlaylist) onOpenPlaylist(id);
-    else setLocalSelectedId(id);
-  }
+  const openPlaylist = useCallback(
+    (id: string) => {
+      setMessage(null);
+      setTrackIds([]);
+      if (onOpenPlaylist) onOpenPlaylist(id);
+      else setLocalSelectedId(id);
+    },
+    [onOpenPlaylist],
+  );
 
   function closeDetail() {
     setMessage(null);
@@ -341,8 +344,8 @@ export function PlaylistsScreen({
             renderItem={({ item }) => (
               <PlaylistCard
                 summary={item}
-                onOpen={() => openPlaylist(item.id)}
-                onMenu={() => setActionsTarget(item)}
+                onOpen={openPlaylist}
+                onMenu={setActionsTarget}
               />
             )}
           />
