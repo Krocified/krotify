@@ -27,7 +27,7 @@ import {
 import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverConfig';
 import { LINK_IMPORT_ENABLED } from '../lib/features';
 import type { SleepPreset } from '../lib/sleepTimer';
-import { usePlayer } from '../player/PlayerProvider';
+import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import { SettingsRow, SettingsSection } from '../ui/Settings';
 import { ui } from '../ui/styles';
@@ -63,7 +63,8 @@ export function SettingsScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
-  const { sleep, setSleep } = usePlayer();
+  const { sleep } = usePlayerStatus();
+  const { setSleep } = usePlayerActions();
   const [linkUrl, setLinkUrl] = useState('');
   const [linkToken, setLinkToken] = useState('');
   const [linkNote, setLinkNote] = useState<string | null>(null);

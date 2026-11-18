@@ -42,7 +42,7 @@ import {
   type PermissionState,
   type StorageView,
 } from './lib/settingsView';
-import { usePlayer } from './player/PlayerProvider';
+import { usePlayerActions, usePlayerStatus } from './player/PlayerProvider';
 import {
   chooseStorageRoot,
   cleanRemovedOwnedFiles,
@@ -88,14 +88,8 @@ const toStorageView = (
 });
 
 export function AppShell() {
-  const {
-    track: currentTrack,
-    lastError,
-    playTrack,
-    stop,
-    removeFromQueue,
-    setQueue,
-  } = usePlayer();
+  const { track: currentTrack, lastError } = usePlayerStatus();
+  const { playTrack, stop, removeFromQueue, setQueue } = usePlayerActions();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { tags, assignments, refresh: refreshTags } = useTags();
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
@@ -482,9 +476,9 @@ export function AppShell() {
     return () => sub.remove();
   }, [showToast, techStackOpen]);
 
-  function rememberReturnScreen() {
-    returnScreenRef.current = screen === 'search' ? tab : screen;
-  }
+  const rememberReturnScreen = useCallback(() => {
+    returnScreenRef.current = screenRef.current === 'search' ? tabRef.current : screenRef.current;
+  }, []);
 
   function closeNowPlayingIfOpen() {
     if (screenRef.current !== 'nowPlaying') return;
@@ -492,42 +486,51 @@ export function AppShell() {
     else setScreen(returnScreenRef.current);
   }
 
-  async function handleSelect(track: Track, queue?: Track[]) {
-    if (currentTrack?.id === track.id) {
-      setQueue(queue ?? tracks);
-      rememberReturnScreen();
-      setScreen('nowPlaying');
-      return;
-    }
-    const ok = await playTrack(
-      track,
-      (t) => resolvePlaybackUri(t, assetsRef.current),
-      queue ?? tracks,
-    );
-    if (!ok) {
-      setLibraryTracks((prev) =>
-        prev.map((item) => (item.id === track.id ? { ...item, missing: 1 } : item)),
+  const handleSelect = useCallback(
+    async (track: Track, queue?: Track[]) => {
+      if (currentTrack?.id === track.id) {
+        setQueue(queue ?? tracks);
+        rememberReturnScreen();
+        setScreen('nowPlaying');
+        return;
+      }
+      const ok = await playTrack(
+        track,
+        (t) => resolvePlaybackUri(t, assetsRef.current),
+        queue ?? tracks,
       );
-      setStatusNote('File missing');
-    } else {
-      setStatusNote(null);
-      void recordPlay(track.id).catch(() => {});
-      rememberReturnScreen();
-      setScreen('nowPlaying');
-    }
-  }
+      if (!ok) {
+        setLibraryTracks((prev) =>
+          prev.map((item) => (item.id === track.id ? { ...item, missing: 1 } : item)),
+        );
+        setStatusNote('File missing');
+      } else {
+        setStatusNote(null);
+        void recordPlay(track.id).catch(() => {});
+        rememberReturnScreen();
+        setScreen('nowPlaying');
+      }
+    },
+    [currentTrack?.id, playTrack, rememberReturnScreen, setQueue, tracks],
+  );
 
-  function selectFromOverlay(track: Track, queue?: Track[]) {
-    setLikedOpen(false);
-    setPlaylistsOpen(false);
-    setOpenPlaylistId(null);
-    void handleSelect(track, queue);
-  }
+  const selectFromOverlay = useCallback(
+    (track: Track, queue?: Track[]) => {
+      setLikedOpen(false);
+      setPlaylistsOpen(false);
+      setOpenPlaylistId(null);
+      void handleSelect(track, queue);
+    },
+    [handleSelect],
+  );
 
-  function playQueue(queue: Track[]) {
-    if (queue.length === 0) return;
-    selectFromOverlay(queue[0], queue);
-  }
+  const playQueue = useCallback(
+    (queue: Track[]) => {
+      if (queue.length === 0) return;
+      selectFromOverlay(queue[0], queue);
+    },
+    [selectFromOverlay],
+  );
 
   async function hideTracks(list: Track[]) {
     const targets = list.filter((track) => track.source !== 'demo');
@@ -614,10 +617,10 @@ export function AppShell() {
     }
   }
 
-  function handleManage(track: Track) {
+  const handleManage = useCallback((track: Track) => {
     if (track.source === 'demo') return;
     setActionTrack(track);
-  }
+  }, []);
 
   async function handleFavorite(track: Track) {
     try {
@@ -883,15 +886,15 @@ export function AppShell() {
     base: blurTargetRef,
   }[blurLayer];
 
-  function openSearch() {
+  const openSearch = useCallback(() => {
     searchReturnRef.current = activeTab;
     setScreen('search');
-  }
+  }, [activeTab]);
 
-  function openSettings() {
+  const openSettings = useCallback(() => {
     settingsReturnRef.current = activeTab;
     setScreen('settings');
-  }
+  }, [activeTab]);
 
   function openHiddenTracks(returnTo: ScreenName) {
     hiddenReturnRef.current = returnTo;
@@ -1141,6 +1144,7 @@ export function AppShell() {
         <View style={styles.bottom}>
           <View style={styles.miniPlayer}>
             <MiniPlayer
+              blurTarget={activeBlurTarget}
               onExpand={() => {
                 rememberReturnScreen();
                 setTechStackOpen(false);

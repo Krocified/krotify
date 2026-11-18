@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Animated, AppState, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { AMBIENT_POOL_COUNT, type AmbientTheme } from '../lib/ambient';
 import { colors } from '../theme';
@@ -9,7 +9,7 @@ type Props = {
   theme: AmbientTheme;
 };
 
-export function AmbientBackdrop({ theme }: Props) {
+export const AmbientBackdrop = memo(function AmbientBackdrop({ theme }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
@@ -115,7 +115,7 @@ export function AmbientBackdrop({ theme }: Props) {
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   pool: {

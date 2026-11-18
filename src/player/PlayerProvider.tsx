@@ -18,20 +18,26 @@ export type RepeatMode = 'off' | 'all' | 'one';
 
 export type SleepState = { mode: SleepMode; remainingMs: number };
 
-export type PlayerContextValue = {
+export type PlayerStatusValue = {
   track: Track | null;
   isPlaying: boolean;
-  positionMs: number;
-  durationMs: number;
   lastError: string | null;
   hasNext: boolean;
   hasPrevious: boolean;
   queueLength: number;
   repeat: RepeatMode;
-  cycleRepeat: () => void;
   shuffle: boolean;
-  toggleShuffle: () => void;
   sleep: SleepState;
+};
+
+export type PlayerProgressValue = {
+  positionMs: number;
+  durationMs: number;
+};
+
+export type PlayerActionsValue = {
+  cycleRepeat: () => void;
+  toggleShuffle: () => void;
   setSleep: (mode: SleepMode, minutes?: number) => void;
   playTrack: (
     track: Track,
@@ -55,13 +61,17 @@ export type PlayerContextValue = {
   setQueue: (queue: Track[]) => void;
 };
 
+export type PlayerContextValue = PlayerStatusValue & PlayerProgressValue & PlayerActionsValue;
+
 type WindowState = {
   globalIndexes: number[];
 };
 
 type ResolvedWindowTrack = WindowTrack & { global: number };
 
-const PlayerContext = createContext<PlayerContextValue | null>(null);
+const PlayerStatusContext = createContext<PlayerStatusValue | null>(null);
+const PlayerProgressContext = createContext<PlayerProgressValue | null>(null);
+const PlayerActionsContext = createContext<PlayerActionsValue | null>(null);
 
 export function PlayerProvider({ children }: PropsWithChildren) {
   const [playlist, setPlaylist] = useState(() => engine.playlist);
@@ -97,6 +107,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const appendingRef = useRef(false);
   const indexRef = useRef(-1);
   const wantPlayingRef = useRef(false);
+  const positionRef = useRef(0);
+  const durationRef = useRef(0);
 
   useEffect(() => {
     const current = trackRef.current;
@@ -625,6 +637,11 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       : Math.round((status.duration || (track?.durationMs ?? 0) / 1000) * 1000);
 
   useEffect(() => {
+    positionRef.current = positionMs;
+    durationRef.current = durationMs;
+  }, [durationMs, positionMs]);
+
+  useEffect(() => {
     if (sleep.mode !== 'end' || mode !== 'audio' || !status.didJustFinish) return;
     const timer = setTimeout(finishSleep, 0);
     return () => clearTimeout(timer);
@@ -652,7 +669,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   );
 
   const toggle = useCallback(() => {
-    const atEnd = isAtEnd(positionMs, durationMs);
+    const atEnd = isAtEnd(positionRef.current, durationRef.current);
     if (mode === 'mock') {
       if (atEnd) {
         endHandledForRef.current = null;
@@ -683,7 +700,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         engine.playlist.pause();
       } else {
         wantPlayingRef.current = true;
-        let startPositionMs = positionMs;
+        let startPositionMs = positionRef.current;
         try {
           startPositionMs = Math.round(engine.playlist.currentTime * 1000);
         } catch {}
@@ -694,7 +711,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       setLastError('Could not play this file');
       resetAudioWindow();
     }
-  }, [mode, positionMs, durationMs, resetAudioWindow, retryIfStalled]);
+  }, [mode, resetAudioWindow, retryIfStalled]);
 
   const stop = useCallback(() => {
     requestRef.current += 1;
@@ -844,29 +861,41 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   );
 
   const next = useCallback(() => {
-    navigate(wrappedNext);
-  }, [navigate, wrappedNext]);
+    const length = queueRef.current.length;
+    const current = indexRef.current;
+    const target = nextIndex(current, length);
+    const wrapped =
+      repeatRef.current === 'all' && length > 1 && current === length - 1 ? 0 : target;
+    navigate(wrapped);
+  }, [navigate]);
 
   const previous = useCallback(() => {
-    if (previousResult.type === 'restart') {
+    const length = queueRef.current.length;
+    const current = indexRef.current;
+    const result = previousAction(positionRef.current, current, length);
+    if (result.type === 'restart') {
       void seek(0);
       return;
     }
-    const target = previousResult.type === 'previous' ? previousResult.index : wrapPrevious ? queue.length - 1 : -1;
+    const canWrap = repeatRef.current === 'all' && length > 1;
+    const wrapped = canWrap && current === 0 && result.type === 'none';
+    const target = result.type === 'previous' ? result.index : wrapped ? length - 1 : -1;
     navigate(target);
-  }, [navigate, previousResult, wrapPrevious, queue.length, seek]);
+  }, [navigate, seek]);
 
   const skipNext = useCallback(() => {
-    if (queue.length < 2) return;
-    const current = index < 0 ? 0 : index;
-    navigate((current + 1) % queue.length);
-  }, [index, navigate, queue.length]);
+    const length = queueRef.current.length;
+    if (length < 2) return;
+    const current = indexRef.current < 0 ? 0 : indexRef.current;
+    navigate((current + 1) % length);
+  }, [navigate]);
 
   const skipPrevious = useCallback(() => {
-    if (queue.length < 2) return;
-    const current = index < 0 ? 0 : index;
-    navigate((current - 1 + queue.length) % queue.length);
-  }, [index, navigate, queue.length]);
+    const length = queueRef.current.length;
+    if (length < 2) return;
+    const current = indexRef.current < 0 ? 0 : indexRef.current;
+    navigate((current - 1 + length) % length);
+  }, [navigate]);
 
   const hasNext = wrappedNext !== -1;
   const hasPrevious = previousResult.type !== 'none' || wrapPrevious;
@@ -907,70 +936,96 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     return () => clearTimeout(timer);
   }, [mode, mockPlaying, mockPosition, track, handleMockEnd]);
 
-  const value = useMemo<PlayerContextValue>(
+  const statusValue = useMemo<PlayerStatusValue>(
     () => ({
       track,
       isPlaying,
-      positionMs,
-      durationMs,
       lastError,
       hasNext,
       hasPrevious,
       queueLength,
       repeat,
-      cycleRepeat,
       shuffle,
-      toggleShuffle,
       sleep,
+    }),
+    [hasNext, hasPrevious, isPlaying, lastError, queueLength, repeat, shuffle, sleep, track],
+  );
+
+  const progressValue = useMemo<PlayerProgressValue>(
+    () => ({ positionMs, durationMs }),
+    [durationMs, positionMs],
+  );
+
+  const actionsValue = useMemo<PlayerActionsValue>(
+    () => ({
+      cycleRepeat,
+      toggleShuffle,
       setSleep,
       playTrack,
       restore,
       advanceToNextPlayable,
       toggle,
       seek,
+      stop,
       next,
       previous,
       skipNext,
       skipPrevious,
-      stop,
       removeFromQueue,
       setQueue,
     }),
     [
-      track,
-      isPlaying,
-      positionMs,
-      durationMs,
-      lastError,
-      hasNext,
-      hasPrevious,
-      queueLength,
-      repeat,
-      cycleRepeat,
-      shuffle,
-      toggleShuffle,
-      sleep,
-      setSleep,
-      playTrack,
-      restore,
       advanceToNextPlayable,
-      toggle,
-      seek,
+      cycleRepeat,
       next,
+      playTrack,
       previous,
+      removeFromQueue,
+      restore,
+      seek,
+      setQueue,
+      setSleep,
       skipNext,
       skipPrevious,
       stop,
-      removeFromQueue,
-      setQueue,
+      toggle,
+      toggleShuffle,
     ],
   );
 
-  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
+  return (
+    <PlayerActionsContext.Provider value={actionsValue}>
+      <PlayerStatusContext.Provider value={statusValue}>
+        <PlayerProgressContext.Provider value={progressValue}>
+          {children}
+        </PlayerProgressContext.Provider>
+      </PlayerStatusContext.Provider>
+    </PlayerActionsContext.Provider>
+  );
+
+}
+
+export function usePlayerStatus(): PlayerStatusValue {
+  const context = useContext(PlayerStatusContext);
+  if (!context) throw new Error('usePlayerStatus must be used within a PlayerProvider');
+  return context;
+}
+
+export function usePlayerProgress(): PlayerProgressValue {
+  const context = useContext(PlayerProgressContext);
+  if (!context) throw new Error('usePlayerProgress must be used within a PlayerProvider');
+  return context;
+}
+
+export function usePlayerActions(): PlayerActionsValue {
+  const context = useContext(PlayerActionsContext);
+  if (!context) throw new Error('usePlayerActions must be used within a PlayerProvider');
+  return context;
 }
 
 export function usePlayer(): PlayerContextValue {
-  const context = useContext(PlayerContext);
-  if (!context) throw new Error('usePlayer must be used within a PlayerProvider');
-  return context;
+  const status = usePlayerStatus();
+  const progress = usePlayerProgress();
+  const actions = usePlayerActions();
+  return useMemo(() => ({ ...status, ...progress, ...actions }), [actions, progress, status]);
 }

@@ -27,9 +27,13 @@ import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import { useFavorites } from '../library/FavoritesProvider';
 import { importLyricsText, pickLyricsFile } from '../library/lyricsImport';
-import { getCoverColor } from '../library/palette';
+import { useCoverColor } from '../library/useCoverColor';
 import { useLyrics } from '../library/useLyrics';
-import { usePlayer } from '../player/PlayerProvider';
+import {
+  usePlayerActions,
+  usePlayerProgress,
+  usePlayerStatus,
+} from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 
@@ -56,23 +60,24 @@ export function NowPlayingScreen({
   const {
     track,
     isPlaying,
-    positionMs,
-    durationMs,
     lastError,
     hasNext,
     hasPrevious,
     repeat,
-    cycleRepeat,
     shuffle,
-    toggleShuffle,
     sleep,
+  } = usePlayerStatus();
+  const { positionMs, durationMs } = usePlayerProgress();
+  const {
+    cycleRepeat,
+    toggleShuffle,
     setSleep,
     toggle,
     seek,
     next,
     previous,
     advanceToNextPlayable,
-  } = usePlayer();
+  } = usePlayerActions();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -82,9 +87,6 @@ export function NowPlayingScreen({
   const [lyricsNote, setLyricsNote] = useState<string | null>(null);
   const [importingLyrics, setImportingLyrics] = useState(false);
   const [pasteLyricsOpen, setPasteLyricsOpen] = useState(false);
-  const [coverColorState, setCoverColorState] = useState<{ uri?: string; color: string | null }>({
-    color: null,
-  });
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
@@ -105,17 +107,7 @@ export function NowPlayingScreen({
   );
 
   const artworkUri = track?.artworkUri;
-
-  useEffect(() => {
-    if (!artworkUri) return;
-    let cancelled = false;
-    void getCoverColor(artworkUri).then((color) => {
-      if (!cancelled) setCoverColorState({ uri: artworkUri, color });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [artworkUri]);
+  const coverColor = useCoverColor(artworkUri);
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -191,7 +183,6 @@ export function NowPlayingScreen({
     }
   }, [track, reloadLyrics]);
 
-  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
   const ambient = useMemo(
     () =>
       ambientTheme({
