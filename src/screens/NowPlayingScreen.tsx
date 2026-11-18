@@ -1,6 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { CoverArt } from '../components/CoverArt';
 import { LyricsPanel } from '../components/LyricsPanel';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
@@ -20,7 +20,7 @@ import { BackPill } from '../components/ScreenHeader';
 import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
 import { TagAssignSheet } from '../components/TagAssignSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
-import { coverColors } from '../lib/cover';
+import { ambientTheme } from '../lib/ambient';
 import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import type { SleepPreset } from '../lib/sleepTimer';
@@ -192,12 +192,21 @@ export function NowPlayingScreen({
     }
   }, [track, reloadLyrics]);
 
+  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
+  const ambient = useMemo(
+    () =>
+      ambientTheme({
+        seed: track?.id ?? 'none',
+        coverColor,
+        hue: track?.artworkHue ?? 0,
+      }),
+    [track?.id, track?.artworkHue, coverColor],
+  );
+
   if (!track) return null;
 
   const liked = favoriteIds.has(track.id);
   const missing = isMissingTrack(track);
-  const gradient = coverColors(track.artworkHue);
-  const coverColor = coverColorState.uri === artworkUri ? coverColorState.color : null;
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
   const sleepLabel = sleep.mode === 'off' ? 'Sleep timer' : `Sleep timer, ${formatSleepRemaining(sleep.mode, sleep.remainingMs)}`;
@@ -214,16 +223,7 @@ export function NowPlayingScreen({
       style={[styles.root, { transform: [{ translateY: slide }] }]}
       accessibilityViewIsModal
     >
-      <LinearGradient
-        colors={
-          coverColor
-            ? [`${coverColor}59`, `${coverColor}00`]
-            : [`${gradient[0]}59`, `${gradient[1]}59`]
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <AmbientBackdrop theme={ambient} playing={isPlaying && !lyricsMode} />
       <View
         style={[
           styles.content,
