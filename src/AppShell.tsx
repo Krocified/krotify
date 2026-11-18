@@ -123,7 +123,6 @@ export function AppShell() {
   } | null>(null);
   const [cleanPrompt, setCleanPrompt] = useState(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
-  const [resumeAttempt, setResumeAttempt] = useState(0);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
   const [likedOpen, setLikedOpen] = useState(false);
@@ -510,10 +509,7 @@ export function AppShell() {
 
   useEffect(() => {
     if (!libraryLoaded || resumedRef.current) return;
-    if (tracks.length === 0 && resumeAttempt < 20) {
-      const timer = setTimeout(() => setResumeAttempt((attempt) => attempt + 1), 300);
-      return () => clearTimeout(timer);
-    }
+    if (tracks.length === 0) return;
     resumedRef.current = true;
     void (async () => {
       const raw = await AsyncStorage.getItem(RESUME_KEY);
@@ -537,7 +533,7 @@ export function AppShell() {
     })().catch(() => {
       resumedRef.current = false;
     });
-  }, [libraryLoaded, restore, tracks, resumeAttempt]);
+  }, [libraryLoaded, restore, tracks]);
 
   function rememberReturnScreen() {
     returnScreenRef.current = screen === 'search' ? tab : screen;
