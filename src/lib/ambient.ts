@@ -10,7 +10,6 @@ export type AmbientPool = {
   driftY: number;
   opacity: number;
   durationMs: number;
-  delayMs: number;
 };
 
 export type AmbientTheme = {
@@ -68,19 +67,18 @@ export function ambientTheme(input: {
   const base =
     input.coverColor && HEX.test(input.coverColor) ? input.coverColor : fallback;
   const random = makeRandom(input.seed);
-  const adjustments = [0.32, -0.26, 0.12, -0.42];
+  const adjustments = [0.5, -0.35, 0.25, -0.55];
   const pools: AmbientPool[] = Array.from({ length: AMBIENT_POOL_COUNT }, (_, index) => {
-    const durationMs = 24000 + Math.floor(random() * 24000);
+    const durationMs = 16000 + Math.floor(random() * 14000);
     return {
       color: adjustColor(base, adjustments[index] ?? 0.2),
-      size: 1 + random() * 0.9,
+      size: 1.2 + random() * 1,
       x: random(),
       y: random(),
-      driftX: (random() - 0.5) * 0.7,
-      driftY: (random() - 0.5) * 0.7,
-      opacity: 0.3 + random() * 0.3,
+      driftX: (random() - 0.5) * 1,
+      driftY: (random() - 0.5) * 1,
+      opacity: 0.5 + random() * 0.3,
       durationMs,
-      delayMs: Math.floor(random() * durationMs),
     };
   });
   return {

@@ -32,7 +32,6 @@ export function AmbientBackdrop({ theme }: Props) {
     const loops = theme.pools.map((pool, index) =>
       Animated.loop(
         Animated.sequence([
-          Animated.delay(pool.delayMs),
           Animated.timing(values[index], {
             toValue: 1,
             duration: pool.durationMs / 2,
@@ -58,7 +57,7 @@ export function AmbientBackdrop({ theme }: Props) {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient
-        colors={[`${theme.top}80`, `${theme.base}40`, theme.bottom]}
+        colors={[`${theme.top}99`, `${theme.base}66`, theme.bottom]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -94,13 +93,13 @@ export function AmbientBackdrop({ theme }: Props) {
                   {
                     scale: value.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [1, 1.16],
+                      outputRange: [1, 1.25],
                     }),
                   },
                 ],
                 opacity: value.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [pool.opacity * 0.55, pool.opacity],
+                  outputRange: [pool.opacity * 0.7, pool.opacity],
                 }),
               },
             ]}

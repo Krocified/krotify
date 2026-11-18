@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useState, type ComponentProps, type ComponentRef, type RefObject } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { SleepState } from '../player/PlayerProvider';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { colors, radius, space } from '../theme';
@@ -111,24 +111,31 @@ export function PlayerTopActions({
 
       {open ? (
         <View style={styles.popover}>
-          <View style={styles.secondaryRow}>
+          <BlurPill
+            style={styles.secondaryGroup}
+            contentStyle={styles.secondaryRow}
+            blurTarget={blurTarget}
+            intensity={35}
+          >
             {secondary.map((action) => (
-              <BlurPill
+              <Pressable
                 key={action.key}
                 onPress={() => {
                   action.onPress();
                   if (action.key !== 'sleep') onOpenChange(false);
                 }}
+                accessibilityRole="button"
                 accessibilityLabel={action.label}
                 accessibilityState={action.key === 'sleep' ? { expanded: sleepOpen } : undefined}
-                blurTarget={blurTarget}
-                intensity={35}
-                style={styles.secondaryButton}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryPressed,
+                ]}
               >
                 <Ionicons name={action.icon} size={20} color={colors.text} />
-              </BlurPill>
+              </Pressable>
             ))}
-          </View>
+          </BlurPill>
           {sleepOpen ? (
             <View style={styles.sleepPanel}>
               <SleepTimerControls
@@ -175,21 +182,23 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'flex-end',
     gap: space.xs,
-    padding: space.xs,
-    borderRadius: radius.screen,
-    backgroundColor: colors.surface,
+  },
+  secondaryGroup: {
+    height: 48,
+    borderRadius: 24,
   },
   secondaryRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: space.xs,
   },
   secondaryButton: {
     width: 44,
-    height: 44,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.screen,
+  },
+  secondaryPressed: {
+    opacity: 0.7,
   },
   sleepPanel: {
     alignSelf: 'stretch',
