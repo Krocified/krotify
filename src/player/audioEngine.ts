@@ -91,9 +91,6 @@ export function createEngine(): PlaybackEngine {
       playlist = createAudioPlaylist({ updateInterval: 200 });
       playlist.loop = loopMode;
       playlist.volume = volume;
-      if (lockScreen.current) {
-        playlist.setActiveForLockScreen(true, lockScreen.current.metadata, lockScreen.current.options);
-      }
       globalIndexes.length = 0;
     },
 
