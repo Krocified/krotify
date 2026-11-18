@@ -9,10 +9,13 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type HostInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { sheetKeyboardMetrics } from '../lib/sheetKeyboard';
 import { colors, space, type } from '../theme';
+import { useKeyboardHeight } from './useKeyboardHeight';
 
 type Props = {
   visible: boolean;
@@ -34,6 +37,13 @@ function focusableElements(panel: HTMLElement): HTMLElement[] {
 
 export function Sheet({ visible, title, onClose, children }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: viewportHeight } = useWindowDimensions();
+  const keyboardHeight = useKeyboardHeight();
+  const metrics = sheetKeyboardMetrics({
+    keyboardHeight,
+    bottomInset: insets.bottom,
+    viewportHeight,
+  });
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
 
@@ -117,6 +127,8 @@ export function Sheet({ visible, title, onClose, children }: Props) {
             styles.panel,
             {
               paddingBottom: insets.bottom + space.md,
+              maxHeight: metrics.maxHeight,
+              marginBottom: metrics.lift,
               transform: [
                 {
                   translateY: anim.interpolate({
@@ -162,7 +174,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.62)',
   },
   panel: {
-    maxHeight: '88%',
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
