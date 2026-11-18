@@ -1,4 +1,5 @@
 import { useAudioPlaylistStatus } from 'expo-audio';
+import { AppState } from 'react-native';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { isMissingFileError } from '../library/playbackSource';
 import { buildPlayableWindow, shouldProbeDuration } from '../lib/playbackRecovery';
@@ -95,6 +96,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const loadedQueueRef = useRef<Track[] | null>(null);
   const appendingRef = useRef(false);
   const indexRef = useRef(-1);
+  const wantPlayingRef = useRef(false);
 
   useEffect(() => {
     const current = trackRef.current;
@@ -117,6 +119,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
 
   const resetAudioWindow = useCallback(() => {
     loadGenerationRef.current += 1;
+    wantPlayingRef.current = false;
     reassertedTrackRef.current = null;
     engine.recreate();
     setPlaylist(engine.playlist);
@@ -185,6 +188,17 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [clearMockTimer]);
 
   useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      engine.resync();
+      configureAudio().catch(() => {});
+      const current = trackRef.current;
+      if (current && modeRef.current === 'audio') engine.updateLockScreenMetadata(current);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     if (mode !== 'mock' || !mockPlaying || !track) return;
     const durationMs = track.durationMs;
     mockTimerRef.current = setInterval(() => {
@@ -202,6 +216,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     sleepRef.current = { mode: 'off', remainingMs: 0 };
     setSleepState({ mode: 'off', remainingMs: 0 });
     engine.setVolume(1);
+    wantPlayingRef.current = false;
     if (modeRef.current === 'mock') setMockPlaying(false);
     else engine.playlist.pause();
   }, []);
@@ -323,6 +338,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         }
       }
 
+      wantPlayingRef.current = play;
       const loaded = resolvedWindow.playable;
       try {
         engine.setVolume(1);
@@ -457,6 +473,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       const global = windowState.globalIndexes[event.currentIndex];
       const currentTrack = global === undefined ? undefined : nextQueue[global];
       if (!currentTrack) return;
+      wantPlayingRef.current = engine.playlist.playing;
       setIndex(global);
       setTrack(currentTrack);
       engine.updateLockScreenMetadata(currentTrack);
@@ -614,6 +631,26 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [sleep.mode, mode, status.didJustFinish, finishSleep]);
 
 
+  const retryIfStalled = useCallback(
+    (startPositionMs: number) => {
+      const generation = loadGenerationRef.current;
+      setTimeout(() => {
+        if (!wantPlayingRef.current || loadGenerationRef.current !== generation) return;
+        try {
+          if (engine.playlist.playing || engine.playlist.isBuffering) return;
+        } catch {
+          return;
+        }
+        const resolveUri = resolveUriRef.current;
+        const nextQueue = queueRef.current;
+        if (!resolveUri || nextQueue.length === 0) return;
+        const target = indexRef.current >= 0 ? indexRef.current : 0;
+        void loadWindow(target, nextQueue, resolveUri, Math.max(0, startPositionMs), true);
+      }, 550);
+    },
+    [loadWindow],
+  );
+
   const toggle = useCallback(() => {
     const atEnd = isAtEnd(positionMs, durationMs);
     if (mode === 'mock') {
@@ -631,7 +668,9 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       endHandledForRef.current = null;
       void engine.playlist.seekTo(0).catch(() => setLastError('Could not seek'));
       try {
+        wantPlayingRef.current = true;
         engine.playlist.play();
+        retryIfStalled(0);
       } catch {
         setLastError('Could not play this file');
         resetAudioWindow();
@@ -640,19 +679,27 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     }
     try {
       if (engine.playlist.playing) {
+        wantPlayingRef.current = false;
         engine.playlist.pause();
       } else {
+        wantPlayingRef.current = true;
+        let startPositionMs = positionMs;
+        try {
+          startPositionMs = Math.round(engine.playlist.currentTime * 1000);
+        } catch {}
         engine.playlist.play();
+        retryIfStalled(startPositionMs);
       }
     } catch {
       setLastError('Could not play this file');
       resetAudioWindow();
     }
-  }, [mode, positionMs, durationMs, resetAudioWindow]);
+  }, [mode, positionMs, durationMs, resetAudioWindow, retryIfStalled]);
 
   const stop = useCallback(() => {
     requestRef.current += 1;
     loadGenerationRef.current += 1;
+    wantPlayingRef.current = false;
     engine.stop();
     clearMockTimer();
     setSleep('off');

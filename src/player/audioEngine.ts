@@ -21,6 +21,7 @@ export type PlaybackEngine = {
   skipTo(local: number): void;
   setVolume(value: number): void;
   setLoop(mode: EngineLoopMode): void;
+  resync(): void;
   updateLockScreenMetadata(track: Track): void;
   stop(): void;
 };
@@ -127,6 +128,12 @@ export function createEngine(): PlaybackEngine {
     setLoop(mode) {
       loopMode = mode;
       playlist.loop = mode;
+    },
+
+    resync() {
+      try {
+        playlist.loop = loopMode;
+      } catch {}
     },
 
     updateLockScreenMetadata(track) {
