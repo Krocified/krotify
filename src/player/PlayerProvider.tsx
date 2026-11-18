@@ -6,14 +6,13 @@ import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
 import { restoreOrder, shuffleOrder } from '../lib/shuffle';
-import { tickSleep } from '../lib/sleepTimer';
+import { tickSleep, type SleepMode } from '../lib/sleepTimer';
 import type { Track } from '../types';
 import { setTrackMissing } from '../tracks/repo';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
-export type SleepMode = 'off' | 'timer' | 'end';
 
 export type SleepState = { mode: SleepMode; remainingMs: number };
 

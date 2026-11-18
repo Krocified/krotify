@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SLEEP_PRESETS, tickSleep } from '../src/lib/sleepTimer.ts';
+import { SLEEP_PRESETS, sleepCaption, tickSleep } from '../src/lib/sleepTimer.ts';
 
 test('SLEEP_PRESETS offers minute presets and end of track', () => {
   assert.deepEqual(SLEEP_PRESETS, [15, 30, 45, 60, 'end']);
@@ -29,4 +29,10 @@ test('tickSleep treats an already-zero timer as done', () => {
 
 test('tickSleep ignores negative elapsed time', () => {
   assert.deepEqual(tickSleep(5_000, -1_000), { remainingMs: 5_000, fadeFrom: 0.5, done: false });
+});
+
+test('sleepCaption is null when off and short when active', () => {
+  assert.equal(sleepCaption('off', 0), null);
+  assert.equal(sleepCaption('timer', 12 * 60_000), 'Sleep · 12 min left');
+  assert.equal(sleepCaption('end', 0), 'Sleep · End of track');
 });

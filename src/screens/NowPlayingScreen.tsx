@@ -17,13 +17,13 @@ import { LyricsPanel } from '../components/LyricsPanel';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
-import { SleepTimerControls, formatSleepRemaining } from '../components/SleepTimerControls';
+import { PlayerTopActions } from '../components/PlayerTopActions';
+import { sleepCaption, type SleepPreset } from '../lib/sleepTimer';
 import { TagAssignSheet } from '../components/TagAssignSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
 import { ambientTheme } from '../lib/ambient';
 import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
-import type { SleepPreset } from '../lib/sleepTimer';
 import { useFavorites } from '../library/FavoritesProvider';
 import { importLyricsText, pickLyricsFile } from '../library/lyricsImport';
 import { getCoverColor } from '../library/palette';
@@ -86,7 +86,7 @@ export function NowPlayingScreen({
     color: null,
   });
   const [likeNote, setLikeNote] = useState<{ trackId: string; message: string } | null>(null);
-  const [sleepOpen, setSleepOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
@@ -146,29 +146,27 @@ export function NowPlayingScreen({
 
   useEffect(() => {
     if (!registerBackInterceptor) return;
-    if (!sleepOpen) {
+    if (!actionsOpen) {
       registerBackInterceptor(null);
       return;
     }
     registerBackInterceptor(() => {
-      setSleepOpen(false);
+      setActionsOpen(false);
       return true;
     });
     return () => registerBackInterceptor(null);
-  }, [registerBackInterceptor, sleepOpen]);
+  }, [registerBackInterceptor, actionsOpen]);
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {
       if (preset === 'end') setSleep('end');
       else setSleep('timer', preset);
-      setSleepOpen(false);
     },
     [setSleep],
   );
 
   const cancelSleep = useCallback(() => {
     setSleep('off');
-    setSleepOpen(false);
   }, [setSleep]);
 
   const importLyrics = useCallback(async () => {
@@ -209,7 +207,6 @@ export function NowPlayingScreen({
   const missing = isMissingTrack(track);
   const coverSize = Math.min(width - 64, 360);
   const artOpacity = modeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const sleepLabel = sleep.mode === 'off' ? 'Sleep timer' : `Sleep timer, ${formatSleepRemaining(sleep.mode, sleep.remainingMs)}`;
 
   const toggleLike = () => {
     setLikeNote(null);
@@ -232,101 +229,25 @@ export function NowPlayingScreen({
       >
         <View style={styles.topBar}>
           <BackPill onPress={close} icon="chevron-down" label="Close" plain />
-          <View style={styles.topActions}>
-            <Pressable
-              onPress={() => setSleepOpen((open) => !open)}
-              accessibilityRole="button"
-              accessibilityLabel={sleepLabel}
-              accessibilityState={{ selected: sleep.mode !== 'off' }}
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name={sleep.mode === 'off' ? 'moon-outline' : 'moon'}
-                size={22}
-                color={sleep.mode === 'off' ? colors.textDim : colors.accent}
-              />
-              {sleep.mode !== 'off' ? (
-                <Text style={styles.sleepBadge}>
-                  {formatSleepRemaining(sleep.mode, sleep.remainingMs)}
-                </Text>
-              ) : null}
-            </Pressable>
-            <Pressable
-              onPress={() => setTagOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Tags"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons name="pricetags-outline" size={22} color={colors.textDim} />
-            </Pressable>
-            <Pressable
-              onPress={() => setPlaylistOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Save to playlist"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons name="bookmark-outline" size={22} color={colors.textDim} />
-            </Pressable>
-            <Pressable
-              onPress={() => onDetails?.(track)}
-              accessibilityRole="button"
-              accessibilityLabel="Track details"
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name="information-circle-outline"
-                size={22}
-                color={colors.textDim}
-              />
-            </Pressable>
-            <Pressable
-              onPress={toggleLike}
-              accessibilityRole="button"
-              accessibilityLabel={
-                liked
-                  ? `Remove ${track.title} from Liked Songs`
-                  : `Add ${track.title} to Liked Songs`
-              }
-              accessibilityState={{ selected: liked }}
-              style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-            >
-              <Ionicons
-                name={liked ? 'heart' : 'heart-outline'}
-                size={22}
-                color={liked ? colors.accent : colors.textDim}
-              />
-            </Pressable>
-            {LYRICS_ENABLED ? (
-              <Pressable
-                onPress={() => {
-                  setLyricsNote(null);
-                  setLyricsMode((active) => !active);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Lyrics"
-                accessibilityState={{ selected: lyricsMode }}
-                style={({ pressed }) => [styles.topButton, pressed && styles.topButtonPressed]}
-              >
-                <Ionicons
-                  name="document-text-outline"
-                  size={22}
-                  color={lyricsMode ? colors.accent : colors.textDim}
-                />
-              </Pressable>
-            ) : null}
-          </View>
+          <PlayerTopActions
+            liked={liked}
+            onToggleLike={toggleLike}
+            lyricsEnabled={LYRICS_ENABLED}
+            lyricsMode={lyricsMode}
+            onToggleLyrics={() => {
+              setLyricsNote(null);
+              setLyricsMode((active) => !active);
+            }}
+            sleep={sleep}
+            onSelectSleep={selectSleepPreset}
+            onCancelSleep={cancelSleep}
+            onTags={() => setTagOpen(true)}
+            onPlaylist={() => setPlaylistOpen(true)}
+            onDetails={() => onDetails?.(track)}
+            open={actionsOpen}
+            onOpenChange={setActionsOpen}
+          />
         </View>
-
-        {sleepOpen ? (
-          <View style={styles.sleepPanel}>
-            <SleepTimerControls
-              mode={sleep.mode}
-              remainingMs={sleep.remainingMs}
-              onSelect={selectSleepPreset}
-              onCancel={cancelSleep}
-            />
-          </View>
-        ) : null}
 
         <View style={styles.stage}>
           <Animated.View
@@ -458,6 +379,11 @@ export function NowPlayingScreen({
             }}
             resetToken={resetToken}
           />
+          {sleepCaption(sleep.mode, sleep.remainingMs) ? (
+            <Text style={styles.sleepCaption}>
+              {sleepCaption(sleep.mode, sleep.remainingMs)}
+            </Text>
+          ) : null}
           <View style={styles.transport}>
             <View style={styles.shuffleSlot}>
               <Pressable
@@ -659,6 +585,12 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
     marginTop: space.xs,
+  },
+  sleepCaption: {
+    ...type.meta,
+    color: colors.textDim,
+    textAlign: 'center',
+    marginTop: space.sm,
   },
   transport: {
     alignItems: 'center',
