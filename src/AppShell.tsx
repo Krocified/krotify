@@ -868,6 +868,7 @@ export function AppShell() {
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
             registerBackInterceptor={registerBackInterceptor}
+            onNotify={showToast}
           />
         ) : activeTab === 'import' ? (
           <ImportScreen

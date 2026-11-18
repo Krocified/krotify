@@ -1,6 +1,6 @@
 import { getDb } from '../db/index';
 import { normalizeTagName } from './name';
-import { TAG_ACTIVE_COUNT_SQL, TAG_ASSIGNMENTS_SQL, TAGS_FOR_TRACK_SQL } from './queries';
+import { BULK_ASSIGN_SQL, TAG_ACTIVE_COUNT_SQL, TAG_ASSIGNMENTS_SQL, TAGS_FOR_TRACK_SQL } from './queries';
 import type { TagCount } from './filter';
 
 export type Tag = { id: string; name: string };
@@ -67,4 +67,28 @@ export async function unassignTag(trackId: string, tagId: string): Promise<void>
   const db = await getDb();
   if (!db) return;
   await db.runAsync('DELETE FROM track_tags WHERE trackId = ? AND tagId = ?', trackId, tagId);
+}
+
+export async function assignTagToTracks(
+  trackIds: readonly string[],
+  tagId: string,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.withTransactionAsync(async () => {
+    for (const trackId of trackIds) await db.runAsync(BULK_ASSIGN_SQL, trackId, tagId);
+  });
+}
+
+export async function unassignTagFromTracks(
+  trackIds: readonly string[],
+  tagId: string,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.withTransactionAsync(async () => {
+    for (const trackId of trackIds) {
+      await db.runAsync('DELETE FROM track_tags WHERE trackId = ? AND tagId = ?', trackId, tagId);
+    }
+  });
 }

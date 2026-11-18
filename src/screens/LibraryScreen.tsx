@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SelectionBar } from '../components/SelectionBar';
+import { TagBulkSheet } from '../components/TagBulkSheet';
 import {
   clearSelection,
   selectionBackHandler,
@@ -43,6 +44,7 @@ type Props = {
   onOpenLiked?: () => void;
   onOpenPlaylists?: () => void;
   registerBackInterceptor?: (handler: (() => boolean) | null) => void;
+  onNotify?: (message: string) => void;
 };
 
 const STATUS_NOTE: Partial<Record<LibraryStatus, string>> = {
@@ -65,6 +67,7 @@ export function LibraryScreen({
   onOpenSearch,
   onOpenSettings,
   registerBackInterceptor,
+  onNotify,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
@@ -73,6 +76,7 @@ export function LibraryScreen({
   const bottomOffset = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_BOTTOM_GAP + 8;
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [tagOpen, setTagOpen] = useState(false);
   const selectedTracks = useMemo(
     () => tracks.filter((track) => selectedIds.has(track.id)),
     [tracks, selectedIds],
@@ -122,6 +126,13 @@ export function LibraryScreen({
           allState={selectionState(selectedIds, visibleIds)}
           onToggleAll={() => setSelectedIds((previous) => toggleAllVisible(previous, visibleIds))}
           actions={[
+            {
+              key: 'tag',
+              label: 'Tag',
+              icon: 'pricetags-outline',
+              disabled: selectedCount === 0,
+              onPress: () => setTagOpen(true),
+            },
             {
               key: 'hide',
               label: 'Hide',
@@ -231,6 +242,12 @@ export function LibraryScreen({
           </View>
         </>
       )}
+      <TagBulkSheet
+        visible={tagOpen}
+        trackIds={[...selectedIds]}
+        onClose={() => setTagOpen(false)}
+        onDone={(message) => onNotify?.(message)}
+      />
     </View>
   );
 }

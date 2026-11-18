@@ -1,3 +1,6 @@
+export const BULK_ASSIGN_SQL =
+  'INSERT OR IGNORE INTO track_tags (trackId, tagId) VALUES (?, ?)';
+
 export const TAG_ACTIVE_COUNT_SQL = `
 SELECT g.id AS id, g.name AS name, COUNT(t.id) AS count
 FROM tags g
