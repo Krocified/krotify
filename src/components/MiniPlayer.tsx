@@ -6,7 +6,6 @@ import {
   PanResponder,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
@@ -16,6 +15,7 @@ import { useCoverColor } from '../library/useCoverColor';
 import { colors, space, type } from '../theme';
 import { BlurPill } from './BlurPill';
 import { CoverArt } from './CoverArt';
+import { MarqueeText } from './MarqueeText';
 import { Visualizer } from './Visualizer';
 
 type Props = {
@@ -163,12 +163,18 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
                 uri={track.artworkUri}
               />
               <View style={styles.texts}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {track.title}
-                </Text>
-                <Text style={styles.artist} numberOfLines={1}>
-                  {track.artist}
-                </Text>
+                <MarqueeText
+                  text={track.title}
+                  style={styles.title}
+                  startPauseMs={1000}
+                  endPauseMs={1400}
+                />
+                <MarqueeText
+                  text={track.artist}
+                  style={styles.artist}
+                  startPauseMs={1000}
+                  endPauseMs={1400}
+                />
               </View>
             </Pressable>
           </Animated.View>

@@ -27,3 +27,30 @@ export function restoreOrder(original: Track[], currentId: string): ShuffleResul
     index: original.findIndex((track) => track.id === currentId),
   };
 }
+
+export function shuffleUpcoming(
+  queue: Track[],
+  currentIndex: number,
+  random: () => number,
+): ShuffleResult {
+  if (currentIndex < 0 || currentIndex >= queue.length) {
+    return { order: [...queue], index: currentIndex };
+  }
+  const head = queue.slice(0, currentIndex + 1);
+  const tail = shuffleOrder(queue.slice(currentIndex + 1), -1, random).order;
+  return { order: [...head, ...tail], index: currentIndex };
+}
+
+export function restoreUpcoming(
+  queue: Track[],
+  original: Track[],
+  currentIndex: number,
+): ShuffleResult {
+  if (currentIndex < 0 || currentIndex >= queue.length) {
+    return { order: [...queue], index: currentIndex };
+  }
+  const head = queue.slice(0, currentIndex + 1);
+  const played = new Set(head.map((track) => track.id));
+  const tail = original.filter((track) => !played.has(track.id));
+  return { order: [...head, ...tail], index: currentIndex };
+}

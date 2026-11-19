@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { restoreOrder, shuffleOrder } from '../src/lib/shuffle.ts';
+import { restoreOrder, restoreUpcoming, shuffleOrder, shuffleUpcoming } from '../src/lib/shuffle.ts';
 import type { Track } from '../src/types.ts';
 
 const track = (id: string): Track => ({
@@ -76,4 +76,36 @@ test('restoreOrder reports a missing current track', () => {
   const original = ['a', 'b'].map(track);
   assert.deepEqual(restoreOrder(original, 'z'), { order: original, index: -1 });
   assert.deepEqual(restoreOrder([], 'a'), { order: [], index: -1 });
+});
+
+test('shuffleUpcoming keeps played tracks in place and shuffles only what is next', () => {
+  const result = shuffleUpcoming(queue, 2, () => 0);
+  assert.equal(result.index, 2);
+  assert.deepEqual(ids(result.order).slice(0, 3), ['a', 'b', 'c']);
+  assert.deepEqual(new Set(ids(result.order)), new Set(ids(queue)));
+});
+
+test('shuffleUpcoming does not reorder when there is nothing left to play', () => {
+  const result = shuffleUpcoming(queue, queue.length - 1, () => 0);
+  assert.deepEqual(ids(result.order), ids(queue));
+  assert.equal(result.index, queue.length - 1);
+});
+
+test('shuffleUpcoming leaves an invalid index untouched', () => {
+  assert.deepEqual(shuffleUpcoming(queue, -1, () => 0), { order: queue, index: -1 });
+});
+
+test('restoreUpcoming returns the unplayed tracks to their original order', () => {
+  const shuffled = shuffleUpcoming(queue, 2, () => 0);
+  const restored = restoreUpcoming(shuffled.order, queue, 2);
+  assert.deepEqual(ids(restored.order).slice(0, 3), ['a', 'b', 'c']);
+  assert.deepEqual(ids(restored.order).slice(3), ['d', 'e']);
+  assert.equal(restored.index, 2);
+});
+
+test('restoreUpcoming never drops or duplicates a track', () => {
+  const shuffled = shuffleUpcoming(queue, 2, () => 0);
+  const restored = restoreUpcoming(shuffled.order, queue, 2);
+  assert.equal(restored.order.length, queue.length);
+  assert.deepEqual(new Set(ids(restored.order)), new Set(ids(queue)));
 });

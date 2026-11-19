@@ -1,6 +1,6 @@
 import { hashString } from './hash.ts';
 
-export const VISUALIZER_STYLES = ['curves', 'soundwave', 'blobs'] as const;
+export const VISUALIZER_STYLES = ['curves', 'soundwave', 'blobs', 'ribbons'] as const;
 
 export type VisualizerStyleName = (typeof VISUALIZER_STYLES)[number];
 

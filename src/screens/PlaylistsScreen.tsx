@@ -18,6 +18,7 @@ import { PlaylistActionsSheet } from '../components/PlaylistActionsSheet';
 import { PlaylistCard } from '../components/PlaylistCard';
 import { PlaylistCreateSheet } from '../components/PlaylistCreateSheet';
 import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
+import { MarqueeText } from '../components/MarqueeText';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
@@ -554,13 +555,9 @@ function PlaylistTrackRow({
           uri={track.artworkUri}
         />
         <View style={styles.trackText}>
-          <Text style={ui.rowTitle} numberOfLines={1}>
-            {track.title}
-          </Text>
+          <MarqueeText text={track.title} style={ui.rowTitle} />
           {track.artist ? (
-            <Text style={ui.rowMeta} numberOfLines={1}>
-              {track.artist}
-            </Text>
+            <MarqueeText text={track.artist} style={ui.rowMeta} />
           ) : null}
         </View>
       </Pressable>

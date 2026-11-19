@@ -215,7 +215,7 @@ export function LikedScreen({
 
   return (
     <View style={styles.root} onTouchStart={closeOpenRow}>
-      <ScreenHeader leading={<BackPill onPress={onClose} />} title="Liked Songs" />
+      <ScreenHeader leading={<BackPill onPress={onClose} />} />
       {selecting ? (
         <SelectionBar
           count={selectedCount}

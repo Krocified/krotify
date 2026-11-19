@@ -5,11 +5,12 @@ import type { PlaylistSummary } from '../db/repo';
 import { hueFromSeed } from '../lib/hash';
 import { colors, radius, space, type } from '../theme';
 import { CoverArt } from './CoverArt';
+import { MarqueeText } from './MarqueeText';
 
 type Props = {
   summary: PlaylistSummary;
   onOpen: (id: string) => void;
-  onMenu: (playlist: PlaylistSummary) => void;
+  onMenu?: (playlist: PlaylistSummary) => void;
 };
 
 export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu }: Props) {
@@ -34,23 +35,23 @@ export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu
           uri={summary.artworkUri ?? summary.firstArtworkUri}
         />
         <View style={styles.text}>
-          <Text style={styles.name} numberOfLines={1}>
-            {summary.name}
-          </Text>
+          <MarqueeText text={summary.name} style={styles.name} />
           <Text style={styles.meta} numberOfLines={1}>
             {meta}
           </Text>
         </View>
       </Pressable>
-      <Pressable
-        onPress={() => onMenu(summary)}
-        accessibilityRole="button"
-        accessibilityLabel={`More options for ${summary.name}`}
-        hitSlop={4}
-        style={({ pressed }) => [styles.menu, pressed && styles.pressed]}
-      >
-        <Ionicons name="ellipsis-horizontal" size={18} color={colors.textDim} />
-      </Pressable>
+      {onMenu ? (
+        <Pressable
+          onPress={() => onMenu(summary)}
+          accessibilityRole="button"
+          accessibilityLabel={`More options for ${summary.name}`}
+          hitSlop={4}
+          style={({ pressed }) => [styles.menu, pressed && styles.pressed]}
+        >
+          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textDim} />
+        </Pressable>
+      ) : null}
     </View>
   );
 });

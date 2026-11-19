@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { Asset } from 'expo-media-library';
+import { AppSplash } from './components/AppSplash';
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
 import { Sheet } from './components/Sheet';
@@ -21,7 +22,7 @@ import {
   PlaylistPickerSheet,
   TrackActionsSheet,
 } from './components/TrackActionsSheet';
-import { recordPlay } from './db/repo';
+import { listPlaylistSummaries, recordPlay, type PlaylistSummary } from './db/repo';
 import { getScanSummary, type ScanSummary } from './db/settings';
 import { pickAndImportTracks, type ImportFailure } from './imports/local';
 import type { ImportProgress } from './lib/importProgress';
@@ -93,6 +94,9 @@ export function AppShell() {
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { tags, assignments, refresh: refreshTags } = useTags();
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
+  const [playlistsVersion, setPlaylistsVersion] = useState(0);
   const [screen, setScreen] = useState<ScreenName>('library');
   const [tab, setTab] = useState<TabName>('library');
   const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
@@ -197,6 +201,21 @@ export function AppShell() {
     (message: string) => setToast({ id: Date.now(), message }),
     [],
   );
+  const refreshPlaylists = useCallback(() => {
+    setPlaylistsVersion((version) => version + 1);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPlaylistSummaries()
+      .then((items) => {
+        if (!cancelled) setPlaylists(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [playlistsVersion]);
 
   const excludedIds = useMemo(() => new Set(excluded.map((track) => track.id)), [excluded]);
   const tracks = useMemo(
@@ -931,6 +950,7 @@ export function AppShell() {
   function closePlaylists() {
     setPlaylistsOpen(false);
     setOpenPlaylistId(null);
+    refreshPlaylists();
   }
 
   return (
@@ -957,6 +977,7 @@ export function AppShell() {
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
+            onPlaylistsChanged={refreshPlaylists}
             registerBackInterceptor={registerLibraryBack}
             onNotify={showToast}
           />
@@ -981,6 +1002,9 @@ export function AppShell() {
             onOpenSettings={openSettings}
             onOpenLiked={() => setLikedOpen(true)}
             onOpenPlaylists={() => openPlaylists(null)}
+            onOpenPlaylist={(id) => openPlaylists(id)}
+            playlists={playlists}
+            onPlaylistsChanged={refreshPlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
             registerBackInterceptor={registerCollectionsBack}
@@ -1111,6 +1135,7 @@ export function AppShell() {
             playlistId={openPlaylistId}
             onOpenPlaylist={setOpenPlaylistId}
             onClose={closePlaylists}
+            onPlaylistsChanged={refreshPlaylists}
             onPlay={playQueue}
             onSelect={selectFromOverlay}
             registerBackInterceptor={registerPlaylistsBack}
@@ -1303,6 +1328,7 @@ export function AppShell() {
         message={toast?.message ?? ''}
         onHidden={() => setToast(null)}
       />
+      {splashVisible ? <AppSplash onDone={() => setSplashVisible(false)} /> : null}
     </View>
   );
 }

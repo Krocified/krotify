@@ -7,9 +7,10 @@ import { useReduceMotion } from './useReduceMotion';
 
 type Props = {
   theme: AmbientTheme;
+  isPlaying: boolean;
 };
 
-export const AmbientBackdrop = memo(function AmbientBackdrop({ theme }: Props) {
+export const AmbientBackdrop = memo(function AmbientBackdrop({ theme, isPlaying }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
@@ -25,8 +26,17 @@ export const AmbientBackdrop = memo(function AmbientBackdrop({ theme }: Props) {
   }, []);
 
   useEffect(() => {
-    if (reduceMotion || !appActive) {
-      for (const value of values) value.stopAnimation();
+    if (reduceMotion) {
+      for (const value of values) {
+        value.stopAnimation();
+        value.setValue(0);
+      }
+      return;
+    }
+    if (!appActive || !isPlaying) {
+      for (const value of values) {
+        value.stopAnimation((current) => value.setValue(current));
+      }
       return;
     }
     const loops = theme.pools.map((pool, index) =>
@@ -49,10 +59,9 @@ export const AmbientBackdrop = memo(function AmbientBackdrop({ theme }: Props) {
     );
     for (const loop of loops) loop.start();
     return () => {
-      for (const loop of loops) loop.stop();
-      for (const value of values) value.setValue(0);
+      for (const value of values) value.stopAnimation();
     };
-  }, [appActive, reduceMotion, theme, values]);
+  }, [appActive, isPlaying, reduceMotion, theme, values]);
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>

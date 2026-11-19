@@ -198,8 +198,8 @@ export function EditTrackScreen({ track, onSaved, onClose }: EditTrackScreenProp
             uri={track.artworkUri}
           />
         </View>
-        <DetailRow label="Title" value={track.title || '—'} />
-        <DetailRow label="Artist" value={track.artist || '—'} />
+        <DetailRow label="Title" value={track.title || '—'} multiline />
+        <DetailRow label="Artist" value={track.artist || '—'} multiline />
         <DetailRow label="Album" value={track.album || '—'} />
         <DetailRow label="Album artist" value={track.albumArtist || '—'} />
         <DetailRow
@@ -400,7 +400,7 @@ function DetailRow({ label, value, multiline = false }: { label: string; value: 
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue} numberOfLines={multiline ? 3 : 1}>
+      <Text style={styles.detailValue} numberOfLines={multiline ? undefined : 1}>
         {value}
       </Text>
     </View>

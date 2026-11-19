@@ -141,4 +141,19 @@ export const DEMO_TRACKS: Track[] = [
     durationMs: 263_000,
     artworkHue: 20,
   },
+  {
+    id: 'demo-11',
+    uri: '',
+    source: 'demo',
+    missing: 0,
+    title: 'Everything We Left Behind in the Last Five Minutes of Summer',
+    artist:
+      'The Committee for Imaginary Weather and Other Minor Catastrophes from the Far North',
+    album: 'Songs for Imaginary Weather',
+    albumArtist: 'The Committee for Imaginary Weather',
+    trackNumber: 1,
+    year: 2026,
+    durationMs: 307_000,
+    artworkHue: 205,
+  },
 ];

@@ -23,6 +23,7 @@ import {
   BLOB_COPIES,
   BLOB_SHAPES,
   CURVE_LAYERS,
+  RIBBON_LAYERS,
   SOUNDWAVE_LAYER,
 } from '../lib/visualizerArt';
 import { useReduceMotion } from './useReduceMotion';
@@ -32,6 +33,7 @@ type Props = {
   colors: readonly [string, string];
   isPlaying: boolean;
   opacity?: number;
+  styleName?: VisualizerStyleName;
 };
 
 type Size = { width: number; height: number };
@@ -43,7 +45,6 @@ type Geometry = {
   artWidth: number;
 };
 
-const PAUSED_DURATION = 48000;
 const BREATH_DURATION = 5200;
 const BREATH_SCALE = 0.06;
 
@@ -51,6 +52,7 @@ const PLAYING_DURATIONS: Record<VisualizerStyleName, number> = {
   curves: 13000,
   soundwave: 11000,
   blobs: 16000,
+  ribbons: 15000,
 };
 
 const waveInput = (
@@ -137,6 +139,37 @@ function SoundwaveArt({ geometry, gradientId }: { geometry: Geometry; gradientId
   );
 }
 
+function RibbonsArt({
+  geometry,
+  colors,
+}: {
+  geometry: Geometry;
+  colors: readonly [string, string];
+}) {
+  return (
+    <>
+      {RIBBON_LAYERS.map((layer, index) => (
+        <Path
+          key={index}
+          d={openSinePath(
+            waveInput(
+              geometry,
+              layer.periods,
+              layer.amplitude * geometry.height,
+              layer.phase,
+            ),
+          )}
+          fill="none"
+          stroke={colors[layer.colorIndex]}
+          strokeWidth={layer.thickness * geometry.height}
+          opacity={layer.opacity}
+          transform={`translate(0 ${layer.offset * geometry.height})`}
+        />
+      ))}
+    </>
+  );
+}
+
 function BlobsArt({
   geometry,
   radialIds,
@@ -167,9 +200,10 @@ export function Visualizer({
   colors,
   isPlaying,
   opacity = 0.2,
+  styleName,
 }: Props): ReactElement {
   const reduceMotion = useReduceMotion();
-  const style = pickVisualizerStyle(seed);
+  const style = styleName ?? pickVisualizerStyle(seed);
   const [size, setSize] = useState<Size | null>(null);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const gradientId = `${uid}grad`;
@@ -195,7 +229,12 @@ export function Visualizer({
       breath.value = 0;
       return undefined;
     }
-    const duration = isPlaying ? PLAYING_DURATIONS[style] : PAUSED_DURATION;
+    if (!isPlaying) {
+      cancelAnimation(drift);
+      cancelAnimation(breath);
+      return undefined;
+    }
+    const duration = PLAYING_DURATIONS[style];
     const phase = drift.value % 1;
     drift.value = phase;
     drift.value = withRepeat(
@@ -245,6 +284,9 @@ export function Visualizer({
             {style === 'curves' && <CurvesArt geometry={geometry} gradientId={gradientId} />}
             {style === 'soundwave' && (
               <SoundwaveArt geometry={geometry} gradientId={gradientId} />
+            )}
+            {style === 'ribbons' && (
+              <RibbonsArt geometry={geometry} colors={colors} />
             )}
             {style === 'blobs' && (
               <BlobsArt geometry={geometry} radialIds={radialIds} />

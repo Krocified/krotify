@@ -6,6 +6,7 @@ import { isMissingTrack } from '../lib/settingsView';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
+import { MarqueeText } from './MarqueeText';
 
 type Props = {
   track: Track;
@@ -15,6 +16,7 @@ type Props = {
   selectionMode?: boolean;
   selected?: boolean;
   disabled?: boolean;
+  showArtist?: boolean;
 };
 
 export const TrackRow = memo(function TrackRow({
@@ -25,12 +27,14 @@ export const TrackRow = memo(function TrackRow({
   selectionMode = false,
   selected = false,
   disabled = false,
+  showArtist = true,
 }: Props) {
   const duration = formatDuration(track.durationMs);
   const missing = isMissingTrack(track);
-  const detail = missing ? 'File missing' : track.artist ? `${track.artist} · ${duration}` : duration;
+  const artistMeta = showArtist && track.artist ? `${track.artist} · ${duration}` : duration;
+  const detail = missing ? 'File missing' : artistMeta;
   const label = `${track.title}, ${detail}`;
-  const meta = track.artist ? `${track.artist} · ${duration}` : duration;
+  const meta = artistMeta;
 
   return (
     <View style={[styles.row, disabled && styles.rowDisabled]}>
@@ -58,9 +62,7 @@ export const TrackRow = memo(function TrackRow({
           uri={track.artworkUri}
         />
         <View style={styles.text}>
-          <Text style={styles.title} numberOfLines={1}>
-            {track.title}
-          </Text>
+          <MarqueeText text={track.title} style={styles.title} />
           {missing ? (
             <View style={styles.missing}>
               <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
@@ -69,9 +71,7 @@ export const TrackRow = memo(function TrackRow({
               </Text>
             </View>
           ) : (
-            <Text style={styles.meta} numberOfLines={1}>
-              {meta}
-            </Text>
+            <MarqueeText text={meta} style={styles.meta} />
           )}
         </View>
       </Pressable>

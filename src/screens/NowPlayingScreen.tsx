@@ -15,14 +15,17 @@ import { BlurTargetView } from 'expo-blur';
 import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { CoverArt } from '../components/CoverArt';
 import { LyricsStage } from '../components/LyricsStage';
+import { MarqueeText } from '../components/MarqueeText';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { BackPill } from '../components/ScreenHeader';
 import { PlayerTopActions } from '../components/PlayerTopActions';
+import { Visualizer } from '../components/Visualizer';
 import { sleepCaption, type SleepPreset } from '../lib/sleepTimer';
 import { TagAssignSheet } from '../components/TagAssignSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
-import { ambientTheme } from '../lib/ambient';
+import { adjustColor, ambientTheme } from '../lib/ambient';
+import { coverColors } from '../lib/cover';
 import { LYRICS_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import { useFavorites } from '../library/FavoritesProvider';
@@ -192,6 +195,9 @@ export function NowPlayingScreen({
       }),
     [track?.id, track?.artworkHue, coverColor],
   );
+  const ribbonColors: readonly [string, string] = coverColor
+    ? [adjustColor(coverColor, 0.24), adjustColor(coverColor, -0.45)]
+    : coverColors(track?.artworkHue ?? 0);
 
   if (!track) return null;
 
@@ -213,7 +219,14 @@ export function NowPlayingScreen({
       accessibilityViewIsModal
     >
       <BlurTargetView ref={playerBlurRef} style={StyleSheet.absoluteFill}>
-        <AmbientBackdrop theme={ambient} />
+        <AmbientBackdrop theme={ambient} isPlaying={isPlaying} />
+        <Visualizer
+          seed={track.id}
+          colors={ribbonColors}
+          isPlaying={isPlaying}
+          opacity={0.38}
+          styleName="ribbons"
+        />
       </BlurTargetView>
       {actionsOpen ? (
         <Pressable
@@ -267,11 +280,9 @@ export function NowPlayingScreen({
               uri={track.artworkUri}
             />
             <View style={styles.artTitles}>
-              <Text style={styles.title} numberOfLines={2}>
-                {track.title}
-              </Text>
+              <MarqueeText text={track.title} style={styles.title} />
               {track.artist ? (
-                <Text style={styles.artist} numberOfLines={1}>
+                <Text style={styles.artist} numberOfLines={2}>
                   {track.artist}
                 </Text>
               ) : null}
@@ -350,20 +361,22 @@ export function NowPlayingScreen({
               </Pressable>
             </View>
           ) : null}
-          <ProgressBar
-            positionMs={positionMs}
-            durationMs={durationMs}
-            trackId={track.id}
-            onSeek={(ms) => {
-              void seek(ms);
-            }}
-            resetToken={resetToken}
-          />
-          {sleepCaption(sleep.mode, sleep.remainingMs) ? (
-            <Text style={styles.sleepCaption}>
-              {sleepCaption(sleep.mode, sleep.remainingMs)}
-            </Text>
-          ) : null}
+          <View>
+            <ProgressBar
+              positionMs={positionMs}
+              durationMs={durationMs}
+              trackId={track.id}
+              onSeek={(ms) => {
+                void seek(ms);
+              }}
+              resetToken={resetToken}
+            />
+            {sleepCaption(sleep.mode, sleep.remainingMs) ? (
+              <Text style={styles.sleepCaption} pointerEvents="none">
+                {sleepCaption(sleep.mode, sleep.remainingMs)}
+              </Text>
+            ) : null}
+          </View>
           <View style={styles.transport}>
             <View style={styles.shuffleSlot}>
               <Pressable
@@ -486,6 +499,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    zIndex: 10,
+    elevation: 10,
   },
   topActions: {
     flexDirection: 'row',
@@ -574,7 +589,10 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
     textAlign: 'center',
-    marginTop: space.sm,
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
   },
   transport: {
     alignItems: 'center',

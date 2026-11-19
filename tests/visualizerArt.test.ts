@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   BLOB_COPIES,
   CURVE_LAYERS,
+  RIBBON_LAYERS,
   wavePeriods,
 } from '../src/lib/visualizerArt.ts';
 
@@ -15,6 +16,7 @@ test('every wave layer wraps the art in a whole number of drift periods', () => 
   const allPeriods = [
     ...wavePeriods('curves'),
     ...wavePeriods('soundwave'),
+    ...wavePeriods('ribbons'),
   ];
   assert.ok(allPeriods.length > 0);
   for (const periods of allPeriods) {
@@ -29,6 +31,12 @@ test('every wave layer wraps the art in a whole number of drift periods', () => 
 test('curve layer period configs are even so their doubled wave periods stay aligned', () => {
   for (const layer of CURVE_LAYERS) {
     assert.equal(layer.periods % 2, 0, `curve layer periods ${layer.periods} is odd`);
+  }
+});
+
+test('ribbon layer periods are even so the drifting art stays seamless', () => {
+  for (const layer of RIBBON_LAYERS) {
+    assert.equal(layer.periods % 2, 0, `ribbon periods ${layer.periods} is odd`);
   }
 });
 

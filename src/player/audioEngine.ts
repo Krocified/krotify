@@ -18,6 +18,7 @@ export type PlaybackEngine = {
   recreate(): void;
   load(tracks: WindowTrack[], localIndex: number, globalIndexes?: number[], autoplay?: boolean): void;
   append(tracks: WindowTrack[], globalIndexes: number[]): void;
+  replaceUpcoming(tracks: WindowTrack[], globalIndexes: number[]): boolean;
   skipTo(local: number): void;
   setVolume(value: number): void;
   setLoop(mode: EngineLoopMode): void;
@@ -114,6 +115,26 @@ export function createEngine(): PlaybackEngine {
     append(tracks, indexes) {
       for (const item of tracks) playlist.add({ uri: item.uri });
       globalIndexes.push(...indexes);
+    },
+
+    replaceUpcoming(tracks, indexes) {
+      const current = playlist.currentIndex;
+      if (current < 0) return false;
+      try {
+        for (let index = playlist.trackCount - 1; index > current; index -= 1) {
+          playlist.remove(index);
+        }
+        let position = current + 1;
+        for (const item of tracks) {
+          playlist.insert({ uri: item.uri }, position);
+          position += 1;
+        }
+        globalIndexes.length = current + 1;
+        globalIndexes.push(...indexes);
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     skipTo(local) {

@@ -6,7 +6,7 @@ import { buildPlayableWindow, shouldProbeDuration } from '../lib/playbackRecover
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
 import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
-import { restoreOrder, shuffleOrder } from '../lib/shuffle';
+import { restoreUpcoming, shuffleOrder, shuffleUpcoming } from '../lib/shuffle';
 import { needsLockScreenReassert } from '../lib/lockScreen';
 import { tickSleep, type SleepMode } from '../lib/sleepTimer';
 import type { Track } from '../types';
@@ -456,6 +456,11 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         event.previousIndex === trackCount - 1 &&
         event.currentIndex === 0;
       if (wrappedForward && resolveUri) {
+        if (shuffleRef.current) {
+          const result = shuffleOrder(nextQueue, -1, Math.random);
+          void loadWindow(0, result.order, resolveUri);
+          return;
+        }
         const previousGlobal = windowState.globalIndexes[event.previousIndex];
         const target = wrapTarget(previousGlobal, nextQueue.length, 'forward');
         if (target >= 0) {
@@ -794,29 +799,99 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     [track],
   );
 
+  const applyQueueOrder = useCallback(
+    async (nextOrder: Track[], nextIndexValue: number): Promise<void> => {
+      const currentTrack = nextIndexValue >= 0 ? nextOrder[nextIndexValue] : undefined;
+      if (!currentTrack) return;
+
+      const commit = () => {
+        queueRef.current = nextOrder;
+        indexRef.current = nextIndexValue;
+        loadedQueueRef.current = nextOrder;
+        setQueueState(nextOrder);
+        setIndex(nextIndexValue);
+      };
+
+      const resolveUri = resolveUriRef.current;
+      if (modeRef.current !== 'audio' || !resolveUri) {
+        commit();
+        return;
+      }
+
+      const localIndex = engine.playlist.currentIndex;
+      const windowState = windowRef.current;
+      if (localIndex < 0 || windowState.globalIndexes[localIndex] !== nextIndexValue) {
+        commit();
+        return;
+      }
+
+      const ahead = Math.min(
+        DEFAULT_WINDOW_RADIUS,
+        Math.max(0, nextOrder.length - nextIndexValue - 1),
+      );
+      const upcoming = nextOrder.slice(nextIndexValue + 1, nextIndexValue + 1 + ahead);
+      const resolved = await Promise.all(
+        upcoming.map(async (item, offset) => {
+          try {
+            return { uri: await resolveUri(item), track: item, offset } as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const loaded = resolved.filter(
+        (entry): entry is { uri: string; track: Track; offset: number } =>
+          entry !== null,
+      );
+      const indexes = loaded.map((entry) => nextIndexValue + 1 + entry.offset);
+      if (!engine.replaceUpcoming(loaded, indexes)) {
+        const position = Math.round(engine.playlist.currentTime * 1000);
+        const wasPlaying = engine.playlist.playing;
+        void loadWindow(nextIndexValue, nextOrder, resolveUri, position, wasPlaying);
+        return;
+      }
+      windowState.globalIndexes = [
+        ...windowState.globalIndexes.slice(0, localIndex + 1),
+        ...indexes,
+      ];
+      commit();
+    },
+    [loadWindow],
+  );
+
   const toggleShuffle = useCallback((): void => {
+    const currentQueue = queueRef.current.length > 0 ? queueRef.current : queue;
+    const currentTrack = trackRef.current ?? track;
+    if (!currentTrack) return;
+    const localIndex = modeRef.current === 'audio' ? engine.playlist.currentIndex : -1;
+    const engineGlobal =
+      localIndex >= 0 ? windowRef.current.globalIndexes[localIndex] : undefined;
+    const currentIndex =
+      engineGlobal !== undefined && engineGlobal >= 0 && engineGlobal < currentQueue.length
+        ? engineGlobal
+        : indexRef.current >= 0
+          ? indexRef.current
+          : currentQueue.findIndex((item) => item.id === currentTrack.id);
+    if (currentIndex < 0) return;
+
     if (shuffleRef.current) {
-      const original = originalQueueRef.current;
-      const currentId = track?.id;
       shuffleRef.current = false;
       setShuffle(false);
+      const original =
+        originalQueueRef.current.length > 0 ? originalQueueRef.current : currentQueue;
       originalQueueRef.current = [];
-      if (!currentId || original.length === 0) return;
-      const restored = restoreOrder(original, currentId);
-      setQueueState(restored.order);
-      setIndex(restored.index);
+      const result = restoreUpcoming(currentQueue, original, currentIndex);
+      void applyQueueOrder(result.order, result.index);
       return;
     }
 
-    if (!track || queue.length < 2) return;
-    const current = index >= 0 ? index : queue.findIndex((item) => item.id === track.id);
-    const result = shuffleOrder(queue, current, Math.random);
-    originalQueueRef.current = queue;
+    if (currentQueue.length < 2) return;
+    originalQueueRef.current = currentQueue;
+    const result = shuffleUpcoming(currentQueue, currentIndex, Math.random);
     shuffleRef.current = true;
     setShuffle(true);
-    setQueueState(result.order);
-    setIndex(result.index);
-  }, [queue, index, track]);
+    void applyQueueOrder(result.order, result.index);
+  }, [applyQueueOrder, queue, track]);
 
   const canWrap = repeat === 'all' && queue.length > 1;
   const nextTarget = nextIndex(index, queue.length);

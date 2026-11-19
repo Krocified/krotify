@@ -45,6 +45,7 @@ type Props = {
   onOpenSettings: () => void;
   onOpenLiked?: () => void;
   onOpenPlaylists?: () => void;
+  onPlaylistsChanged?: () => void;
   registerBackInterceptor?: (handler: (() => boolean) | null) => void;
   onNotify?: (message: string) => void;
 };
@@ -68,6 +69,7 @@ export function LibraryScreen({
   onDeleteMany,
   onOpenSearch,
   onOpenSettings,
+  onPlaylistsChanged,
   registerBackInterceptor,
   onNotify,
 }: Props) {
@@ -163,7 +165,7 @@ export function LibraryScreen({
         leading={
           <>
             <Image
-              source={require('../../assets/lyrics.png')}
+              source={require('../../assets/krotifyclose.png')}
               style={styles.brandIcon}
               accessible={false}
             />
@@ -314,7 +316,10 @@ export function LibraryScreen({
           setPlaylistOpen(false);
           exitSelection();
         }}
-        onResult={(message) => onNotify?.(message)}
+        onResult={(message) => {
+          onNotify?.(message);
+          onPlaylistsChanged?.();
+        }}
       />
     </View>
   );
@@ -326,8 +331,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   brandIcon: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
   },
   wordmark: {
     ...type.display,

@@ -7,6 +7,7 @@ import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
 import { LyricsPanel } from './LyricsPanel';
+import { MarqueeText } from './MarqueeText';
 import { Sheet } from './Sheet';
 
 type Props = {
@@ -50,13 +51,9 @@ export function LyricsStage({
           uri={track.artworkUri}
         />
         <View style={styles.titles}>
-          <Text style={styles.title} numberOfLines={1}>
-            {track.title}
-          </Text>
+          <MarqueeText text={track.title} style={styles.title} />
           {track.artist ? (
-            <Text style={styles.artist} numberOfLines={1}>
-              {track.artist}
-            </Text>
+            <MarqueeText text={track.artist} style={styles.artist} />
           ) : null}
         </View>
         {importing ? <ActivityIndicator color={colors.accent} size="small" /> : null}

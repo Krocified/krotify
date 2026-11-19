@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
+import { MarqueeText } from '../components/MarqueeText';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
 import {
@@ -256,9 +257,7 @@ export function HiddenTracksScreen({
                           uri={track.artworkUri}
                         />
                         <View style={styles.trackText}>
-                          <Text style={ui.rowTitle} numberOfLines={1}>
-                            {track.title}
-                          </Text>
+                          <MarqueeText text={track.title} style={ui.rowTitle} />
                           {missing ? (
                             <View style={styles.missing}>
                               <Ionicons
@@ -271,9 +270,7 @@ export function HiddenTracksScreen({
                               </Text>
                             </View>
                           ) : track.artist ? (
-                            <Text style={ui.rowMeta} numberOfLines={1}>
-                              {track.artist}
-                            </Text>
+                            <MarqueeText text={track.artist} style={ui.rowMeta} />
                           ) : null}
                         </View>
                         {selecting ? (

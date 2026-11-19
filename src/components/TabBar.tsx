@@ -1,9 +1,9 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { BlurView } from 'expo-blur';
 import type { ComponentProps, ComponentRef, RefObject } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, space, type } from '../theme';
+import { colors, space } from '../theme';
 
 export type TabName = 'library' | 'import' | 'collections';
 
@@ -19,7 +19,7 @@ type Props = {
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const TABS: { name: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
-  { name: 'library', label: 'Library', icon: 'library-outline', iconActive: 'library' },
+  { name: 'library', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { name: 'import', label: 'Import', icon: 'download-outline', iconActive: 'download' },
   { name: 'collections', label: 'Collections', icon: 'albums-outline', iconActive: 'albums' },
 ];
@@ -53,14 +53,9 @@ export function TabBar({ active, onSelect, blurTarget }: Props) {
                 >
                   <Ionicons
                     name={selected ? tab.iconActive : tab.icon}
-                    size={24}
+                    size={26}
                     color={selected ? colors.text : colors.textDim}
                   />
-                  <Text
-                    style={[styles.label, { color: selected ? colors.text : colors.textDim }]}
-                  >
-                    {tab.label}
-                  </Text>
                 </Pressable>
               );
             })}
@@ -109,11 +104,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.xs,
-  },
-  label: {
-    ...type.meta,
-    fontSize: 11,
-    fontWeight: '500',
   },
 });

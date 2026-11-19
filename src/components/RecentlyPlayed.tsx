@@ -2,6 +2,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
+import { MarqueeText } from './MarqueeText';
 
 type Props = {
   tracks: Track[];
@@ -36,9 +37,7 @@ export function RecentlyPlayed({ tracks, onSelect }: Props) {
               radius={radius.coverLarge}
               uri={item.artworkUri}
             />
-            <Text style={styles.label} numberOfLines={1}>
-              {item.title}
-            </Text>
+            <MarqueeText text={item.title} style={styles.label} />
           </Pressable>
         )}
       />

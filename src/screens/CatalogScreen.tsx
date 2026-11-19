@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
+import { MarqueeText } from '../components/MarqueeText';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
@@ -352,9 +353,7 @@ function AlbumRow({ album, uri, onPress }: AlbumRowProps) {
         uri={uri}
       />
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {album.title}
-        </Text>
+        <MarqueeText text={album.title} style={styles.rowTitle} />
         <Text style={styles.rowMeta} numberOfLines={1}>
           {album.tracks.length} {trackLabel} · {minutes} min
         </Text>
@@ -381,9 +380,7 @@ function ArtistRow({ artist, onPress }: { artist: Artist; onPress: () => void })
         uri={artist.tracks[0]?.artworkUri}
       />
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {artist.name}
-        </Text>
+        <MarqueeText text={artist.name} style={styles.rowTitle} />
         <Text style={styles.rowMeta} numberOfLines={1}>
           {artist.albumCount} {albumLabel} · {artist.tracks.length} {trackLabel}
         </Text>

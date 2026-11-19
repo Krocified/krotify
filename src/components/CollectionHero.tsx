@@ -57,9 +57,7 @@ export function CollectionHero({
           cover
         )}
         <View style={styles.text}>
-          <Text style={styles.title} numberOfLines={2}>
-            {title}
-          </Text>
+          <Text style={styles.title}>{title}</Text>
           {description ? (
             <Text style={styles.description} numberOfLines={2}>
               {description}
@@ -167,8 +165,8 @@ const styles = StyleSheet.create({
   },
   play: {
     width: 48,
-    height: 44,
-    borderRadius: 22,
+    height: 48,
+    borderRadius: 24,
   },
   group: {
     height: 44,

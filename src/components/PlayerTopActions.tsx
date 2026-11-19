@@ -1,9 +1,9 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useState, type ComponentProps, type ComponentRef, type RefObject } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SleepState } from '../player/PlayerProvider';
 import type { SleepPreset } from '../lib/sleepTimer';
-import { colors, radius, space } from '../theme';
+import { colors, radius, space, type } from '../theme';
 import { BlurPill } from './BlurPill';
 import { SleepTimerControls } from './SleepTimerControls';
 
@@ -47,17 +47,24 @@ export function PlayerTopActions({
   if (!open && sleepOpen) setSleepOpen(false);
 
   const secondary: { key: string; label: string; icon: IconName; onPress: () => void }[] = [
+    ...(onDetails
+      ? [
+          {
+            key: 'details',
+            label: 'Details',
+            icon: 'information-circle-outline' as IconName,
+            onPress: () => onDetails(),
+          },
+        ]
+      : []),
+    { key: 'tags', label: 'Tags', icon: 'pricetags-outline', onPress: onTags },
+    { key: 'playlist', label: 'Add to playlist', icon: 'bookmark-outline', onPress: onPlaylist },
     {
       key: 'sleep',
       label: 'Sleep timer',
       icon: 'moon-outline',
       onPress: () => setSleepOpen((value) => !value),
     },
-    { key: 'tags', label: 'Tags', icon: 'pricetags-outline', onPress: onTags },
-    { key: 'playlist', label: 'Save to playlist', icon: 'bookmark-outline', onPress: onPlaylist },
-    ...(onDetails
-      ? [{ key: 'details', label: 'Details', icon: 'information-circle-outline' as IconName, onPress: () => onDetails() }]
-      : []),
   ];
 
   return (
@@ -112,10 +119,10 @@ export function PlayerTopActions({
       {open ? (
         <View style={styles.popover}>
           <BlurPill
-            style={styles.secondaryGroup}
-            contentStyle={styles.secondaryRow}
+            style={styles.menu}
+            contentStyle={styles.menuContent}
             blurTarget={blurTarget}
-            intensity={35}
+            intensity={40}
           >
             {secondary.map((action) => (
               <Pressable
@@ -128,11 +135,25 @@ export function PlayerTopActions({
                 accessibilityLabel={action.label}
                 accessibilityState={action.key === 'sleep' ? { expanded: sleepOpen } : undefined}
                 style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryPressed,
+                  styles.menuRow,
+                  pressed && styles.menuPressed,
                 ]}
               >
-                <Ionicons name={action.icon} size={20} color={colors.text} />
+                <View style={styles.menuIcon}>
+                  <Ionicons
+                    name={action.icon}
+                    size={20}
+                    color={action.key === 'sleep' && sleepOpen ? colors.accent : colors.textDim}
+                  />
+                </View>
+                <Text style={styles.menuLabel}>{action.label}</Text>
+                {action.key === 'sleep' ? (
+                  <Ionicons
+                    name={sleepOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.textDim}
+                  />
+                ) : null}
               </Pressable>
             ))}
           </BlurPill>
@@ -180,25 +201,44 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     right: 0,
-    alignItems: 'flex-end',
+    width: 176,
+    alignItems: 'stretch',
     gap: space.xs,
   },
-  secondaryGroup: {
-    height: 48,
-    borderRadius: 24,
+  menu: {
+    borderRadius: 18,
   },
-  secondaryRow: {
+  menuContent: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    paddingVertical: space.xs,
+  },
+  menuRow: {
+    minHeight: 46,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: space.md,
+    paddingBottom: space.xs,
   },
-  secondaryButton: {
-    width: 44,
-    height: 48,
+  menuIcon: {
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryPressed: {
-    opacity: 0.7,
+  menuPressed: {
+    backgroundColor: '#ffffff10',
+  },
+  menuLabel: {
+    ...type.meta,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 20,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    transform: [{ translateY: 2 }],
   },
   sleepPanel: {
     alignSelf: 'stretch',

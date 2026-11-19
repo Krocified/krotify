@@ -84,6 +84,7 @@ export const BackPill = memo(function BackPill({
       hitSlop={space.sm}
       style={({ pressed }) => [
         styles.backPill,
+        icon === 'arrow-back' && styles.backPillCircle,
         plain && styles.backPillPlain,
         pressed && styles.backPillPressed,
       ]}
@@ -142,6 +143,10 @@ const styles = StyleSheet.create({
   },
   backPillPlain: {
     backgroundColor: 'transparent',
+  },
+  backPillCircle: {
+    width: 36,
+    paddingHorizontal: 0,
   },
   backPillPressed: {
     opacity: 0.7,
