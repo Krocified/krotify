@@ -144,7 +144,7 @@ export function TagBulkSheet({ visible, trackIds, onClose, onDone }: Props) {
           {adding ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.addText}>Add</Text>
+            <Ionicons name="add" size={22} color={colors.text} />
           )}
         </Pressable>
       </View>
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
   },
   row: {
-    minHeight: 48,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
@@ -198,21 +198,17 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     backgroundColor: colors.surfaceHi,
-    borderRadius: 999,
-    paddingHorizontal: space.md,
-    minHeight: 44,
+    borderRadius: radius.screen,
+    paddingHorizontal: space.lg,
+    minHeight: 48,
   },
   addButton: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.md,
-    borderRadius: 999,
+    borderRadius: 24,
     backgroundColor: colors.accent,
-  },
-  addText: {
-    ...type.meta,
-    color: colors.text,
   },
   message: {
     ...type.meta,

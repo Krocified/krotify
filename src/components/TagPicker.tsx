@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { normalizeTagName } from '../tags/name';
 import { useTags } from '../tags/TagProvider';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 
 type Props = {
   trackId: string;
@@ -130,7 +130,7 @@ export function TagPicker({ trackId }: Props) {
           accessibilityState={{ disabled: busy, busy: adding }}
           style={({ pressed }) => [styles.add, pressed && styles.pressed]}
         >
-          <Text style={styles.addText}>Add</Text>
+          <Ionicons name="add" size={22} color={colors.text} />
         </Pressable>
       </View>
       {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -140,7 +140,7 @@ export function TagPicker({ trackId }: Props) {
 
 const styles = StyleSheet.create({
   section: {
-    gap: space.sm,
+    gap: space.md,
   },
   grid: {
     flexDirection: 'row',
@@ -148,12 +148,12 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   check: {
-    minHeight: 36,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.xs,
-    paddingHorizontal: space.sm,
-    borderRadius: 10,
+    paddingHorizontal: space.md,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#ffffff14',
     backgroundColor: colors.surface,
@@ -183,21 +183,17 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     backgroundColor: colors.surface,
-    borderRadius: 999,
-    paddingHorizontal: space.md,
-    minHeight: 44,
+    borderRadius: radius.screen,
+    paddingHorizontal: space.lg,
+    minHeight: 48,
   },
   add: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.md,
-    borderRadius: 999,
+    borderRadius: 24,
     backgroundColor: colors.accent,
-  },
-  addText: {
-    ...type.meta,
-    color: colors.text,
   },
   message: {
     ...type.meta,
