@@ -252,34 +252,31 @@ export function CollectionsScreen({
 
           <View style={[ui.content, { paddingTop: space.md }]}>
             <Text style={ui.sectionTitle}>Artists</Text>
-            <View style={ui.card}>
-              {artists.length === 0 ? (
-                <Text style={styles.empty}>No artists yet.</Text>
-              ) : (
-                artists.map((item) => (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => setSelection({ kind: 'artist', key: item.key })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name}, ${artistMeta(item)}`}
-                    style={({ pressed }) => [styles.row, pressed && ui.rowPressed]}
-                  >
-                    <CoverArt
-                      hue={item.tracks[0]?.artworkHue ?? 0}
-                      title={item.name}
-                      size={48}
-                      radius={24}
-                      uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
-                    />
-                    <View style={styles.rowText}>
-                      <MarqueeText text={item.name} style={ui.rowTitle} />
-                      <Text style={ui.rowMeta}>{artistMeta(item)}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-                  </Pressable>
-                ))
-              )}
-            </View>
+            {artists.length === 0 ? (
+              <Text style={styles.empty}>No artists yet.</Text>
+            ) : (
+              artists.map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => setSelection({ kind: 'artist', key: item.key })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}, ${artistMeta(item)}`}
+                  style={({ pressed }) => [styles.row, styles.artistRow, pressed && ui.rowPressed]}
+                >
+                  <CoverArt
+                    hue={item.tracks[0]?.artworkHue ?? 0}
+                    title={item.name}
+                    size={48}
+                    radius={24}
+                    uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
+                  />
+                  <View style={styles.rowText}>
+                    <MarqueeText text={item.name} style={ui.rowTitle} />
+                    <Text style={ui.rowMeta}>{artistMeta(item)}</Text>
+                  </View>
+                </Pressable>
+              ))
+            )}
           </View>
         </ScrollView>
       )}
@@ -335,6 +332,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     paddingHorizontal: 0,
   },
+  artistRow: {
+    borderBottomWidth: 0,
+    paddingHorizontal: 0,
+  },
   likedIcon: {
     width: 48,
     height: 48,
@@ -356,6 +357,6 @@ const styles = StyleSheet.create({
   empty: {
     ...type.meta,
     color: colors.textDim,
-    padding: space.md,
+    paddingVertical: space.md,
   },
 });
