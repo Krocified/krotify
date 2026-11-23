@@ -17,7 +17,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sheetKeyboardMetrics } from '../lib/sheetKeyboard';
 import { colors, radius, space, type } from '../theme';
-import { useActiveBlurTarget } from '../ui/blurTargetContext';
 import { useKeyboardHeight } from './useKeyboardHeight';
 
 type Props = {
@@ -51,7 +50,6 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', children }: 
   });
   const keyboardGap = keyboard.height > 0 ? space.sm : 0;
   const isDialog = variant === 'dialog';
-  const blurTarget = useActiveBlurTarget();
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -177,17 +175,14 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', children }: 
             },
           ]}
         >
-          {isDialog && blurTarget ? (
+          {isDialog ? (
             <BlurView
               pointerEvents="none"
               intensity={40}
               tint="dark"
-              blurMethod="dimezisBlurViewSdk31Plus"
-              blurTarget={blurTarget}
               style={StyleSheet.absoluteFill}
             />
           ) : null}
-          {isDialog ? <View pointerEvents="none" style={styles.dialogFill} /> : null}
           {isDialog ? null : <View style={styles.grabber} />}
           {title ? (
             <Text style={styles.title} numberOfLines={1}>
@@ -246,20 +241,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.screen,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(22, 22, 29, 0.35)',
     shadowColor: '#000000',
     shadowOpacity: 0.35,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 12,
-  },
-  dialogFill: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(22, 22, 29, 0.24)',
   },
   grabber: {
     alignSelf: 'center',
