@@ -191,8 +191,8 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   iconButton: {
+    width: 44,
     height: 44,
-    minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
