@@ -57,7 +57,7 @@ export const TrackRow = memo(function TrackRow({
         <CoverArt
           hue={track.artworkHue}
           title={track.title}
-          size={56}
+          size={54}
           radius={4}
           uri={track.artworkUri}
         />
