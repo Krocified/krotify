@@ -49,7 +49,7 @@ export function TabBar({ active, onSelect, blurTarget }: Props) {
                   accessibilityRole="tab"
                   accessibilityLabel={tab.label}
                   accessibilityState={{ selected }}
-                  style={styles.tab}
+                  style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                 >
                   <Ionicons
                     name={selected ? tab.iconActive : tab.icon}
@@ -104,5 +104,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 16,
   },
 });
