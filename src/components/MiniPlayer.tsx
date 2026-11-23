@@ -23,7 +23,7 @@ type Props = {
   blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
-export const MINI_PLAYER_HEIGHT = 72;
+export const MINI_PLAYER_HEIGHT = 68;
 
 export function MiniPlayer({ onExpand, blurTarget }: Props) {
   const { track, isPlaying, queueLength } = usePlayerStatus();
@@ -208,7 +208,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 12,
-    marginBottom: 8,
+    marginBottom: 4,
     borderRadius: 32,
   },
   pillContent: {
