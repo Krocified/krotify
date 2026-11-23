@@ -89,9 +89,15 @@ export const TrackRow = memo(function TrackRow({
           accessibilityRole="button"
           accessibilityLabel={`More options for ${track.title}`}
           hitSlop={space.sm}
-          style={({ pressed }) => [styles.more, pressed && styles.morePressed]}
+          style={styles.more}
         >
-          <Ionicons name="ellipsis-vertical" size={18} color={colors.textDim} />
+          {({ pressed }) => (
+            <Ionicons
+              name="ellipsis-vertical"
+              size={18}
+              color={pressed ? colors.text : colors.textDim}
+            />
+          )}
         </Pressable>
       ) : null}
     </View>
@@ -146,8 +152,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: -space.xs,
-  },
-  morePressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
 });
