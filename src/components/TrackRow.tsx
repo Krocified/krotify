@@ -91,7 +91,7 @@ export const TrackRow = memo(function TrackRow({
           hitSlop={space.sm}
           style={({ pressed }) => [styles.more, pressed && styles.morePressed]}
         >
-          <Ionicons name="ellipsis-horizontal" size={22} color={colors.textDim} />
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.textDim} />
         </Pressable>
       ) : null}
     </View>
@@ -107,8 +107,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ffffff10',
   },
   main: {
     flex: 1,
