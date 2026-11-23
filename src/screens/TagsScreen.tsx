@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     gap: space.sm,
-    padding: space.md,
+    paddingHorizontal: space.md,
     marginHorizontal: -space.md,
   },
   input: {
