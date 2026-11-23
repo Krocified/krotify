@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.md - space.xs,
   },
   pressed: {
     transform: [{ scale: 0.985 }],
