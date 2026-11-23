@@ -86,10 +86,16 @@ export const BackPill = memo(function BackPill({
         styles.backPill,
         icon === 'arrow-back' && styles.backPillCircle,
         plain && styles.backPillPlain,
-        pressed && styles.backPillPressed,
+        pressed && !plain && styles.backPillPressed,
       ]}
     >
-      <Ionicons name={icon} size={22} color={colors.text} />
+      {({ pressed }) => (
+        <Ionicons
+          name={icon}
+          size={22}
+          color={plain && pressed ? colors.accent2 : colors.text}
+        />
+      )}
     </Pressable>
   );
 });
@@ -143,6 +149,7 @@ const styles = StyleSheet.create({
   },
   backPillPlain: {
     backgroundColor: 'transparent',
+    marginLeft: -space.sm,
   },
   backPillCircle: {
     width: 36,
