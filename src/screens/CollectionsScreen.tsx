@@ -250,7 +250,7 @@ export function CollectionsScreen({
             onViewAll={onOpenPlaylists}
           />
 
-          <View style={[ui.content, { paddingTop: space.md }]}>
+          <View style={[ui.content, { paddingTop: space.xs, gap: space.xs }]}>
             <Text style={ui.sectionTitle}>Artists</Text>
             {artists.length === 0 ? (
               <Text style={styles.empty}>No artists yet.</Text>
@@ -333,6 +333,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   artistRow: {
+    minHeight: 48,
+    paddingVertical: 0,
     borderBottomWidth: 0,
     paddingHorizontal: 0,
   },
@@ -357,6 +359,6 @@ const styles = StyleSheet.create({
   empty: {
     ...type.meta,
     color: colors.textDim,
-    paddingVertical: space.md,
+    paddingVertical: space.sm,
   },
 });
