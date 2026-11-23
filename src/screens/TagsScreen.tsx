@@ -25,7 +25,7 @@ import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { normalizeTagName } from '../tags/name';
 import { useTags } from '../tags/TagProvider';
 import { createTag, deleteTag } from '../tags/repo';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 import { ui } from '../ui/styles';
 
 type Props = {
@@ -210,7 +210,7 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
                 {busy ? (
                   <ActivityIndicator color={colors.text} />
                 ) : (
-                  <Text style={styles.addText}>Add</Text>
+                  <Ionicons name="add" size={22} color={colors.text} />
                 )}
               </Pressable>
             </View>
@@ -342,21 +342,17 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     backgroundColor: colors.surfaceHi,
-    borderRadius: 999,
-    paddingHorizontal: space.md,
-    minHeight: 44,
+    borderRadius: radius.screen,
+    paddingHorizontal: space.lg,
+    minHeight: 48,
   },
   add: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.md,
-    borderRadius: 999,
+    borderRadius: 24,
     backgroundColor: colors.accent,
-  },
-  addText: {
-    ...type.meta,
-    color: colors.text,
   },
   message: {
     ...type.meta,
