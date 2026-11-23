@@ -4,7 +4,9 @@ import { TECH_STACK } from '../lib/techStack';
 import { colors, space, type } from '../theme';
 import { ui } from '../ui/styles';
 import { CreatedByKrocified } from './CreatedByKrocified';
+import { MINI_PLAYER_HEIGHT } from './MiniPlayer';
 import { BackPill } from './ScreenHeader';
+import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from './TabBar';
 
 type Props = {
   visible: boolean;
@@ -29,7 +31,18 @@ export function TechStackScreen({ visible, onBack }: Props) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[ui.content, { paddingBottom: insets.bottom + space.xl }]}
+        contentContainerStyle={[
+          ui.content,
+          {
+            paddingTop: space.sm,
+            paddingBottom:
+              insets.bottom +
+              TAB_BAR_HEIGHT +
+              TAB_BAR_BOTTOM_GAP +
+              MINI_PLAYER_HEIGHT +
+              space.xl,
+          },
+        ]}
       >
         <View style={ui.card}>
           {TECH_STACK.map((item) => (
