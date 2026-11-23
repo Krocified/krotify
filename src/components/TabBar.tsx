@@ -7,7 +7,7 @@ import { colors, space } from '../theme';
 
 export type TabName = 'library' | 'import' | 'collections';
 
-export const TAB_BAR_HEIGHT = 56;
+export const TAB_BAR_HEIGHT = 50;
 export const TAB_BAR_BOTTOM_GAP = 12;
 
 type Props = {
