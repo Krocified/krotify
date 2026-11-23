@@ -128,6 +128,8 @@ const styles = StyleSheet.create({
   action: {
     flex: 1,
     minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: space.sm,
   },
 });

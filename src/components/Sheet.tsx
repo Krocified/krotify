@@ -190,7 +190,7 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', footer, chil
           ) : null}
           {isDialog ? null : <View style={styles.grabber} />}
           {title ? (
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, isDialog && styles.dialogTitle]} numberOfLines={1}>
               {title}
             </Text>
           ) : null}
@@ -268,6 +268,9 @@ const styles = StyleSheet.create({
     ...type.body,
     color: colors.text,
     paddingVertical: space.sm,
+  },
+  dialogTitle: {
+    textAlign: 'center',
   },
   scroll: {
     flexGrow: 0,
