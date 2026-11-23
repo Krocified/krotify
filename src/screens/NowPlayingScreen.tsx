@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } 
 import {
   Animated,
   Easing,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import { LyricsStage } from '../components/LyricsStage';
 import { MarqueeText } from '../components/MarqueeText';
 import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
+import { QueuePanel } from '../components/QueuePanel';
 import { BackPill } from '../components/ScreenHeader';
 import { PlayerTopActions } from '../components/PlayerTopActions';
 import { Visualizer } from '../components/Visualizer';
@@ -69,6 +71,7 @@ export function NowPlayingScreen({
     repeat,
     shuffle,
     sleep,
+    upcoming,
   } = usePlayerStatus();
   const { positionMs, durationMs } = usePlayerProgress();
   const {
@@ -80,6 +83,7 @@ export function NowPlayingScreen({
     next,
     previous,
     advanceToNextPlayable,
+    jumpTo,
   } = usePlayerActions();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { width, height } = useWindowDimensions();
@@ -94,6 +98,7 @@ export function NowPlayingScreen({
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [modeAnim] = useState(() => new Animated.Value(0));
   const playerBlurRef = useRef<ComponentRef<typeof View> | null>(null);
   const lyrics = useLyrics(track, LYRICS_ENABLED && lyricsMode);
@@ -142,16 +147,40 @@ export function NowPlayingScreen({
 
   useEffect(() => {
     if (!registerBackInterceptor) return;
-    if (!actionsOpen) {
+    if (!actionsOpen && !queueOpen) {
       registerBackInterceptor(null);
       return;
     }
     registerBackInterceptor(() => {
+      if (queueOpen) {
+        setQueueOpen(false);
+        return true;
+      }
       setActionsOpen(false);
       return true;
     });
     return () => registerBackInterceptor(null);
-  }, [registerBackInterceptor, actionsOpen]);
+  }, [registerBackInterceptor, actionsOpen, queueOpen]);
+
+  const swipeUpResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          !lyricsMode &&
+          !queueOpen &&
+          gesture.dy < -16 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          !lyricsMode &&
+          !queueOpen &&
+          gesture.dy < -16 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy < -60) setQueueOpen(true);
+        },
+      }),
+    [lyricsMode, queueOpen],
+  );
 
   const selectSleepPreset = useCallback(
     (preset: SleepPreset) => {
@@ -241,6 +270,7 @@ export function NowPlayingScreen({
           styles.content,
           { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg },
         ]}
+        {...swipeUpResponder.panHandlers}
       >
         <View style={styles.topBar}>
           <BackPill onPress={close} icon="chevron-down" label="Close" plain />
@@ -465,6 +495,15 @@ export function NowPlayingScreen({
           ) : null}
         </View>
       </View>
+      <QueuePanel
+        visible={queueOpen}
+        upcoming={upcoming}
+        onClose={() => setQueueOpen(false)}
+        onSelect={(item) => {
+          setQueueOpen(false);
+          jumpTo(item.id);
+        }}
+      />
       <TagAssignSheet
         visible={tagOpen}
         track={track}
