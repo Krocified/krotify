@@ -317,7 +317,7 @@ function shuffle(queue: Track[]): Track[] {
 
 const styles = StyleSheet.create({
   list: {
-    paddingHorizontal: space.md,
+    paddingHorizontal: 0,
   },
   row: {
     minHeight: 64,
