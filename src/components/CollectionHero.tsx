@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.7,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   disabled: {
     opacity: 0.4,

@@ -83,6 +83,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.75,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
 });

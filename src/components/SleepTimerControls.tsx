@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   chipPressed: {
-    opacity: 0.75,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   chipText: {
     ...type.meta,

@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     color: colors.accent2,
   },
   pressed: {
-    opacity: 0.75,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   error: {
     ...type.meta,

@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   pressed: {
-    opacity: 0.8,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   label: {
     ...type.meta,

@@ -369,6 +369,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger,
   },
   removeActionPressed: {
-    opacity: 0.8,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
 });

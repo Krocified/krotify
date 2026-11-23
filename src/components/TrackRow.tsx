@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     gap: space.md - space.xs,
   },
   pressed: {
-    transform: [{ scale: 0.985 }],
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   text: {
     flex: 1,
@@ -148,6 +148,6 @@ const styles = StyleSheet.create({
     marginRight: -space.xs,
   },
   morePressed: {
-    opacity: 0.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
 });

@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     color: colors.textDim,
   },
   pressed: {
-    opacity: 0.7,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   track: {
     height: 3,

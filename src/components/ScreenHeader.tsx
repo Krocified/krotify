@@ -149,6 +149,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   backPillPressed: {
-    opacity: 0.7,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
 });

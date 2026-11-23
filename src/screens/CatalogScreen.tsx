@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHi,
   },
   segmentPressed: {
-    opacity: 0.8,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   segmentLabel: {
     ...type.meta,

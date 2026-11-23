@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.screen,
   },
   pressed: {
-    opacity: 0.7,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   label: {
     ...type.body,
