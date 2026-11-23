@@ -159,6 +159,7 @@ export const ui = StyleSheet.create({
   primaryButtonText: {
     ...type.body,
     color: colors.text,
+    textAlign: 'center',
   },
   secondaryButton: {
     minHeight: 40,
@@ -171,5 +172,6 @@ export const ui = StyleSheet.create({
   secondaryButtonText: {
     ...type.body,
     color: colors.text,
+    textAlign: 'center',
   },
 });

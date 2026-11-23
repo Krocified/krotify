@@ -498,6 +498,7 @@ const styles = StyleSheet.create({
   createText: {
     ...type.meta,
     color: colors.text,
+    textAlign: 'center',
   },
   addButton: {
     minHeight: 48,
@@ -512,5 +513,6 @@ const styles = StyleSheet.create({
   addText: {
     ...type.body,
     color: colors.text,
+    textAlign: 'center',
   },
 });

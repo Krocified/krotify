@@ -229,5 +229,6 @@ const styles = StyleSheet.create({
   doneText: {
     ...type.body,
     color: colors.textDim,
+    textAlign: 'center',
   },
 });

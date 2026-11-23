@@ -395,6 +395,7 @@ const styles = StyleSheet.create({
   primaryText: {
     ...type.body,
     color: colors.text,
+    textAlign: 'center',
   },
   secondary: {
     minHeight: 48,
@@ -409,6 +410,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     ...type.body,
     color: colors.text,
+    textAlign: 'center',
   },
   link: {
     paddingVertical: space.xs,
