@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sheetKeyboardMetrics } from '../lib/sheetKeyboard';
-import { colors, space, type } from '../theme';
+import { colors, radius, space, type } from '../theme';
 import { useKeyboardHeight } from './useKeyboardHeight';
 
 type Props = {
@@ -138,7 +138,9 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', children }: 
           isDialog && { paddingBottom: metrics.lift },
         ]}
       >
-        <Animated.View style={[styles.backdrop, { opacity: anim }]} />
+        <Animated.View
+          style={[styles.backdrop, isDialog && styles.backdropDialog, { opacity: anim }]}
+        />
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
@@ -212,6 +214,9 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: 'rgba(0,0,0,0.62)',
   },
+  backdropDialog: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   panel: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
@@ -224,7 +229,15 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
-    borderRadius: 20,
+    borderRadius: radius.screen,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(22, 22, 29, 0.72)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
   grabber: {
     alignSelf: 'center',
