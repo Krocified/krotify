@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   artistRow: {
     minHeight: 48,
-    paddingVertical: 0,
+    paddingVertical: space.xs,
     borderBottomWidth: 0,
     paddingHorizontal: 0,
   },
