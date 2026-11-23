@@ -161,7 +161,7 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', footer, chil
             styles.panel,
             isDialog && styles.dialog,
             isDialog
-              ? { maxHeight: metrics.maxHeight - keyboardGap, paddingBottom: space.lg }
+              ? { maxHeight: metrics.maxHeight - keyboardGap, paddingBottom: footer ? 0 : space.lg }
               : {
                   paddingBottom:
                     keyboard.height > 0 ? space.md : insets.bottom + space.md,
@@ -278,7 +278,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   footer: {
+    flexShrink: 0,
     gap: space.sm,
     paddingTop: space.sm,
+    paddingBottom: space.md,
+    marginHorizontal: -space.md,
+    paddingHorizontal: space.md,
   },
 });
