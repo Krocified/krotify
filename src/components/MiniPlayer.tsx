@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
     height: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
-    paddingLeft: 4,
+    gap: space.md - space.xs,
+    paddingLeft: 8,
   },
   pressed: {
     backgroundColor: '#262633',
