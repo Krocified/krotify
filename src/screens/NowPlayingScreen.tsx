@@ -697,11 +697,11 @@ const styles = StyleSheet.create({
     color: colors.accent2,
   },
   sideButton: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 28,
+    borderRadius: 26,
   },
   sidePressed: {
     backgroundColor: '#ffffff14',

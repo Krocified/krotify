@@ -32,7 +32,7 @@ export function BlurPill({
   disabled = false,
   blurTarget,
   intensity = 40,
-  fillColor = 'rgba(22,22,29,0.35)',
+  fillColor = 'rgba(22,22,29,0.10)',
   style,
   contentStyle,
   accessibilityRole,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#ffffff14',
-    backgroundColor: 'rgba(22,22,29,0.55)',
+    backgroundColor: 'transparent',
   },
   fill: {
     position: 'absolute',
