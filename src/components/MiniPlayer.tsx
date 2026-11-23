@@ -23,6 +23,8 @@ type Props = {
   blurTarget?: RefObject<ComponentRef<typeof View> | null>;
 };
 
+export const MINI_PLAYER_HEIGHT = 72;
+
 export function MiniPlayer({ onExpand, blurTarget }: Props) {
   const { track, isPlaying, queueLength } = usePlayerStatus();
   const { toggle, skipNext, skipPrevious, stop } = usePlayerActions();

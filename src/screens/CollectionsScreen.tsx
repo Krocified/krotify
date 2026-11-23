@@ -12,6 +12,7 @@ import { CoverArt } from '../components/CoverArt';
 import { MarqueeText } from '../components/MarqueeText';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
+import { MINI_PLAYER_HEIGHT } from '../components/MiniPlayer';
 import { TrackRow } from '../components/TrackRow';
 import type { PlaylistSummary } from '../db/repo';
 import { applyArtistArt, artistArtKey, artistSongsLabel } from '../lib/artistIdentity';
@@ -86,7 +87,8 @@ export function CollectionsScreen({
   const detailTracks = useMemo(() => (artist ? artist.tracks : []), [artist]);
   const detailHue = artist?.tracks[0]?.artworkHue ?? 0;
 
-  const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom + space.xl;
+  const bottomPad =
+    TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + MINI_PLAYER_HEIGHT + insets.bottom + space.xl;
   const selectTrack = useCallback(
     (track: Track) => onSelect(track, detailTracks),
     [detailTracks, onSelect],
