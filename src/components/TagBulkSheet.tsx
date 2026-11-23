@@ -70,7 +70,7 @@ export function TagBulkSheet({ visible, trackIds, onClose, onDone }: Props) {
   }
 
   return (
-    <Sheet visible={visible} title="Tags" onClose={onClose}>
+    <Sheet variant="dialog" visible={visible} title="Tags" onClose={onClose}>
       <Text style={styles.hint}>
         Applies to {count} selected {count === 1 ? 'track' : 'tracks'}.
       </Text>

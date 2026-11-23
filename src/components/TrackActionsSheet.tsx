@@ -305,7 +305,7 @@ export function PlaylistPickerSheet({
       : `Add ${count} ${count === 1 ? 'song' : 'songs'} to ${selected.size} ${selected.size === 1 ? 'playlist' : 'playlists'}`;
 
   return (
-    <Sheet visible={visible} title="Add to playlist" onClose={closePicker}>
+    <Sheet variant="dialog" visible={visible} title="Add to playlist" onClose={closePicker}>
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />

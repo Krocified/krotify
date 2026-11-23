@@ -22,6 +22,7 @@ type Props = {
   visible: boolean;
   title?: string;
   onClose: () => void;
+  variant?: 'sheet' | 'dialog';
   children: ReactNode;
 };
 
@@ -36,7 +37,7 @@ function focusableElements(panel: HTMLElement): HTMLElement[] {
   ).filter((element) => !element.hasAttribute('disabled'));
 }
 
-export function Sheet({ visible, title, onClose, children }: Props) {
+export function Sheet({ visible, title, onClose, variant = 'sheet', children }: Props) {
   const insets = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const keyboard = useKeyboardHeight();
@@ -47,6 +48,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
     viewportHeight,
   });
   const keyboardGap = keyboard.height > 0 ? space.sm : 0;
+  const isDialog = variant === 'dialog';
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -129,7 +131,13 @@ export function Sheet({ visible, title, onClose, children }: Props) {
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.root}>
+      <View
+        style={[
+          styles.root,
+          isDialog && styles.rootDialog,
+          isDialog && { paddingBottom: metrics.lift },
+        ]}
+      >
         <Animated.View style={[styles.backdrop, { opacity: anim }]} />
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -143,22 +151,28 @@ export function Sheet({ visible, title, onClose, children }: Props) {
           importantForAccessibility="yes"
           style={[
             styles.panel,
+            isDialog && styles.dialog,
+            isDialog
+              ? { maxHeight: metrics.maxHeight - keyboardGap, paddingBottom: space.md }
+              : {
+                  paddingBottom:
+                    keyboard.height > 0 ? space.md : insets.bottom + space.md,
+                  maxHeight: metrics.maxHeight - keyboardGap,
+                  marginBottom: metrics.lift + keyboardGap,
+                },
             {
-              paddingBottom: keyboard.height > 0 ? space.md : insets.bottom + space.md,
-              maxHeight: metrics.maxHeight - keyboardGap,
-              marginBottom: metrics.lift + keyboardGap,
               transform: [
                 {
                   translateY: anim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [PANEL_OFFSET, 0],
+                    outputRange: [isDialog ? 24 : PANEL_OFFSET, 0],
                   }),
                 },
               ],
             },
           ]}
         >
-          <View style={styles.grabber} />
+          {isDialog ? null : <View style={styles.grabber} />}
           {title ? (
             <Text style={styles.title} numberOfLines={1}>
               {title}
@@ -186,6 +200,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  rootDialog: {
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -201,6 +219,12 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     paddingHorizontal: space.md,
     overflow: 'hidden',
+  },
+  dialog: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: 20,
   },
   grabber: {
     alignSelf: 'center',

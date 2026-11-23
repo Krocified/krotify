@@ -51,7 +51,7 @@ export function PlaylistCreateSheet({ visible, onClose, onCreated }: Props) {
   }
 
   return (
-    <Sheet visible={visible} title="New playlist" onClose={handleClose}>
+    <Sheet variant="dialog" visible={visible} title="New playlist" onClose={handleClose}>
       <View style={ui.field}>
         <Text style={ui.fieldLabel}>Name</Text>
         <TextInput

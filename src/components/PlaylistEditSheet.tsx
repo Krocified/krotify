@@ -211,7 +211,7 @@ export function PlaylistEditSheet({
 
   return (
     <>
-      <Sheet visible={visible} title="Edit playlist" onClose={handleClose}>
+      <Sheet variant="dialog" visible={visible} title="Edit playlist" onClose={handleClose}>
       <View style={styles.coverRow}>
         <CoverArt
           hue={artwork.hue}

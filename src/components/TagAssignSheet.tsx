@@ -11,7 +11,7 @@ type Props = {
 export function TagAssignSheet({ visible, track, onClose }: Props) {
   if (!track) return null;
   return (
-    <Sheet visible={visible} title="Tags" onClose={onClose}>
+    <Sheet variant="dialog" visible={visible} title="Tags" onClose={onClose}>
       <TagPicker trackId={track.id} />
     </Sheet>
   );

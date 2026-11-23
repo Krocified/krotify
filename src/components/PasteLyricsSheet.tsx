@@ -38,7 +38,7 @@ export function PasteLyricsSheet({ visible, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Sheet visible={visible} title="Paste lyrics" onClose={close}>
+    <Sheet variant="dialog" visible={visible} title="Paste lyrics" onClose={close}>
       <Text style={styles.hint}>LRC or YAML. The format is detected automatically.</Text>
       <TextInput
         value={text}
