@@ -305,7 +305,79 @@ export function PlaylistPickerSheet({
       : `Add ${count} ${count === 1 ? 'song' : 'songs'} to ${selected.size} ${selected.size === 1 ? 'playlist' : 'playlists'}`;
 
   return (
-    <Sheet variant="dialog" visible={visible} title="Add to playlist" onClose={closePicker}>
+    <Sheet
+      variant="dialog"
+      visible={visible}
+      title="Add to playlist"
+      onClose={closePicker}
+      footer={
+        <>
+          {!loading ? (
+            <View style={styles.newRow}>
+              <TextInput
+                value={newName}
+                onChangeText={(value) => {
+                  setNewName(value);
+                  setMessage(null);
+                }}
+                onSubmitEditing={() => void createAndAdd()}
+                placeholder="New playlist"
+                placeholderTextColor={colors.textDim}
+                editable={!busy}
+                returnKeyType="done"
+                maxLength={60}
+                accessibilityLabel="New playlist name"
+                style={styles.input}
+              />
+              <Pressable
+                onPress={() => void createAndAdd()}
+                disabled={busy || count === 0}
+                accessibilityRole="button"
+                accessibilityLabel="Create playlist and add songs"
+                accessibilityState={{ disabled: busy || count === 0, busy: creating }}
+                style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
+              >
+                {creating ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <Text style={styles.createText}>Create</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <Pressable
+            onPress={() => void addSelected()}
+            disabled={selected.size === 0 || busy || count === 0}
+            accessibilityRole="button"
+            accessibilityLabel={addLabel}
+            accessibilityState={{
+              disabled: selected.size === 0 || busy || count === 0,
+              busy: adding,
+            }}
+            style={({ pressed }) => [
+              styles.addButton,
+              (selected.size === 0 || busy || count === 0) && styles.addDisabled,
+              pressed && selected.size > 0 && !busy && styles.pressed,
+            ]}
+          >
+            {adding ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <Text style={styles.addText}>{addLabel}</Text>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={closePicker}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+            style={({ pressed }) => [styles.row, styles.cancel, pressed && styles.pressed]}
+          >
+            <Text style={styles.cancelText}>Done</Text>
+          </Pressable>
+        </>
+      }
+    >
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
@@ -337,69 +409,6 @@ export function PlaylistPickerSheet({
           );
         })
       )}
-      {!loading ? (
-        <View style={styles.newRow}>
-          <TextInput
-            value={newName}
-            onChangeText={(value) => {
-              setNewName(value);
-              setMessage(null);
-            }}
-            onSubmitEditing={() => void createAndAdd()}
-            placeholder="New playlist"
-            placeholderTextColor={colors.textDim}
-            editable={!busy}
-            returnKeyType="done"
-            maxLength={60}
-            accessibilityLabel="New playlist name"
-            style={styles.input}
-          />
-          <Pressable
-            onPress={() => void createAndAdd()}
-            disabled={busy || count === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Create playlist and add songs"
-            accessibilityState={{ disabled: busy || count === 0, busy: creating }}
-            style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
-          >
-            {creating ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <Text style={styles.createText}>Create</Text>
-            )}
-          </Pressable>
-        </View>
-      ) : null}
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      <Pressable
-        onPress={() => void addSelected()}
-        disabled={selected.size === 0 || busy || count === 0}
-        accessibilityRole="button"
-        accessibilityLabel={addLabel}
-        accessibilityState={{
-          disabled: selected.size === 0 || busy || count === 0,
-          busy: adding,
-        }}
-        style={({ pressed }) => [
-          styles.addButton,
-          (selected.size === 0 || busy || count === 0) && styles.addDisabled,
-          pressed && selected.size > 0 && !busy && styles.pressed,
-        ]}
-      >
-        {adding ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.addText}>{addLabel}</Text>
-        )}
-      </Pressable>
-      <Pressable
-        onPress={closePicker}
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-        style={({ pressed }) => [styles.row, styles.cancel, pressed && styles.pressed]}
-      >
-        <Text style={styles.cancelText}>Done</Text>
-      </Pressable>
     </Sheet>
   );
 }

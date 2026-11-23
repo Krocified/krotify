@@ -24,6 +24,7 @@ type Props = {
   title?: string;
   onClose: () => void;
   variant?: 'sheet' | 'dialog';
+  footer?: ReactNode;
   children: ReactNode;
 };
 
@@ -38,7 +39,7 @@ function focusableElements(panel: HTMLElement): HTMLElement[] {
   ).filter((element) => !element.hasAttribute('disabled'));
 }
 
-export function Sheet({ visible, title, onClose, variant = 'sheet', children }: Props) {
+export function Sheet({ visible, title, onClose, variant = 'sheet', footer, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const keyboard = useKeyboardHeight();
@@ -200,6 +201,7 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', children }: 
           >
             {children}
           </ScrollView>
+          {footer ? <View style={styles.footer}>{footer}</View> : null}
         </Animated.View>
       </View>
     </Modal>
@@ -268,5 +270,9 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: space.sm,
+  },
+  footer: {
+    gap: space.sm,
+    paddingTop: space.sm,
   },
 });

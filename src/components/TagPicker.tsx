@@ -13,16 +13,14 @@ const INVALID_NAME = 'Enter a tag name of 32 characters or less.';
 const WRITE_FAILED = 'Could not update tags. Try again.';
 
 export function TagPicker({ trackId }: Props) {
-  const { tags, tagsFor, assign, unassign, createAndAssign } = useTags();
-  const [draft, setDraft] = useState('');
+  const { tags, tagsFor, assign, unassign } = useTags();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const assignedIds = new Set(tagsFor(trackId).map((tag) => tag.id));
   const sorted = [...tags].sort((left, right) =>
     left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
   );
-  const busy = busyId !== null || adding;
+  const busy = busyId !== null;
 
   async function toggle(tagId: string) {
     if (busy) return;
@@ -35,36 +33,6 @@ export function TagPicker({ trackId }: Props) {
       setMessage(WRITE_FAILED);
     } finally {
       setBusyId(null);
-    }
-  }
-
-  async function add() {
-    if (busy) return;
-    const name = normalizeTagName(draft);
-    if (name === null) {
-      setMessage(INVALID_NAME);
-      return;
-    }
-    const existing = tags.find(
-      (tag) => tag.name.toLowerCase() === name.toLowerCase(),
-    );
-    setAdding(true);
-    setMessage(null);
-    try {
-      if (existing) {
-        if (!assignedIds.has(existing.id)) await assign(trackId, existing.id);
-      } else {
-        const tag = await createAndAssign(trackId, name);
-        if (!tag) {
-          setMessage(INVALID_NAME);
-          return;
-        }
-      }
-      setDraft('');
-    } catch {
-      setMessage(WRITE_FAILED);
-    } finally {
-      setAdding(false);
     }
   }
 
@@ -106,6 +74,48 @@ export function TagPicker({ trackId }: Props) {
       ) : (
         <Text style={styles.hint}>No tags yet. Create one below.</Text>
       )}
+      {message ? <Text style={styles.message}>{message}</Text> : null}
+    </View>
+  );
+}
+
+export function TagPickerFooter({ trackId }: Props) {
+  const { tags, tagsFor, assign, createAndAssign } = useTags();
+  const [draft, setDraft] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const assignedIds = new Set(tagsFor(trackId).map((tag) => tag.id));
+
+  async function add() {
+    if (adding) return;
+    const name = normalizeTagName(draft);
+    if (name === null) {
+      setMessage(INVALID_NAME);
+      return;
+    }
+    const existing = tags.find((tag) => tag.name.toLowerCase() === name.toLowerCase());
+    setAdding(true);
+    setMessage(null);
+    try {
+      if (existing) {
+        if (!assignedIds.has(existing.id)) await assign(trackId, existing.id);
+      } else {
+        const tag = await createAndAssign(trackId, name);
+        if (!tag) {
+          setMessage(INVALID_NAME);
+          return;
+        }
+      }
+      setDraft('');
+    } catch {
+      setMessage(WRITE_FAILED);
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  return (
+    <View style={styles.section}>
       <View style={styles.inputRow}>
         <TextInput
           value={draft}
@@ -116,7 +126,7 @@ export function TagPicker({ trackId }: Props) {
           onSubmitEditing={() => void add()}
           placeholder="New tag"
           placeholderTextColor={colors.textDim}
-          editable={!busy}
+          editable={!adding}
           returnKeyType="done"
           autoCapitalize="words"
           accessibilityLabel="New tag"
@@ -124,13 +134,17 @@ export function TagPicker({ trackId }: Props) {
         />
         <Pressable
           onPress={() => void add()}
-          disabled={busy}
+          disabled={adding}
           accessibilityRole="button"
           accessibilityLabel="Add tag"
-          accessibilityState={{ disabled: busy, busy: adding }}
+          accessibilityState={{ disabled: adding, busy: adding }}
           style={({ pressed }) => [styles.add, pressed && styles.pressed]}
         >
-          <Ionicons name="add" size={22} color={colors.text} />
+          {adding ? (
+            <Text style={styles.addingDot}>…</Text>
+          ) : (
+            <Ionicons name="add" size={22} color={colors.text} />
+          )}
         </Pressable>
       </View>
       {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -194,6 +208,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 24,
     backgroundColor: colors.accent,
+  },
+  addingDot: {
+    ...type.body,
+    color: colors.text,
   },
   message: {
     ...type.meta,

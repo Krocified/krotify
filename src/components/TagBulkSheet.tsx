@@ -70,7 +70,52 @@ export function TagBulkSheet({ visible, trackIds, onClose, onDone }: Props) {
   }
 
   return (
-    <Sheet variant="dialog" visible={visible} title="Tags" onClose={onClose}>
+    <Sheet variant="dialog" visible={visible} title="Tags" onClose={onClose} footer={
+        <>
+        <View style={styles.inputRow}>
+          <TextInput
+            value={draft}
+            onChangeText={(value) => {
+              setDraft(value);
+              setMessage(null);
+            }}
+            onSubmitEditing={() => void add()}
+            placeholder="New tag"
+            placeholderTextColor={colors.textDim}
+            editable={!busy}
+            returnKeyType="done"
+            autoCapitalize="words"
+            maxLength={32}
+            accessibilityLabel="New tag"
+            style={styles.input}
+          />
+          <Pressable
+            onPress={() => void add()}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Create tag and assign"
+            accessibilityState={{ disabled: busy, busy: adding }}
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          >
+            {adding ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <Ionicons name="add" size={22} color={colors.text} />
+            )}
+          </Pressable>
+        </View>
+        {message ? <Text style={styles.message}>{message}</Text> : null}
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+          style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+        >
+          <Text style={styles.doneText}>Done</Text>
+        </Pressable>
+        </>
+      }
+    >
       <Text style={styles.hint}>
         Applies to {count} selected {count === 1 ? 'track' : 'tracks'}.
       </Text>
@@ -116,47 +161,6 @@ export function TagBulkSheet({ visible, trackIds, onClose, onDone }: Props) {
             );
           })
       )}
-      <View style={styles.inputRow}>
-        <TextInput
-          value={draft}
-          onChangeText={(value) => {
-            setDraft(value);
-            setMessage(null);
-          }}
-          onSubmitEditing={() => void add()}
-          placeholder="New tag"
-          placeholderTextColor={colors.textDim}
-          editable={!busy}
-          returnKeyType="done"
-          autoCapitalize="words"
-          maxLength={32}
-          accessibilityLabel="New tag"
-          style={styles.input}
-        />
-        <Pressable
-          onPress={() => void add()}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Create tag and assign"
-          accessibilityState={{ disabled: busy, busy: adding }}
-          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-        >
-          {adding ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Ionicons name="add" size={22} color={colors.text} />
-          )}
-        </Pressable>
-      </View>
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-        style={({ pressed }) => [styles.done, pressed && styles.pressed]}
-      >
-        <Text style={styles.doneText}>Done</Text>
-      </Pressable>
     </Sheet>
   );
 }

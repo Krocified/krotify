@@ -211,7 +211,49 @@ export function PlaylistEditSheet({
 
   return (
     <>
-      <Sheet variant="dialog" visible={visible} title="Edit playlist" onClose={handleClose}>
+            <Sheet variant="dialog" visible={visible} title="Edit playlist" onClose={handleClose}
+        footer={
+          <>
+          <View style={styles.actions}>
+            <Pressable
+              onPress={handleClose}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              accessibilityState={{ disabled: busy }}
+              style={({ pressed }) => [
+                styles.secondary,
+                styles.action,
+                busy && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.secondaryText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void save()}
+              disabled={busy || name.trim().length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Save"
+              accessibilityState={{ disabled: busy || name.trim().length === 0, busy }}
+              style={({ pressed }) => [
+                styles.primary,
+                styles.action,
+                (busy || name.trim().length === 0) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={styles.primaryText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+  
+          </>
+        }
+      >
       <View style={styles.coverRow}>
         <CoverArt
           hue={artwork.hue}
@@ -284,43 +326,7 @@ export function PlaylistEditSheet({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.actions}>
-        <Pressable
-          onPress={handleClose}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-          accessibilityState={{ disabled: busy }}
-          style={({ pressed }) => [
-            styles.secondary,
-            styles.action,
-            busy && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.secondaryText}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void save()}
-          disabled={busy || name.trim().length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Save"
-          accessibilityState={{ disabled: busy || name.trim().length === 0, busy }}
-          style={({ pressed }) => [
-            styles.primary,
-            styles.action,
-            (busy || name.trim().length === 0) && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={styles.primaryText}>Save</Text>
-          )}
-        </Pressable>
-      </View>
-      </Sheet>
+    </Sheet>
       <ArtworkSourceSheet
         visible={sourceOpen}
         canRemove={!coverRemoved && Boolean(coverUri)}

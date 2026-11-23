@@ -51,7 +51,48 @@ export function PlaylistCreateSheet({ visible, onClose, onCreated }: Props) {
   }
 
   return (
-    <Sheet variant="dialog" visible={visible} title="New playlist" onClose={handleClose}>
+        <Sheet variant="dialog" visible={visible} title="New playlist" onClose={handleClose}
+      footer={
+        <>
+          <View style={[ui.actions, styles.actions]}>
+            <Pressable
+              onPress={handleClose}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              accessibilityState={{ disabled: busy }}
+              style={({ pressed }) => [
+                ui.secondaryButton,
+                styles.action,
+                busy && ui.disabled,
+                pressed && ui.pressed,
+              ]}
+            >
+              <Text style={ui.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void create()}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Create playlist"
+              accessibilityState={{ disabled: busy, busy }}
+              style={({ pressed }) => [
+                ui.primaryButton,
+                styles.action,
+                busy && ui.disabled,
+                pressed && ui.pressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={ui.primaryButtonText}>Create</Text>
+              )}
+            </Pressable>
+          </View>
+        </>
+      }
+    >
       <View style={ui.field}>
         <Text style={ui.fieldLabel}>Name</Text>
         <TextInput
@@ -72,42 +113,6 @@ export function PlaylistCreateSheet({ visible, onClose, onCreated }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={[ui.actions, styles.actions]}>
-        <Pressable
-          onPress={handleClose}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-          accessibilityState={{ disabled: busy }}
-          style={({ pressed }) => [
-            ui.secondaryButton,
-            styles.action,
-            busy && ui.disabled,
-            pressed && ui.pressed,
-          ]}
-        >
-          <Text style={ui.secondaryButtonText}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void create()}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Create playlist"
-          accessibilityState={{ disabled: busy, busy }}
-          style={({ pressed }) => [
-            ui.primaryButton,
-            styles.action,
-            busy && ui.disabled,
-            pressed && ui.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={ui.primaryButtonText}>Create</Text>
-          )}
-        </Pressable>
-      </View>
     </Sheet>
   );
 }

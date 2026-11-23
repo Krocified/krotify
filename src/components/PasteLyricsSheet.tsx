@@ -38,7 +38,41 @@ export function PasteLyricsSheet({ visible, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Sheet variant="dialog" visible={visible} title="Paste lyrics" onClose={close}>
+        <Sheet variant="dialog" visible={visible} title="Paste lyrics" onClose={close}
+      footer={
+        <>
+          <View style={[ui.actions, styles.actions]}>
+            <Pressable
+              onPress={close}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              style={({ pressed }) => [ui.secondaryButton, styles.action, pressed && ui.pressed]}
+            >
+              <Text style={ui.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void submit()}
+              disabled={busy || text.trim().length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Add lyrics"
+              style={({ pressed }) => [
+                ui.primaryButton,
+                styles.action,
+                (busy || text.trim().length === 0) && ui.disabled,
+                pressed && ui.pressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={ui.primaryButtonText}>Add lyrics</Text>
+              )}
+            </Pressable>
+          </View>
+        </>
+      }
+    >
       <Text style={styles.hint}>LRC or YAML. The format is detected automatically.</Text>
       <TextInput
         value={text}
@@ -56,35 +90,6 @@ export function PasteLyricsSheet({ visible, onClose, onSubmit }: Props) {
         style={[ui.input, styles.input]}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={[ui.actions, styles.actions]}>
-        <Pressable
-          onPress={close}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-          style={({ pressed }) => [ui.secondaryButton, styles.action, pressed && ui.pressed]}
-        >
-          <Text style={ui.secondaryButtonText}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void submit()}
-          disabled={busy || text.trim().length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Add lyrics"
-          style={({ pressed }) => [
-            ui.primaryButton,
-            styles.action,
-            (busy || text.trim().length === 0) && ui.disabled,
-            pressed && ui.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={ui.primaryButtonText}>Add lyrics</Text>
-          )}
-        </Pressable>
-      </View>
     </Sheet>
   );
 }
