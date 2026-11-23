@@ -51,6 +51,10 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', footer, chil
   });
   const keyboardGap = keyboard.height > 0 ? space.sm : 0;
   const isDialog = variant === 'dialog';
+  const scrollMaxHeight = Math.max(
+    160,
+    Math.round(viewportHeight * (isDialog ? 0.5 : 0.66)),
+  );
   const [anim] = useState(() => new Animated.Value(0));
   const panelRef = useRef<HostInstance>(null);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -192,7 +196,7 @@ export function Sheet({ visible, title, onClose, variant = 'sheet', footer, chil
           ) : null}
           <ScrollView
             ref={scrollRef}
-            style={styles.scroll}
+            style={[styles.scroll, { maxHeight: scrollMaxHeight }]}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
