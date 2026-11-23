@@ -367,14 +367,6 @@ export function PlaylistPickerSheet({
               <Text style={styles.addText}>{addLabel}</Text>
             )}
           </Pressable>
-          <Pressable
-            onPress={closePicker}
-            accessibilityRole="button"
-            accessibilityLabel="Done"
-            style={({ pressed }) => [styles.row, styles.cancel, pressed && styles.pressed]}
-          >
-            <Text style={styles.cancelText}>Done</Text>
-          </Pressable>
         </>
       }
     >
@@ -465,7 +457,7 @@ const styles = StyleSheet.create({
   empty: {
     ...type.meta,
     color: colors.textDim,
-    paddingVertical: space.md,
+    paddingVertical: space.xs,
   },
   message: {
     ...type.meta,
@@ -476,22 +468,24 @@ const styles = StyleSheet.create({
   newRow: {
     flexDirection: 'row',
     gap: space.sm,
-    marginTop: space.sm,
   },
   input: {
     ...type.body,
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.text,
     backgroundColor: colors.surfaceHi,
     borderRadius: 999,
     paddingHorizontal: space.md,
-    minHeight: 44,
+    minHeight: 36,
   },
   createButton: {
-    minHeight: 44,
+    flexShrink: 0,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.md,
+    paddingHorizontal: space.sm,
     borderRadius: 999,
     backgroundColor: colors.surfaceHi,
   },
@@ -501,7 +495,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addButton: {
-    minHeight: 48,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.screen,
