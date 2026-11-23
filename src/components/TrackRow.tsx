@@ -141,13 +141,13 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   more: {
-    width: 40,
+    width: 32,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    marginRight: -space.xs,
   },
   morePressed: {
-    backgroundColor: colors.surfaceHi,
+    opacity: 0.5,
   },
 });
