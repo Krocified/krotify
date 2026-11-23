@@ -482,17 +482,12 @@ const styles = StyleSheet.create({
   },
   createButton: {
     flexShrink: 0,
-    minHeight: 36,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.sm,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceHi,
-  },
-  createText: {
-    ...type.meta,
-    color: colors.text,
-    textAlign: 'center',
+    borderRadius: 18,
+    backgroundColor: colors.accent,
   },
   addButton: {
     minHeight: 38,
