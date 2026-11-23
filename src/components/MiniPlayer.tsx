@@ -143,7 +143,12 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
         isPlaying={isPlaying}
         opacity={0.45}
       />
-      <View style={styles.bar}>
+      <Pressable
+        onPress={onExpand}
+        accessibilityRole="button"
+        accessibilityLabel="Open now playing"
+        style={({ pressed }) => [styles.bar, pressed && styles.barPressed]}
+      >
         <View style={styles.contentClip}>
           <Animated.View
             {...panResponder.panHandlers}
@@ -152,12 +157,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
               { transform: [{ translateX: contentX }], opacity: contentOpacity },
             ]}
           >
-            <Pressable
-              onPress={onExpand}
-              accessibilityRole="button"
-              accessibilityLabel="Open now playing"
-              style={({ pressed }) => [styles.expand, pressed && styles.pressed]}
-            >
+            <View style={styles.expand}>
               <CoverArt
                 hue={track.artworkHue}
                 title={track.title}
@@ -179,7 +179,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
                   endPauseMs={1400}
                 />
               </View>
-            </Pressable>
+            </View>
           </Animated.View>
         </View>
         <Pressable
@@ -200,7 +200,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
         >
           <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={colors.text} />
         </Pressable>
-      </View>
+      </Pressable>
     </BlurPill>
   );
 }
@@ -222,6 +222,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: space.sm,
   },
+  barPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
   contentClip: {
     flex: 1,
     overflow: 'hidden',
@@ -236,9 +239,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.md - space.xs,
     paddingLeft: 8,
-  },
-  pressed: {
-    backgroundColor: '#262633',
   },
   texts: {
     flex: 1,
