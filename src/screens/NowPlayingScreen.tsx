@@ -411,95 +411,87 @@ export function NowPlayingScreen({
           </View>
           <View style={styles.transport}>
             {SHUFFLE_ENABLED ? (
-              <View style={styles.shuffleSlot}>
-                <Pressable
-                  onPress={toggleShuffle}
-                  accessibilityRole="button"
-                  accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
-                  accessibilityState={{ selected: shuffle }}
-                  style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
-                >
-                  <Ionicons
-                    name="shuffle"
-                    size={24}
-                    color={shuffle ? colors.accent : colors.textDim}
-                  />
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.shuffleSlot}>
-                <Pressable
-                  onPress={() => setQueueOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Up next"
-                  style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
-                >
-                  <Ionicons name="list" size={24} color={colors.textDim} />
-                </Pressable>
-              </View>
-            )}
-            <View style={styles.centerGroup}>
               <Pressable
-                onPress={() => {
-                  setResetToken((token) => token + 1);
-                  previous();
-                }}
-                disabled={!hasPrevious}
+                onPress={toggleShuffle}
                 accessibilityRole="button"
-                accessibilityLabel="Previous track"
-                accessibilityState={{ disabled: !hasPrevious }}
-                style={({ pressed }) => [
-                  styles.sideButton,
-                  !hasPrevious && styles.disabled,
-                  pressed && hasPrevious && styles.sidePressed,
-                ]}
-              >
-                <Ionicons name="play-skip-back" size={24} color={colors.text} />
-              </Pressable>
-              <Pressable
-                onPress={toggle}
-                accessibilityRole="button"
-                accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-                style={({ pressed }) => [styles.playButton, pressed && styles.playPressed]}
-              >
-                <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#FFFFFF" />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setResetToken((token) => token + 1);
-                  next();
-                }}
-                disabled={!hasNext}
-                accessibilityRole="button"
-                accessibilityLabel="Next track"
-                accessibilityState={{ disabled: !hasNext }}
-                style={({ pressed }) => [
-                  styles.sideButton,
-                  !hasNext && styles.disabled,
-                  pressed && hasNext && styles.sidePressed,
-                ]}
-              >
-                <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-              </Pressable>
-            </View>
-            <View style={styles.repeatSlot}>
-              <Pressable
-                onPress={cycleRepeat}
-                accessibilityRole="button"
-                accessibilityLabel={`Repeat ${repeat}`}
-                accessibilityState={{ selected: repeat !== 'off' }}
+                accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
+                accessibilityState={{ selected: shuffle }}
                 style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
               >
-                <View style={styles.repeatIcon}>
-                  <Ionicons
-                    name="repeat"
-                    size={24}
-                    color={repeat === 'off' ? colors.textDim : colors.accent}
-                  />
-                  {repeat === 'one' ? <Text style={styles.repeatOne}>1</Text> : null}
-                </View>
+                <Ionicons
+                  name="shuffle"
+                  size={24}
+                  color={shuffle ? colors.accent : colors.textDim}
+                />
               </Pressable>
-            </View>
+            ) : (
+              <Pressable
+                onPress={() => setQueueOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Up next"
+                style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+              >
+                <Ionicons name="list" size={24} color={colors.textDim} />
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => {
+                setResetToken((token) => token + 1);
+                previous();
+              }}
+              disabled={!hasPrevious}
+              accessibilityRole="button"
+              accessibilityLabel="Previous track"
+              accessibilityState={{ disabled: !hasPrevious }}
+              style={({ pressed }) => [
+                styles.sideButton,
+                !hasPrevious && styles.disabled,
+                pressed && hasPrevious && styles.sidePressed,
+              ]}
+            >
+              <Ionicons name="play-skip-back" size={24} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={toggle}
+              accessibilityRole="button"
+              accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+              style={({ pressed }) => [styles.playButton, pressed && styles.playPressed]}
+            >
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#FFFFFF" />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setResetToken((token) => token + 1);
+                next();
+              }}
+              disabled={!hasNext}
+              accessibilityRole="button"
+              accessibilityLabel="Next track"
+              accessibilityState={{ disabled: !hasNext }}
+              style={({ pressed }) => [
+                styles.sideButton,
+                !hasNext && styles.disabled,
+                pressed && hasNext && styles.sidePressed,
+              ]}
+            >
+              <Ionicons name="play-skip-forward" size={24} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={cycleRepeat}
+              accessibilityRole="button"
+              accessibilityLabel={`Repeat ${repeat}`}
+              accessibilityState={{ selected: repeat !== 'off' }}
+              style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+            >
+              <View style={styles.repeatIcon}>
+                <Ionicons
+                  name="repeat"
+                  size={24}
+                  color={repeat === 'off' ? colors.textDim : colors.accent}
+                />
+                {repeat === 'one' ? <Text style={styles.repeatOne}>1</Text> : null}
+              </View>
+            </Pressable>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
           {LYRICS_ENABLED && lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
@@ -649,8 +641,9 @@ const styles = StyleSheet.create({
     right: 0,
   },
   transport: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
     marginTop: space.lg,
   },
   missingCard: {
@@ -708,25 +701,6 @@ const styles = StyleSheet.create({
   nextPlayableText: {
     ...type.meta,
     color: colors.accent2,
-  },
-  centerGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.lg,
-  },
-  shuffleSlot: {
-    position: 'absolute',
-    left: space.md,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  repeatSlot: {
-    position: 'absolute',
-    right: space.md,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
   },
   sideButton: {
     width: 56,
