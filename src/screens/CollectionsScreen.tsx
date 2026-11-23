@@ -330,13 +330,15 @@ const styles = StyleSheet.create({
   },
   likedRow: {
     borderBottomWidth: 0,
-    paddingHorizontal: 0,
+    marginHorizontal: -space.md,
+    paddingHorizontal: space.md,
   },
   artistRow: {
     minHeight: 48,
     paddingVertical: space.xs,
     borderBottomWidth: 0,
-    paddingHorizontal: 0,
+    marginHorizontal: -space.md,
+    paddingHorizontal: space.md,
   },
   likedIcon: {
     width: 48,
