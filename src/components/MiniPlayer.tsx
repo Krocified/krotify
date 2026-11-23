@@ -121,7 +121,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
 
   const coverColor = useCoverColor(track?.artworkUri);
   const visualizerColors: readonly [string, string] = coverColor
-    ? [adjustColor(coverColor, 0.22), adjustColor(coverColor, -0.24)]
+    ? [adjustColor(coverColor, 0.38), adjustColor(coverColor, -0.12)]
     : coverColors(track?.artworkHue ?? 0);
   const visualizerKey = track?.id ?? 'none';
 
@@ -139,6 +139,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
         seed={track.id}
         colors={visualizerColors}
         isPlaying={isPlaying}
+        opacity={0.45}
       />
       <View style={styles.bar}>
         <View style={styles.contentClip}>
