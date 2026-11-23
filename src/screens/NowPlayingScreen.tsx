@@ -21,6 +21,7 @@ import { PasteLyricsSheet } from '../components/PasteLyricsSheet';
 import { ProgressBar } from '../components/ProgressBar';
 import { QueuePanel } from '../components/QueuePanel';
 import { BackPill } from '../components/ScreenHeader';
+import { BlurPill } from '../components/BlurPill';
 import { PlayerTopActions } from '../components/PlayerTopActions';
 import { Visualizer } from '../components/Visualizer';
 import { sleepCaption, type SleepPreset } from '../lib/sleepTimer';
@@ -411,77 +412,70 @@ export function NowPlayingScreen({
           </View>
           <View style={styles.transport}>
             {SHUFFLE_ENABLED ? (
-              <Pressable
+              <BlurPill
                 onPress={toggleShuffle}
-                accessibilityRole="button"
+                blurTarget={playerBlurRef}
                 accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
                 accessibilityState={{ selected: shuffle }}
-                style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+                style={styles.sideButton}
               >
                 <Ionicons
                   name="shuffle"
                   size={24}
                   color={shuffle ? colors.accent : colors.textDim}
                 />
-              </Pressable>
+              </BlurPill>
             ) : (
-              <Pressable
+              <BlurPill
                 onPress={() => setQueueOpen(true)}
-                accessibilityRole="button"
+                blurTarget={playerBlurRef}
                 accessibilityLabel="Up next"
-                style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+                style={styles.sideButton}
               >
                 <Ionicons name="list" size={24} color={colors.textDim} />
-              </Pressable>
+              </BlurPill>
             )}
-            <Pressable
+            <BlurPill
               onPress={() => {
                 setResetToken((token) => token + 1);
                 previous();
               }}
               disabled={!hasPrevious}
-              accessibilityRole="button"
+              blurTarget={playerBlurRef}
               accessibilityLabel="Previous track"
               accessibilityState={{ disabled: !hasPrevious }}
-              style={({ pressed }) => [
-                styles.sideButton,
-                !hasPrevious && styles.disabled,
-                pressed && hasPrevious && styles.sidePressed,
-              ]}
+              style={styles.sideButton}
             >
               <Ionicons name="play-skip-back" size={24} color={colors.text} />
-            </Pressable>
-            <Pressable
+            </BlurPill>
+            <BlurPill
               onPress={toggle}
-              accessibilityRole="button"
+              blurTarget={playerBlurRef}
               accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-              style={({ pressed }) => [styles.playButton, pressed && styles.playPressed]}
+              fillColor={colors.accent}
+              style={styles.playButton}
             >
               <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#FFFFFF" />
-            </Pressable>
-            <Pressable
+            </BlurPill>
+            <BlurPill
               onPress={() => {
                 setResetToken((token) => token + 1);
                 next();
               }}
               disabled={!hasNext}
-              accessibilityRole="button"
+              blurTarget={playerBlurRef}
               accessibilityLabel="Next track"
               accessibilityState={{ disabled: !hasNext }}
-              style={({ pressed }) => [
-                styles.sideButton,
-                !hasNext && styles.disabled,
-                pressed && hasNext && styles.sidePressed,
-              ]}
+              style={styles.sideButton}
             >
               <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-            </Pressable>
-            <Pressable
+            </BlurPill>
+            <BlurPill
               onPress={cycleRepeat}
-              accessibilityRole="button"
+              blurTarget={playerBlurRef}
               accessibilityLabel={`Repeat ${repeat}`}
               accessibilityState={{ selected: repeat !== 'off' }}
-              style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+              style={styles.sideButton}
             >
               <View style={styles.repeatIcon}>
                 <Ionicons
@@ -491,7 +485,7 @@ export function NowPlayingScreen({
                 />
                 {repeat === 'one' ? <Text style={styles.repeatOne}>1</Text> : null}
               </View>
-            </Pressable>
+            </BlurPill>
           </View>
           {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
           {LYRICS_ENABLED && lyricsNote ? <Text style={styles.error}>{lyricsNote}</Text> : null}
@@ -734,9 +728,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  playPressed: {
-    opacity: 0.85,
   },
   error: {
     ...type.meta,
