@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.md - space.xs,
     paddingHorizontal: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ffffff10',

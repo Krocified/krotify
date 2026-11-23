@@ -550,7 +550,7 @@ function PlaylistTrackRow({
         <CoverArt
           hue={track.artworkHue}
           title={track.title}
-          size={48}
+          size={52}
           radius={4}
           uri={track.artworkUri}
         />
@@ -646,19 +646,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
   },
   trackRow: {
-    height: 64,
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ffffff10',
   },
   trackMain: {
     flex: 1,
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.md - space.xs,
   },
   trackText: {
     flex: 1,
