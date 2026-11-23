@@ -340,7 +340,7 @@ export function PlaylistPickerSheet({
                 {creating ? (
                   <ActivityIndicator color={colors.text} />
                 ) : (
-                  <Text style={styles.createText}>Create</Text>
+                  <Ionicons name="add" size={22} color={colors.text} />
                 )}
               </Pressable>
             </View>
