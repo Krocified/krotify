@@ -5,7 +5,7 @@ import { isMissingFileError } from '../library/playbackSource';
 import { buildPlayableWindow, shouldProbeDuration } from '../lib/playbackRecovery';
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
-import { isAtEnd, nextIndex, previousAction } from '../lib/queue';
+import { isAtEnd, nextIndex, previousAction, upcomingQueue } from '../lib/queue';
 import { restoreUpcoming, shuffleOrder, shuffleUpcoming } from '../lib/shuffle';
 import { needsLockScreenReassert } from '../lib/lockScreen';
 import { tickSleep, type SleepMode } from '../lib/sleepTimer';
@@ -25,6 +25,7 @@ export type PlayerStatusValue = {
   hasNext: boolean;
   hasPrevious: boolean;
   queueLength: number;
+  upcoming: Track[];
   repeat: RepeatMode;
   shuffle: boolean;
   sleep: SleepState;
@@ -57,6 +58,7 @@ export type PlayerActionsValue = {
   previous: () => void;
   skipNext: () => void;
   skipPrevious: () => void;
+  jumpTo: (trackId: string) => void;
   removeFromQueue: (ids: string[]) => void;
   setQueue: (queue: Track[]) => void;
 };
@@ -935,6 +937,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     [goToGlobal, playTrack],
   );
 
+  const jumpTo = useCallback(
+    (trackId: string) => {
+      const target = queueRef.current.findIndex((item) => item.id === trackId);
+      if (target >= 0) navigate(target);
+    },
+    [navigate],
+  );
+
   const next = useCallback(() => {
     const length = queueRef.current.length;
     const current = indexRef.current;
@@ -975,6 +985,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const hasNext = wrappedNext !== -1;
   const hasPrevious = previousResult.type !== 'none' || wrapPrevious;
   const queueLength = queue.length;
+  const upcoming = useMemo(() => upcomingQueue(queue, index), [queue, index]);
 
   const cycleRepeat = useCallback(() => {
     setRepeat((mode) => (mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'));
@@ -1019,11 +1030,23 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       hasNext,
       hasPrevious,
       queueLength,
+      upcoming,
       repeat,
       shuffle,
       sleep,
     }),
-    [hasNext, hasPrevious, isPlaying, lastError, queueLength, repeat, shuffle, sleep, track],
+    [
+      hasNext,
+      hasPrevious,
+      isPlaying,
+      lastError,
+      queueLength,
+      repeat,
+      shuffle,
+      sleep,
+      track,
+      upcoming,
+    ],
   );
 
   const progressValue = useMemo<PlayerProgressValue>(
@@ -1046,12 +1069,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       previous,
       skipNext,
       skipPrevious,
+      jumpTo,
       removeFromQueue,
       setQueue,
     }),
     [
       advanceToNextPlayable,
       cycleRepeat,
+      jumpTo,
       next,
       playTrack,
       previous,
