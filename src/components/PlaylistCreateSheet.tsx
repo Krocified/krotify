@@ -127,5 +127,7 @@ const styles = StyleSheet.create({
   },
   action: {
     flex: 1,
+    minHeight: 36,
+    paddingHorizontal: space.sm,
   },
 });
