@@ -103,17 +103,17 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   row: {
-    minHeight: 72,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.md,
   },
   main: {
     flex: 1,
-    minHeight: 72,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md - space.xs,
+    gap: space.md,
   },
   pressed: {
     transform: [{ scale: 0.985 }],
