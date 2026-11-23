@@ -26,7 +26,7 @@ import { TagAssignSheet } from '../components/TagAssignSheet';
 import { PlaylistPickerSheet } from '../components/TrackActionsSheet';
 import { adjustColor, ambientTheme } from '../lib/ambient';
 import { coverColors } from '../lib/cover';
-import { LYRICS_ENABLED } from '../lib/features';
+import { LYRICS_ENABLED, SHUFFLE_ENABLED } from '../lib/features';
 import { isMissingTrack } from '../lib/settingsView';
 import { useFavorites } from '../library/FavoritesProvider';
 import { importLyricsText, pickLyricsFile } from '../library/lyricsImport';
@@ -378,21 +378,23 @@ export function NowPlayingScreen({
             ) : null}
           </View>
           <View style={styles.transport}>
-            <View style={styles.shuffleSlot}>
-              <Pressable
-                onPress={toggleShuffle}
-                accessibilityRole="button"
-                accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
-                accessibilityState={{ selected: shuffle }}
-                style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
-              >
-                <Ionicons
-                  name="shuffle"
-                  size={24}
-                  color={shuffle ? colors.accent : colors.textDim}
-                />
-              </Pressable>
-            </View>
+            {SHUFFLE_ENABLED ? (
+              <View style={styles.shuffleSlot}>
+                <Pressable
+                  onPress={toggleShuffle}
+                  accessibilityRole="button"
+                  accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
+                  accessibilityState={{ selected: shuffle }}
+                  style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+                >
+                  <Ionicons
+                    name="shuffle"
+                    size={24}
+                    color={shuffle ? colors.accent : colors.textDim}
+                  />
+                </Pressable>
+              </View>
+            ) : null}
             <View style={styles.centerGroup}>
               <Pressable
                 onPress={() => {

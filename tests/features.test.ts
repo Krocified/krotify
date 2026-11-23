@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LINK_IMPORT_ENABLED, LYRICS_ENABLED } from '../src/lib/features.ts';
+import { LINK_IMPORT_ENABLED, LYRICS_ENABLED, SHUFFLE_ENABLED } from '../src/lib/features.ts';
 
 test('lyrics UI is enabled in v7', () => {
   assert.equal(LYRICS_ENABLED, true);
@@ -8,4 +8,8 @@ test('lyrics UI is enabled in v7', () => {
 
 test('link import stays hidden in v7', () => {
   assert.equal(LINK_IMPORT_ENABLED, false);
+});
+
+test('shuffle stays disabled for now', () => {
+  assert.equal(SHUFFLE_ENABLED, false);
 });

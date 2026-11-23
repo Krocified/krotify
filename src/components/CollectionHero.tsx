@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, space, type } from '../theme';
+import { SHUFFLE_ENABLED } from '../lib/features';
 import { BlurPill } from './BlurPill';
 import { CoverArt } from './CoverArt';
 
@@ -81,9 +82,9 @@ export function CollectionHero({
           <Ionicons name="play" size={20} color={colors.text} />
         </BlurPill>
 
-        {onShuffle || onEdit || onAdd ? (
+        {(SHUFFLE_ENABLED && onShuffle) || onEdit || onAdd ? (
           <BlurPill style={styles.group} contentStyle={styles.groupContent}>
-            {onShuffle ? (
+            {SHUFFLE_ENABLED && onShuffle ? (
               <Pressable
                 onPress={onShuffle}
                 disabled={disabled}
