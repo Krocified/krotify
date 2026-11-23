@@ -271,6 +271,8 @@ export function NowPlayingScreen({
           { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg },
         ]}
         {...swipeUpResponder.panHandlers}
+        accessibilityElementsHidden={queueOpen}
+        importantForAccessibility={queueOpen ? 'no-hide-descendants' : 'auto'}
       >
         <View style={styles.topBar}>
           <BackPill onPress={close} icon="chevron-down" label="Close" plain />
@@ -424,7 +426,18 @@ export function NowPlayingScreen({
                   />
                 </Pressable>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.shuffleSlot}>
+                <Pressable
+                  onPress={() => setQueueOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Up next"
+                  style={({ pressed }) => [styles.sideButton, pressed && styles.sidePressed]}
+                >
+                  <Ionicons name="list" size={24} color={colors.textDim} />
+                </Pressable>
+              </View>
+            )}
             <View style={styles.centerGroup}>
               <Pressable
                 onPress={() => {

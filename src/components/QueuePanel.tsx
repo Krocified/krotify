@@ -83,13 +83,16 @@ export function QueuePanel({ visible, upcoming, onSelect, onClose }: Props) {
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
+      accessibilityViewIsModal={visible}
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={onClose}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      />
+      {visible ? (
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : null}
       <Animated.View
         style={[styles.sheet, { paddingBottom: insets.bottom, transform: [{ translateY }] }]}
         accessibilityViewIsModal={visible}
@@ -115,7 +118,10 @@ export function QueuePanel({ visible, upcoming, onSelect, onClose }: Props) {
           data={upcoming}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            upcoming.length === 0 && styles.listEmptyContent,
+          ]}
           ListEmptyComponent={
             <Text style={styles.empty}>Nothing up next</Text>
           }
@@ -220,6 +226,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: space.md,
     paddingBottom: space.xl,
+  },
+  listEmptyContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   row: {
     minHeight: 64,
