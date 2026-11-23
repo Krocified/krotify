@@ -1,4 +1,11 @@
+import type { Track } from '../types';
+
 export const RESTART_THRESHOLD_MS = 3000;
+
+export function upcomingQueue(queue: Track[], index: number): Track[] {
+  if (index < 0 || index >= queue.length) return [];
+  return queue.slice(index + 1);
+}
 
 export type PreviousAction =
   | { type: 'restart' }
