@@ -182,7 +182,7 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
         ]}
       >
         {selecting ? null : (
-          <View style={ui.card}>
+          <View>
             <View style={styles.inputRow}>
               <TextInput
                 value={draft}
@@ -336,6 +336,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space.sm,
     padding: space.md,
+    marginHorizontal: -space.md,
   },
   input: {
     ...type.body,
