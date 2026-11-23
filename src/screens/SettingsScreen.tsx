@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import * as Application from 'expo-application';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -62,6 +63,7 @@ export function SettingsScreen({
   onOpenLibrarySettings,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const version = Application.nativeApplicationVersion ?? appJson.expo.version;
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
   const { sleep } = usePlayerStatus();
   const { setSleep } = usePlayerActions();
@@ -291,10 +293,10 @@ export function SettingsScreen({
 
           <SettingsSection title="About">
             <SettingsRow
-              title={`Krotify ${appJson.expo.version}`}
+              title={`Krotify ${version}`}
               meta="Local playback."
               onPress={onOpenTechStack}
-              accessibilityLabel={`Krotify ${appJson.expo.version}, view tech stack`}
+              accessibilityLabel={`Krotify ${version}, view tech stack`}
               trailing={<Ionicons name="chevron-forward" size={22} color={colors.textDim} />}
             />
             <SettingsRow title="Release ABI" value={RELEASE_ABI} />
