@@ -39,11 +39,8 @@ export const ui = StyleSheet.create({
     gap: space.md,
   },
   sectionTitle: {
-    ...type.meta,
-    color: colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingHorizontal: space.xs,
+    ...type.body,
+    color: colors.text,
     marginTop: space.sm,
   },
   settingsTitle: {

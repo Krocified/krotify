@@ -77,10 +77,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
   },
   title: {
-    ...type.meta,
-    color: colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    ...type.body,
+    color: colors.text,
   },
   actions: {
     flexDirection: 'row',
