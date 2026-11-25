@@ -250,13 +250,7 @@ export function NowPlayingScreen({
     >
       <BlurTargetView ref={playerBlurRef} style={StyleSheet.absoluteFill}>
         <AmbientBackdrop theme={ambient} isPlaying={isPlaying} />
-        <Visualizer
-          seed={track.id}
-          colors={ribbonColors}
-          isPlaying={isPlaying}
-          opacity={0.38}
-          styleName="ribbons"
-        />
+        <Visualizer colors={ribbonColors} isPlaying={isPlaying} opacity={0.38} />
       </BlurTargetView>
       {actionsOpen ? (
         <Pressable

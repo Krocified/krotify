@@ -125,8 +125,6 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
   const visualizerColors: readonly [string, string] = coverColor
     ? [adjustColor(coverColor, 0.38), adjustColor(coverColor, -0.12)]
     : coverColors(track?.artworkHue ?? 0);
-  const visualizerKey = track?.id ?? 'none';
-
   if (!track) return null;
 
   return (
@@ -136,13 +134,7 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
       blurTarget={blurTarget}
       intensity={45}
     >
-      <Visualizer
-        key={visualizerKey}
-        seed={track.id}
-        colors={visualizerColors}
-        isPlaying={isPlaying}
-        opacity={0.45}
-      />
+      <Visualizer colors={visualizerColors} isPlaying={isPlaying} opacity={0.45} />
       <Pressable
         onPress={onExpand}
         accessibilityRole="button"
