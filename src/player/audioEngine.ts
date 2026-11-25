@@ -7,11 +7,16 @@ import {
   setAudioModeAsync,
 } from 'expo-audio';
 import { Platform } from 'react-native';
+import { spatialRequest, type SpatialMode } from '../lib/spatial';
 import type { Track } from '../types';
 
 export type WindowTrack = { uri: string; track: Track };
 
 export type EngineLoopMode = 'none' | 'single' | 'all';
+
+type SpatialPlaylist = AudioPlaylist & {
+  setSpatialMode(enabled: boolean, strength: number): boolean;
+};
 
 export type PlaybackEngine = {
   readonly playlist: AudioPlaylist;
@@ -24,6 +29,7 @@ export type PlaybackEngine = {
   setLoop(mode: EngineLoopMode): void;
   resync(): void;
   updateLockScreenMetadata(track: Track): void;
+  setSpatialMode(mode: SpatialMode): void;
   stop(): void;
 };
 
@@ -65,8 +71,17 @@ export function createEngine(): PlaybackEngine {
   const globalIndexes: number[] = [];
   let loopMode: EngineLoopMode = 'none';
   let volume = 1;
+  let spatialMode: SpatialMode = 'off';
   const lockScreen: { current: { metadata: AudioMetadata; options: AudioLockScreenOptions } | null } = {
     current: null,
+  };
+
+  const applySpatial = () => {
+    if (Platform.OS !== 'android') return;
+    const { enabled, strength } = spatialRequest(spatialMode);
+    try {
+      (playlist as unknown as SpatialPlaylist).setSpatialMode(enabled, strength);
+    } catch {}
   };
 
   return {
@@ -94,6 +109,7 @@ export function createEngine(): PlaybackEngine {
       playlist.loop = loopMode;
       playlist.volume = volume;
       globalIndexes.length = 0;
+      applySpatial();
     },
 
     load(tracks, localIndex, indexes, autoplay = true) {
@@ -110,6 +126,7 @@ export function createEngine(): PlaybackEngine {
       playlist.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
       if (autoplay) playlist.play();
       else playlist.pause();
+      applySpatial();
     },
 
     append(tracks, indexes) {
@@ -161,6 +178,11 @@ export function createEngine(): PlaybackEngine {
       const metadata = lockScreenMetadata(track);
       lockScreen.current = { metadata, options: LOCK_SCREEN_OPTIONS };
       playlist.updateLockScreenMetadata(metadata);
+    },
+
+    setSpatialMode(mode) {
+      spatialMode = mode;
+      applySpatial();
     },
 
     stop() {

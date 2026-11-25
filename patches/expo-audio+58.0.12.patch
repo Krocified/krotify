@@ -1,3 +1,129 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 6c81fce..fa3a37b 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -1111,6 +1111,12 @@ class AudioModule : Module() {
+         }
+       }
+ 
++      Function("setSpatialMode") { playlist: AudioPlaylist, enabled: Boolean, strength: Int ->
++        runOnMain {
++          playlist.setSpatialMode(enabled, strength)
++        }
++      }
++
+       Function("destroy") { playlist: AudioPlaylist ->
+         runOnMain {
+           playlist.clearLockScreenControls()
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlaylist.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
+index bf3f9c5..f7ce5d5 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
+@@ -1,7 +1,9 @@
+ package expo.modules.audio
+ 
+ import android.content.Context
++import android.media.audiofx.Virtualizer
+ import androidx.media3.common.AudioAttributes
++import androidx.media3.common.C
+ import androidx.media3.common.MediaItem
+ import androidx.media3.common.PlaybackException
+ import androidx.media3.common.Player
+@@ -53,8 +55,28 @@ class AudioPlaylist(
+ 
+   private var createMediaItemForSource: ((AudioSource) -> MediaItem?)? = null
+ 
++  @Suppress("DEPRECATION")
++  private var spatialVirtualizer: Virtualizer? = null
++  private var spatialEnabled = false
++  private var spatialStrength: Short = 0
++  private var spatialSupported: Boolean? = null
++  private var spatialSessionId = C.AUDIO_SESSION_ID_UNSET
++
++  private val spatialListener = object : Player.Listener {
++    override fun onAudioSessionIdChanged(audioSessionId: Int) {
++      applySpatial()
++    }
++
++    override fun onIsPlayingChanged(isPlaying: Boolean) {
++      if (isPlaying) {
++        applySpatial()
++      }
++    }
++  }
++
+   init {
+     installPlayerListeners()
++    ref.addListener(spatialListener)
+     startUpdating()
+   }
+ 
+@@ -201,6 +223,45 @@ class AudioPlaylist(
+     mediaSession = buildBasicMediaSession(appContext?.reactContext ?: return, ref) { requestPlay() }
+   }
+ 
++  @Suppress("DEPRECATION")
++  fun setSpatialMode(enabled: Boolean, strength: Int): Boolean {
++    spatialEnabled = enabled
++    spatialStrength = strength.coerceIn(0, 1000).toShort()
++    applySpatial()
++    sendStatusUpdate()
++    return spatialSupported == true
++  }
++
++  @Suppress("DEPRECATION")
++  private fun applySpatial() {
++    if (!spatialEnabled) {
++      spatialVirtualizer?.enabled = false
++      return
++    }
++    val sessionId = ref.audioSessionId
++    if (sessionId == C.AUDIO_SESSION_ID_UNSET) {
++      return
++    }
++    try {
++      if (spatialVirtualizer == null || spatialSessionId != sessionId) {
++        spatialVirtualizer?.release()
++        spatialVirtualizer = Virtualizer(0, sessionId)
++        spatialSessionId = sessionId
++      }
++      val effect = spatialVirtualizer ?: return
++      if (effect.strengthSupported) {
++        effect.setStrength(spatialStrength)
++      }
++      effect.enabled = true
++      spatialSupported = effect.enabled
++    } catch (error: Exception) {
++      spatialVirtualizer?.release()
++      spatialVirtualizer = null
++      spatialSessionId = C.AUDIO_SESSION_ID_UNSET
++      spatialSupported = false
++    }
++  }
++
+   override fun currentStatus(): Map<String, Any?> {
+     val isMuted = ref.volume == 0f
+     val isLoaded = ref.playbackState == Player.STATE_READY
+@@ -232,6 +293,8 @@ class AudioPlaylist(
+       "muted" to isMuted,
+       "volume" to ref.volume,
+       "loop" to loopMode.value,
++      "spatialEnabled" to (spatialVirtualizer?.enabled == true),
++      "spatialSupported" to spatialSupported,
+       "didJustFinish" to false
+     )
+   }
+@@ -248,6 +311,10 @@ class AudioPlaylist(
+   }
+ 
+   override fun releasePlayer() {
++    ref.removeListener(spatialListener)
++    spatialVirtualizer?.release()
++    spatialVirtualizer = null
++    spatialSessionId = C.AUDIO_SESSION_ID_UNSET
+     serviceConnection.release()
+     mediaSession.release()
+     if (isActiveForLockScreen) {
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 index 53c36f7..7460083 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
