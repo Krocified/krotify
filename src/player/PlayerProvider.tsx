@@ -2,6 +2,7 @@ import { useAudioPlaylistStatus } from 'expo-audio';
 import { AppState } from 'react-native';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { isMissingFileError } from '../library/playbackSource';
+import { SPATIAL_AUDIO_ENABLED } from '../lib/features';
 import { buildPlayableWindow, shouldProbeDuration } from '../lib/playbackRecovery';
 import { mockTick } from '../lib/mockClock';
 import { DEFAULT_WINDOW_RADIUS, nextAppendRange, playlistWindow, wrapTarget } from '../lib/playlistWindow';
@@ -11,6 +12,7 @@ import { needsLockScreenReassert } from '../lib/lockScreen';
 import { tickSleep, type SleepMode } from '../lib/sleepTimer';
 import {
   loadSpatialMode,
+  resolveSpatialMode,
   saveSpatialMode,
   shouldFallbackSpatial,
   type SpatialMode,
@@ -100,6 +102,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [spatialMode, setSpatialModeState] = useState<SpatialMode>('off');
   const spatialSupported =
     (status as typeof status & { spatialSupported?: boolean | null }).spatialSupported ?? null;
+  const displayMode = shouldFallbackSpatial(spatialMode, spatialSupported) ? 'off' : spatialMode;
   const requestRef = useRef(0);
   const loadGenerationRef = useRef(0);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -113,6 +116,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const sleepRef = useRef<SleepState>({ mode: 'off', remainingMs: 0 });
   const sleepRemainingRef = useRef(0);
   const reassertedTrackRef = useRef<string | null>(null);
+  const userSelectedSpatialRef = useRef(false);
   const sleepEndTrackRef = useRef<string | null>(null);
   const trackRef = useRef<Track | null>(null);
   const windowRef = useRef<WindowState>({ globalIndexes: [] });
@@ -201,10 +205,14 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let cancelled = false;
     void loadSpatialMode()
-      .then((mode) => {
-        if (cancelled) return;
+      .then((stored) => {
+        if (cancelled || userSelectedSpatialRef.current) return;
+        const mode = resolveSpatialMode(SPATIAL_AUDIO_ENABLED, stored);
         setSpatialModeState(mode);
         engine.setSpatialMode(mode);
+        if (!SPATIAL_AUDIO_ENABLED || mode !== stored) {
+          void saveSpatialMode(mode).catch(() => {});
+        }
       })
       .catch(() => {});
     return () => {
@@ -292,6 +300,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, []);
 
   const setSpatialMode = useCallback((mode: SpatialMode) => {
+    userSelectedSpatialRef.current = true;
     setSpatialModeState(mode);
     engine.setSpatialMode(mode);
     void saveSpatialMode(mode).catch(() => {});
@@ -1073,9 +1082,10 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       repeat,
       shuffle,
       sleep,
-      spatial: { mode: spatialMode, supported: spatialSupported },
+      spatial: { mode: displayMode, supported: spatialSupported },
     }),
     [
+      displayMode,
       hasNext,
       hasPrevious,
       isPlaying,
@@ -1084,7 +1094,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       repeat,
       shuffle,
       sleep,
-      spatialMode,
       spatialSupported,
       track,
       upcoming,

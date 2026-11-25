@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Android only; iOS/web get no UI and no-op engine calls.
-- No new npm dependencies.
+- No new runtime dependencies.
 - `Virtualizer` is deprecated in API 35; keep it `@Suppress`ed and never let it crash playback.
 - Per-session effects are expected to need no `MODIFY_AUDIO_SETTINGS`; confirm on device before release.
 - Native changes go into `node_modules/expo-audio` and are persisted by regenerating `patches/expo-audio+58.0.12.patch`. expo-audio already builds from source via `expo.autolinking.buildFromSource`.
@@ -524,14 +524,17 @@ useEffect(() => {
 }, []);
 ```
 
-Add the definitive-unsupported fallback effect:
+Derive the effective mode so a definitive unsupported result renders Off immediately, and keep the engine/persist-off fallback with a deferred state reset (setting state synchronously in the effect is what lint rejects):
 
 ```ts
+const displayMode = shouldFallbackSpatial(spatialMode, spatialSupported) ? 'off' : spatialMode;
+
 useEffect(() => {
   if (!shouldFallbackSpatial(spatialMode, spatialSupported)) return;
-  setSpatialModeState('off');
   engine.setSpatialMode('off');
   void saveSpatialMode('off').catch(() => {});
+  const timer = setTimeout(() => setSpatialModeState('off'), 0);
+  return () => clearTimeout(timer);
 }, [spatialMode, spatialSupported]);
 ```
 
@@ -545,7 +548,7 @@ const setSpatialMode = useCallback((mode: SpatialMode) => {
 }, []);
 ```
 
-Include `spatial: { mode: spatialMode, supported: spatialSupported }` in `statusValue` (and both in its dependency array), and `setSpatialMode` in `actionsValue` (and its dependency array).
+Include `spatial: { mode: displayMode, supported: spatialSupported }` in `statusValue` (with `displayMode` and `spatialSupported` in its dependency array), and `setSpatialMode` in `actionsValue` (and its dependency array).
 
 - [ ] **Step 3: Create `src/components/SpatialAudioControls.tsx`**
 
@@ -684,6 +687,7 @@ Create `docs/research/v9-device-checks.md` with one row per check and empty Resu
 | Wired headphones | Enable High on wired output | Audible widening | pending | |
 | Bluetooth | Enable High on Bluetooth output | Record whether effect applies or is bypassed | pending | |
 | Phone speaker | Enable High on speaker | Record result | pending | |
+| System spatializer | Enable Android system spatial audio, set High, then disable the system effect and repeat High | Record behavior for both states; playback never crashes | pending | |
 ```
 
 - [ ] **Step 2: Run the full suite**

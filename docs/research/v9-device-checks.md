@@ -1,5 +1,11 @@
 # v9 device checks
 
+Recorded against a dev build. Fill each row on the device; do not infer from the
+web preview.
+
+Device verification has not been run yet: no Android device was attached, and
+the iOS side is unverified.
+
 | Check | Steps | Expected | Result | Notes |
 |---|---|---|---|---|
 | Enable while playing | Settings → Playback → Spatial audio → High | Audible widening; Low/Medium/High differ | pending | |
@@ -12,3 +18,4 @@
 | Wired headphones | Enable High on wired output | Audible widening | pending | |
 | Bluetooth | Enable High on Bluetooth output | Record whether effect applies or is bypassed | pending | |
 | Phone speaker | Enable High on speaker | Record result | pending | |
+| System spatializer | Enable Android system spatial audio, set High, then disable the system effect and repeat High | Record behavior for both states; playback never crashes | pending | |

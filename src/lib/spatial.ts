@@ -40,6 +40,10 @@ export function shouldFallbackSpatial(mode: SpatialMode, supported: boolean | nu
   return supported === false && mode !== 'off';
 }
 
+export function resolveSpatialMode(flag: boolean, stored: SpatialMode): SpatialMode {
+  return flag ? stored : 'off';
+}
+
 export async function loadSpatialMode(
   storage: SpatialStorage = AsyncStorage,
 ): Promise<SpatialMode> {

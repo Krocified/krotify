@@ -5,6 +5,7 @@ import {
   SPATIAL_MODES,
   loadSpatialMode,
   parseSpatialMode,
+  resolveSpatialMode,
   saveSpatialMode,
   serializeSpatialMode,
   shouldFallbackSpatial,
@@ -58,6 +59,13 @@ test('shouldFallbackSpatial only forces off when unsupported', () => {
   assert.equal(shouldFallbackSpatial('off', false), false);
   assert.equal(shouldFallbackSpatial('high', null), false);
   assert.equal(shouldFallbackSpatial('high', true), false);
+});
+
+test('resolveSpatialMode forces off when the feature flag is off', () => {
+  for (const mode of SPATIAL_MODES) {
+    assert.equal(resolveSpatialMode(false, mode), 'off');
+    assert.equal(resolveSpatialMode(true, mode), mode);
+  }
 });
 
 test('loadSpatialMode reads and defaults', async () => {
