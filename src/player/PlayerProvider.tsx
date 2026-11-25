@@ -9,6 +9,12 @@ import { isAtEnd, nextIndex, previousAction, upcomingQueue } from '../lib/queue'
 import { restoreUpcoming, shuffleOrder, shuffleUpcoming } from '../lib/shuffle';
 import { needsLockScreenReassert } from '../lib/lockScreen';
 import { tickSleep, type SleepMode } from '../lib/sleepTimer';
+import {
+  loadSpatialMode,
+  saveSpatialMode,
+  shouldFallbackSpatial,
+  type SpatialMode,
+} from '../lib/spatial';
 import type { Track } from '../types';
 import { setTrackMissing } from '../tracks/repo';
 import { configureAudio, engine, type WindowTrack } from './audioEngine';
@@ -29,6 +35,7 @@ export type PlayerStatusValue = {
   repeat: RepeatMode;
   shuffle: boolean;
   sleep: SleepState;
+  spatial: { mode: SpatialMode; supported: boolean | null };
 };
 
 export type PlayerProgressValue = {
@@ -40,6 +47,7 @@ export type PlayerActionsValue = {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   setSleep: (mode: SleepMode, minutes?: number) => void;
+  setSpatialMode: (mode: SpatialMode) => void;
   playTrack: (
     track: Track,
     resolveUri: (track: Track) => Promise<string>,
@@ -89,6 +97,9 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   const [repeat, setRepeat] = useState<RepeatMode>('off');
   const [shuffle, setShuffle] = useState(false);
   const [sleep, setSleepState] = useState<SleepState>({ mode: 'off', remainingMs: 0 });
+  const [spatialMode, setSpatialModeState] = useState<SpatialMode>('off');
+  const spatialSupported =
+    (status as typeof status & { spatialSupported?: boolean | null }).spatialSupported ?? null;
   const requestRef = useRef(0);
   const loadGenerationRef = useRef(0);
   const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -188,6 +199,28 @@ export function PlayerProvider({ children }: PropsWithChildren) {
   }, [sleep]);
 
   useEffect(() => {
+    let cancelled = false;
+    void loadSpatialMode()
+      .then((mode) => {
+        if (cancelled) return;
+        setSpatialModeState(mode);
+        engine.setSpatialMode(mode);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldFallbackSpatial(spatialMode, spatialSupported)) return;
+    engine.setSpatialMode('off');
+    void saveSpatialMode('off').catch(() => {});
+    const timer = setTimeout(() => setSpatialModeState('off'), 0);
+    return () => clearTimeout(timer);
+  }, [spatialMode, spatialSupported]);
+
+  useEffect(() => {
     trackRef.current = track;
   }, [track]);
 
@@ -256,6 +289,12 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     sleepRef.current = { mode: nextMode, remainingMs: 0 };
     setSleepState({ mode: nextMode, remainingMs: 0 });
     engine.setVolume(1);
+  }, []);
+
+  const setSpatialMode = useCallback((mode: SpatialMode) => {
+    setSpatialModeState(mode);
+    engine.setSpatialMode(mode);
+    void saveSpatialMode(mode).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1034,6 +1073,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       repeat,
       shuffle,
       sleep,
+      spatial: { mode: spatialMode, supported: spatialSupported },
     }),
     [
       hasNext,
@@ -1044,6 +1084,8 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       repeat,
       shuffle,
       sleep,
+      spatialMode,
+      spatialSupported,
       track,
       upcoming,
     ],
@@ -1059,6 +1101,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       cycleRepeat,
       toggleShuffle,
       setSleep,
+      setSpatialMode,
       playTrack,
       restore,
       advanceToNextPlayable,
@@ -1085,6 +1128,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       seek,
       setQueue,
       setSleep,
+      setSpatialMode,
       skipNext,
       skipPrevious,
       stop,

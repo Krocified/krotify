@@ -18,6 +18,7 @@ import { CreatedByKrocified } from '../components/CreatedByKrocified';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
 import { SleepTimerControls } from '../components/SleepTimerControls';
+import { SpatialAudioControls } from '../components/SpatialAudioControls';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { useScrollProgress } from '../components/useScrollProgress';
 import {
@@ -26,8 +27,9 @@ import {
   type StorageView,
 } from '../lib/settingsView';
 import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverConfig';
-import { LINK_IMPORT_ENABLED } from '../lib/features';
+import { LINK_IMPORT_ENABLED, SPATIAL_AUDIO_ENABLED } from '../lib/features';
 import type { SleepPreset } from '../lib/sleepTimer';
+import { spatialNote } from '../lib/spatial';
 import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import { SettingsRow, SettingsSection } from '../ui/Settings';
@@ -65,8 +67,8 @@ export function SettingsScreen({
   const insets = useSafeAreaInsets();
   const version = Application.nativeApplicationVersion ?? appJson.expo.version;
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
-  const { sleep } = usePlayerStatus();
-  const { setSleep } = usePlayerActions();
+  const { sleep, spatial } = usePlayerStatus();
+  const { setSleep, setSpatialMode } = usePlayerActions();
   const [linkUrl, setLinkUrl] = useState('');
   const [linkToken, setLinkToken] = useState('');
   const [linkNote, setLinkNote] = useState<string | null>(null);
@@ -289,6 +291,21 @@ export function SettingsScreen({
                 onCancel={() => setSleep('off')}
               />
             </View>
+            {SPATIAL_AUDIO_ENABLED && Platform.OS === 'android' ? (
+              <View style={styles.stackRow}>
+                <View style={ui.rowText}>
+                  <Text style={ui.rowTitle}>Spatial audio</Text>
+                  <Text style={ui.rowMeta}>
+                    {spatialNote(spatial.supported) ?? 'Virtual surround for headphones'}
+                  </Text>
+                </View>
+                <SpatialAudioControls
+                  mode={spatial.mode}
+                  supported={spatial.supported}
+                  onSelect={setSpatialMode}
+                />
+              </View>
+            ) : null}
           </SettingsSection>
 
           <SettingsSection title="About">
