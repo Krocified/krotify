@@ -115,5 +115,6 @@ const styles = StyleSheet.create({
   },
   blob: {
     position: 'absolute',
+    overflow: 'hidden',
   },
 });
