@@ -19,6 +19,15 @@ test('ambient blobs are circles with whole-number frequencies', () => {
   }
 });
 
+test('ambient blobs visibly move within the hour loop', () => {
+  for (const blob of AMBIENT_BLOBS) {
+    assert.ok(BLOB_LOOP_MS / blob.fx <= 30_000);
+    assert.ok(BLOB_LOOP_MS / blob.fy <= 30_000);
+    assert.ok(BLOB_LOOP_MS / blob.fs <= 60_000);
+    assert.ok(BLOB_LOOP_MS / blob.fo <= 60_000);
+  }
+});
+
 test('ambient blobs use both cover colors', () => {
   const used = new Set(AMBIENT_BLOBS.map((blob) => blob.colorIndex));
   assert.deepEqual([...used].sort(), [0, 1]);
