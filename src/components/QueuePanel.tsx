@@ -16,7 +16,6 @@ import { formatDuration } from '../lib/format';
 import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
-import { MarqueeText } from './MarqueeText';
 
 type Props = {
   visible: boolean;
@@ -118,6 +117,9 @@ export function QueuePanel({ visible, upcoming, onSelect, onClose }: Props) {
           data={upcoming}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
           contentContainerStyle={[
             styles.listContent,
             upcoming.length === 0 && styles.listEmptyContent,
@@ -140,7 +142,9 @@ export function QueuePanel({ visible, upcoming, onSelect, onClose }: Props) {
                 uri={item.artworkUri}
               />
               <View style={styles.rowText}>
-                <MarqueeText text={item.title} style={styles.rowTitle} />
+                <Text style={styles.rowTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
                 {item.artist ? (
                   <Text style={styles.rowArtist} numberOfLines={1}>
                     {item.artist}

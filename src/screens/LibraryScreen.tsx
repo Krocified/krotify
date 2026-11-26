@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type FlatList,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
@@ -255,7 +256,7 @@ export function LibraryScreen({
             </View>
           ) : null}
           <View style={{ flex: 1 }}>
-            <FlatList
+            <Animated.FlatList
               ref={listRef}
               data={tracks}
               keyExtractor={(t) => t.id}
@@ -285,6 +286,8 @@ export function LibraryScreen({
                 ) : undefined
               }
               initialNumToRender={16}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={50}
               windowSize={9}
               removeClippedSubviews
               showsVerticalScrollIndicator={false}

@@ -6,7 +6,6 @@ import { isMissingTrack } from '../lib/settingsView';
 import { colors, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
-import { MarqueeText } from './MarqueeText';
 
 type Props = {
   track: Track;
@@ -62,7 +61,9 @@ export const TrackRow = memo(function TrackRow({
           uri={track.artworkUri}
         />
         <View style={styles.text}>
-          <MarqueeText text={track.title} style={styles.title} />
+          <Text style={styles.title} numberOfLines={1}>
+            {track.title}
+          </Text>
           {missing ? (
             <View style={styles.missing}>
               <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
@@ -71,7 +72,9 @@ export const TrackRow = memo(function TrackRow({
               </Text>
             </View>
           ) : (
-            <MarqueeText text={meta} style={styles.meta} />
+            <Text style={styles.meta} numberOfLines={1}>
+              {meta}
+            </Text>
           )}
         </View>
       </Pressable>

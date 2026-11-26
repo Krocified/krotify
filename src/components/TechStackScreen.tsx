@@ -16,6 +16,8 @@ type Props = {
 export function TechStackScreen({ visible, onBack }: Props) {
   const insets = useSafeAreaInsets();
 
+  if (!visible) return null;
+
   return (
     <View
       style={[ui.overlay, !visible && ui.hidden]}

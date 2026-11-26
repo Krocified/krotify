@@ -10,6 +10,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import type { LrcLine } from '../lib/lrc';
+import { usePlayerProgress } from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import type { LyricsState } from '../library/useLyrics';
 
@@ -17,7 +18,6 @@ type Props = {
   state: LyricsState;
   lines: LrcLine[];
   plain?: string;
-  positionMs: number;
   onSeek: (positionMs: number) => void;
   onImport?: () => void;
   importing?: boolean;
@@ -27,11 +27,11 @@ export function LyricsPanel({
   state,
   lines,
   plain,
-  positionMs,
   onSeek,
   onImport,
   importing = false,
 }: Props) {
+  const { positionMs } = usePlayerProgress();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const offsets = useRef<number[]>([]);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -60,7 +60,9 @@ export function LyricsPanel({
     setViewportHeight(event.nativeEvent.layout.height);
   }, []);
 
-  if (state === 'loading' || state === 'idle') {
+  if (state === 'idle') return null;
+
+  if (state === 'loading') {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.accent} />

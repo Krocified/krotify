@@ -18,6 +18,7 @@ type Props = {
   opacity?: number;
 };
 
+const FRAME_INTERVAL_MS = 33;
 const FRAME_CAP_MS = 100;
 
 function Blob({
@@ -76,9 +77,13 @@ export function Visualizer({ colors, isPlaying, opacity = 0.2 }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const elapsed = useSharedValue(0);
+  const pendingMs = useSharedValue(0);
 
   const frame = useFrameCallback((info) => {
-    elapsed.value += Math.min(info.timeSincePreviousFrame ?? 16, FRAME_CAP_MS);
+    pendingMs.value += Math.min(info.timeSincePreviousFrame ?? 16, FRAME_CAP_MS);
+    if (pendingMs.value < FRAME_INTERVAL_MS) return;
+    elapsed.value += Math.min(pendingMs.value, FRAME_CAP_MS);
+    pendingMs.value = 0;
   }, false);
 
   useEffect(() => {

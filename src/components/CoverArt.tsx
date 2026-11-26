@@ -16,6 +16,7 @@ export const CoverArt = memo(function CoverArt({ hue, title, size, radius, uri }
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(uri));
   const showImage = uri !== undefined && uri !== failedUri;
+  const showFallback = !showImage || loading;
 
   return (
     <View
@@ -27,19 +28,22 @@ export const CoverArt = memo(function CoverArt({ hue, title, size, radius, uri }
         { width: size, height: size, borderRadius: radius, backgroundColor: gradient[0] },
       ]}
     >
-      <LinearGradient
-        colors={gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gradient, { borderRadius: radius }]}
-      >
-        <Text style={[styles.initial, { fontSize: size * 0.3 }]}>{coverInitial(title)}</Text>
-      </LinearGradient>
+      {showFallback ? (
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gradient, { borderRadius: radius }]}
+        >
+          <Text style={[styles.initial, { fontSize: size * 0.3 }]}>{coverInitial(title)}</Text>
+        </LinearGradient>
+      ) : null}
       {showImage ? (
         <>
           <Image
             source={{ uri: uri as string }}
             resizeMode="contain"
+            fadeDuration={0}
             onLoadStart={() => setLoading(true)}
             onLoadEnd={() => setLoading(false)}
             onError={() => {

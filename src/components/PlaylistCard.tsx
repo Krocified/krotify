@@ -5,7 +5,6 @@ import type { PlaylistSummary } from '../db/repo';
 import { hueFromSeed } from '../lib/hash';
 import { colors, radius, space, type } from '../theme';
 import { CoverArt } from './CoverArt';
-import { MarqueeText } from './MarqueeText';
 
 type Props = {
   summary: PlaylistSummary;
@@ -35,7 +34,9 @@ export const PlaylistCard = memo(function PlaylistCard({ summary, onOpen, onMenu
           uri={summary.artworkUri ?? summary.firstArtworkUri}
         />
         <View style={styles.text}>
-          <MarqueeText text={summary.name} style={styles.name} />
+          <Text style={styles.name} numberOfLines={1}>
+            {summary.name}
+          </Text>
           <Text style={styles.meta} numberOfLines={1}>
             {meta}
           </Text>

@@ -31,7 +31,7 @@ const PROGRESS_BLOCK = `    // ${MARKER}: show elapsed time as a determinate not
 const TICKER_BLOCK = `    // ${MARKER}: notification progress only changes while playback advances.
     progressJob = scope.launch {
       while (isActive) {
-        delay(1000L)
+        delay(3000L)
         val playable = currentPlayable ?: continue
         // ExoPlayer state must be read on its application looper (main). This ticker runs on
         // Dispatchers.IO, so reading isPlaying directly here crashes the process.

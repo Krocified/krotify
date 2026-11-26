@@ -18,7 +18,6 @@ import { PlaylistActionsSheet } from '../components/PlaylistActionsSheet';
 import { PlaylistCard } from '../components/PlaylistCard';
 import { PlaylistCreateSheet } from '../components/PlaylistCreateSheet';
 import { PlaylistEditSheet } from '../components/PlaylistEditSheet';
-import { MarqueeText } from '../components/MarqueeText';
 import { BackPill, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import {
@@ -58,6 +57,8 @@ type Props = {
   tags?: TagCount[];
   assignments?: ReadonlyMap<string, readonly string[]>;
 };
+
+const VIRTUALIZE_AT = 100;
 
 function applyVisibleOrder(current: string[], visibleOrder: string[]): string[] {
   const visible = new Set(visibleOrder);
@@ -372,6 +373,68 @@ export function PlaylistsScreen({
       if (queue.length > 0) onPlay(shuffleOrder(queue, -1, Math.random).order);
     }
 
+    const detailTop = (
+      <View style={styles.detailTop}>
+        <CollectionHero
+          title={name}
+          description={selectedPlaylist?.description}
+          meta={meta}
+          artworkUri={artwork.uri}
+          fallbackHue={artwork.hue}
+          onPlay={playAll}
+          onShuffle={shuffleAll}
+          onEdit={selectedPlaylist ? () => startEdit(selectedPlaylist, queue) : undefined}
+          onAdd={() => setPickerOpen(true)}
+          disabled={queue.length === 0}
+        />
+        {message ? (
+          <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
+        ) : null}
+        {missing > 0 ? (
+          <Text style={[styles.message, styles.detailMessage]}>
+            {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
+          </Text>
+        ) : null}
+      </View>
+    );
+
+    const bottomPad =
+      insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110;
+
+    if (queue.length > VIRTUALIZE_AT) {
+      return (
+        <View style={ui.flex}>
+          <ScreenHeader
+            leading={<BackPill onPress={closeDetail} label="Back to playlists" />}
+            title={name}
+          />
+          <FlatList
+            data={queue}
+            keyExtractor={(track) => track.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: bottomPad }}
+            initialNumToRender={12}
+            maxToRenderPerBatch={10}
+            windowSize={9}
+            removeClippedSubviews
+            ListHeaderComponent={detailTop}
+            renderItem={({ item, index }) => (
+              <PlaylistTrackRow
+                track={item}
+                busy={busyTrackId === item.id}
+                canMoveUp={index > 0}
+                canMoveDown={index < queue.length - 1}
+                sortable={false}
+                onPlay={() => (onSelect ? onSelect(item, queue) : onPlay(queue))}
+                onRemove={() => void remove(item.id)}
+                onMove={(direction) => moveTrack(item.id, direction)}
+              />
+            )}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={ui.flex}>
         <ScreenHeader
@@ -381,33 +444,9 @@ export function PlaylistsScreen({
         <Animated.ScrollView
           ref={scrollableRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom:
-              insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
-          }}
+          contentContainerStyle={{ paddingBottom: bottomPad }}
         >
-          <View style={styles.detailTop}>
-            <CollectionHero
-              title={name}
-              description={selectedPlaylist?.description}
-              meta={meta}
-              artworkUri={artwork.uri}
-              fallbackHue={artwork.hue}
-              onPlay={playAll}
-              onShuffle={shuffleAll}
-              onEdit={selectedPlaylist ? () => startEdit(selectedPlaylist, queue) : undefined}
-              onAdd={() => setPickerOpen(true)}
-              disabled={queue.length === 0}
-            />
-            {message ? (
-              <Text style={[styles.message, styles.detailMessage]}>{message}</Text>
-            ) : null}
-            {missing > 0 ? (
-              <Text style={[styles.message, styles.detailMessage]}>
-                {missing} {missing === 1 ? 'song is' : 'songs are'} no longer available.
-              </Text>
-            ) : null}
-          </View>
+          {detailTop}
           {queue.length === 0 ? (
             <EmptyState
               icon="musical-notes-outline"
@@ -516,6 +555,7 @@ type RowProps = {
   busy: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  sortable?: boolean;
   onPlay: () => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
@@ -526,6 +566,7 @@ function PlaylistTrackRow({
   busy,
   canMoveUp,
   canMoveDown,
+  sortable = true,
   onPlay,
   onRemove,
   onMove,
@@ -555,22 +596,59 @@ function PlaylistTrackRow({
           uri={track.artworkUri}
         />
         <View style={styles.trackText}>
-          <MarqueeText text={track.title} style={ui.rowTitle} />
+          <Text style={ui.rowTitle} numberOfLines={1}>
+            {track.title}
+          </Text>
           {track.artist ? (
-            <MarqueeText text={track.artist} style={ui.rowMeta} />
+            <Text style={ui.rowMeta} numberOfLines={1}>
+              {track.artist}
+            </Text>
           ) : null}
         </View>
       </Pressable>
       <Text style={styles.duration}>{formatDuration(track.durationMs)}</Text>
-      <Sortable.Handle style={styles.handle}>
-        <View
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-          accessibilityElementsHidden
-        >
-          <Ionicons name="reorder-three-outline" size={22} color={colors.textDim} />
+      {sortable ? (
+        <Sortable.Handle style={styles.handle}>
+          <View
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+          >
+            <Ionicons name="reorder-three-outline" size={22} color={colors.textDim} />
+          </View>
+        </Sortable.Handle>
+      ) : (
+        <View style={styles.handle}>
+          <Pressable
+            onPress={() => onMove(-1)}
+            disabled={!canMoveUp}
+            accessibilityRole="button"
+            accessibilityLabel="Move up"
+            accessibilityState={{ disabled: !canMoveUp }}
+            style={styles.moveButton}
+          >
+            <Ionicons
+              name="chevron-up"
+              size={16}
+              color={canMoveUp ? colors.textDim : colors.surfaceHi}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => onMove(1)}
+            disabled={!canMoveDown}
+            accessibilityRole="button"
+            accessibilityLabel="Move down"
+            accessibilityState={{ disabled: !canMoveDown }}
+            style={styles.moveButton}
+          >
+            <Ionicons
+              name="chevron-down"
+              size={16}
+              color={canMoveDown ? colors.textDim : colors.surfaceHi}
+            />
+          </Pressable>
         </View>
-      </Sortable.Handle>
+      )}
       <View style={styles.removeSlot}>
         {busy ? (
           <ActivityIndicator color={colors.accent} />
@@ -671,6 +749,12 @@ const styles = StyleSheet.create({
   handle: {
     width: 44,
     height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moveButton: {
+    width: 32,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -67,7 +67,7 @@ function requestNotificationPermission(): void {
 }
 
 export function createEngine(): PlaybackEngine {
-  let playlist = createAudioPlaylist({ updateInterval: 200 });
+  let playlist = createAudioPlaylist({ updateInterval: 500 });
   const globalIndexes: number[] = [];
   let loopMode: EngineLoopMode = 'none';
   let volume = 1;
@@ -105,7 +105,7 @@ export function createEngine(): PlaybackEngine {
           previous.destroy();
         } catch {}
       }
-      playlist = createAudioPlaylist({ updateInterval: 200 });
+      playlist = createAudioPlaylist({ updateInterval: 500 });
       playlist.loop = loopMode;
       playlist.volume = volume;
       globalIndexes.length = 0;

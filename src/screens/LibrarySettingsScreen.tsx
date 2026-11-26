@@ -1,13 +1,13 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import {
   ActivityIndicator,
-  Animated,
   Platform,
   Pressable,
   Switch,
   Text,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackPill } from '../components/ScreenHeader';
 import { ScrollBar } from '../components/ScrollBar';
@@ -69,6 +69,8 @@ export function LibrarySettingsScreen({
     scanSummary === null ? 'No scan yet' : scanSummaryLabel(scanSummary);
   const scanDisabledReason = scanEnabled ? null : 'Turn on scanning to rescan.';
   const bottomPad = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + 66 + insets.bottom + space.xl;
+
+  if (!visible) return null;
 
   return (
     <View

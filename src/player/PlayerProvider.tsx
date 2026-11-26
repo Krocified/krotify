@@ -36,7 +36,6 @@ export type PlayerStatusValue = {
   upcoming: Track[];
   repeat: RepeatMode;
   shuffle: boolean;
-  sleep: SleepState;
   spatial: { mode: SpatialMode; supported: boolean | null };
 };
 
@@ -73,7 +72,9 @@ export type PlayerActionsValue = {
   setQueue: (queue: Track[]) => void;
 };
 
-export type PlayerContextValue = PlayerStatusValue & PlayerProgressValue & PlayerActionsValue;
+export type PlayerContextValue = PlayerStatusValue &
+  PlayerProgressValue &
+  PlayerActionsValue & { sleep: SleepState };
 
 type WindowState = {
   globalIndexes: number[];
@@ -84,6 +85,7 @@ type ResolvedWindowTrack = WindowTrack & { global: number };
 const PlayerStatusContext = createContext<PlayerStatusValue | null>(null);
 const PlayerProgressContext = createContext<PlayerProgressValue | null>(null);
 const PlayerActionsContext = createContext<PlayerActionsValue | null>(null);
+const PlayerSleepContext = createContext<SleepState | null>(null);
 
 export function PlayerProvider({ children }: PropsWithChildren) {
   const [playlist, setPlaylist] = useState(() => engine.playlist);
@@ -323,7 +325,7 @@ export function PlayerProvider({ children }: PropsWithChildren) {
         current.mode === 'timer' ? { ...current, remainingMs: tick.remainingMs } : current,
       );
       engine.setVolume(tick.fadeFrom ?? 1);
-    }, 250);
+    }, 1000);
     return () => {
       clearInterval(timer);
       engine.setVolume(1);
@@ -1081,7 +1083,6 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       upcoming,
       repeat,
       shuffle,
-      sleep,
       spatial: { mode: displayMode, supported: spatialSupported },
     }),
     [
@@ -1093,11 +1094,15 @@ export function PlayerProvider({ children }: PropsWithChildren) {
       queueLength,
       repeat,
       shuffle,
-      sleep,
       spatialSupported,
       track,
       upcoming,
     ],
+  );
+
+  const sleepValue = useMemo<SleepState>(
+    () => ({ mode: sleep.mode, remainingMs: sleep.remainingMs }),
+    [sleep.mode, sleep.remainingMs],
   );
 
   const progressValue = useMemo<PlayerProgressValue>(
@@ -1150,7 +1155,9 @@ export function PlayerProvider({ children }: PropsWithChildren) {
     <PlayerActionsContext.Provider value={actionsValue}>
       <PlayerStatusContext.Provider value={statusValue}>
         <PlayerProgressContext.Provider value={progressValue}>
-          {children}
+          <PlayerSleepContext.Provider value={sleepValue}>
+            {children}
+          </PlayerSleepContext.Provider>
         </PlayerProgressContext.Provider>
       </PlayerStatusContext.Provider>
     </PlayerActionsContext.Provider>
@@ -1176,9 +1183,19 @@ export function usePlayerActions(): PlayerActionsValue {
   return context;
 }
 
+export function usePlayerSleep(): SleepState {
+  const context = useContext(PlayerSleepContext);
+  if (!context) throw new Error('usePlayerSleep must be used within a PlayerProvider');
+  return context;
+}
+
 export function usePlayer(): PlayerContextValue {
   const status = usePlayerStatus();
   const progress = usePlayerProgress();
   const actions = usePlayerActions();
-  return useMemo(() => ({ ...status, ...progress, ...actions }), [actions, progress, status]);
+  const sleep = usePlayerSleep();
+  return useMemo(
+    () => ({ ...status, ...progress, ...actions, sleep }),
+    [actions, progress, sleep, status],
+  );
 }

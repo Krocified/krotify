@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File } from 'expo-file-system';
 import { ArtworkSourceSheet } from '../components/ArtworkSourceSheet';
@@ -9,7 +9,6 @@ import { PlaylistCreateSheet } from '../components/PlaylistCreateSheet';
 import { PlaylistShelf } from '../components/PlaylistShelf';
 import { SquareImageCropper } from '../components/SquareImageCropper';
 import { CoverArt } from '../components/CoverArt';
-import { MarqueeText } from '../components/MarqueeText';
 import { BackPill, HeaderActions, ScreenHeader } from '../components/ScreenHeader';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
 import { MINI_PLAYER_HEIGHT } from '../components/MiniPlayer';
@@ -192,93 +191,100 @@ export function CollectionsScreen({
       />
 
       {detail ? (
-        <ScrollView
+        <FlatList
+          data={detailTracks}
+          keyExtractor={(track) => track.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: bottomPad }}
-        >
-          <CollectionHero
-            title={detailTitle}
-            meta={detailMeta}
-            artworkUri={artist?.artworkUri ?? detailTracks[0]?.artworkUri}
-            fallbackHue={detailHue}
-            onPlay={() => onPlay(detailTracks)}
-            onShuffle={() => onPlay(shuffle(detailTracks))}
-            onPressArtwork={() => setSourceOpen(true)}
-            disabled={detailTracks.length === 0}
-          />
-          {coverMessage ? <Text style={styles.coverMessage}>{coverMessage}</Text> : null}
-          <View style={styles.list}>
-            {detailTracks.map((track) => (
-              <TrackRow
-                key={track.id}
-                track={track}
-                onPress={selectTrack}
-                showArtist={false}
+          initialNumToRender={16}
+          maxToRenderPerBatch={10}
+          windowSize={9}
+          removeClippedSubviews
+          ListHeaderComponent={
+            <>
+              <CollectionHero
+                title={detailTitle}
+                meta={detailMeta}
+                artworkUri={artist?.artworkUri ?? detailTracks[0]?.artworkUri}
+                fallbackHue={detailHue}
+                onPlay={() => onPlay(detailTracks)}
+                onShuffle={() => onPlay(shuffle(detailTracks))}
+                onPressArtwork={() => setSourceOpen(true)}
+                disabled={detailTracks.length === 0}
               />
-            ))}
-          </View>
-        </ScrollView>
+              {coverMessage ? <Text style={styles.coverMessage}>{coverMessage}</Text> : null}
+            </>
+          }
+          renderItem={({ item }) => (
+            <TrackRow track={item} onPress={selectTrack} showArtist={false} />
+          )}
+        />
       ) : (
-        <ScrollView
+        <FlatList
+          data={artists}
+          keyExtractor={(item) => item.key}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: bottomPad }}
-        >
-          <View style={[ui.content, { paddingTop: space.sm }]}>
-            <View>
-              <Pressable
-                onPress={onOpenLiked}
-                accessibilityRole="button"
-                accessibilityLabel={`Liked Songs, ${countLabel(likedCount, 'song')}`}
-                style={({ pressed }) => [styles.row, styles.likedRow, pressed && ui.rowPressed]}
-              >
-                <View style={styles.likedIcon}>
-                  <Ionicons name="heart" size={22} color={colors.text} />
-                </View>
-                <View style={styles.rowText}>
-                  <Text style={ui.rowTitle}>Liked Songs</Text>
-                  <Text style={ui.rowMeta}>{countLabel(likedCount, 'song')}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-              </Pressable>
-            </View>
-          </View>
-
-          <PlaylistShelf
-            playlists={playlists}
-            onCreate={() => setCreateOpen(true)}
-            onOpen={(id) => onOpenPlaylist?.(id)}
-            onViewAll={onOpenPlaylists}
-          />
-
-          <View style={[ui.content, { paddingTop: space.xs, gap: space.xs }]}>
-            <Text style={ui.sectionTitle}>Artists</Text>
-            {artists.length === 0 ? (
-              <Text style={styles.empty}>No artists yet.</Text>
-            ) : (
-              artists.map((item) => (
+          initialNumToRender={16}
+          maxToRenderPerBatch={10}
+          windowSize={9}
+          removeClippedSubviews
+          ListHeaderComponent={
+            <>
+              <View style={[ui.content, { paddingTop: space.sm }]}>
                 <Pressable
-                  key={item.key}
-                  onPress={() => setSelection({ kind: 'artist', key: item.key })}
+                  onPress={onOpenLiked}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.name}, ${artistMeta(item)}`}
-                  style={({ pressed }) => [styles.row, styles.artistRow, pressed && ui.rowPressed]}
+                  accessibilityLabel={`Liked Songs, ${countLabel(likedCount, 'song')}`}
+                  style={({ pressed }) => [styles.row, styles.likedRow, pressed && ui.rowPressed]}
                 >
-                  <CoverArt
-                    hue={item.tracks[0]?.artworkHue ?? 0}
-                    title={item.name}
-                    size={48}
-                    radius={24}
-                    uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
-                  />
-                  <View style={styles.rowText}>
-                    <MarqueeText text={item.name} style={ui.rowTitle} />
-                    <Text style={ui.rowMeta}>{artistMeta(item)}</Text>
+                  <View style={styles.likedIcon}>
+                    <Ionicons name="heart" size={22} color={colors.text} />
                   </View>
+                  <View style={styles.rowText}>
+                    <Text style={ui.rowTitle}>Liked Songs</Text>
+                    <Text style={ui.rowMeta}>{countLabel(likedCount, 'song')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
                 </Pressable>
-              ))
-            )}
-          </View>
-        </ScrollView>
+              </View>
+
+              <PlaylistShelf
+                playlists={playlists}
+                onCreate={() => setCreateOpen(true)}
+                onOpen={(id) => onOpenPlaylist?.(id)}
+                onViewAll={onOpenPlaylists}
+              />
+
+              <View style={[ui.content, { paddingTop: space.xs }]}>
+                <Text style={ui.sectionTitle}>Artists</Text>
+              </View>
+            </>
+          }
+          ListEmptyComponent={<Text style={[styles.empty, ui.content]}>No artists yet.</Text>}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => setSelection({ kind: 'artist', key: item.key })}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}, ${artistMeta(item)}`}
+              style={({ pressed }) => [styles.artistRow, pressed && ui.rowPressed]}
+            >
+              <CoverArt
+                hue={item.tracks[0]?.artworkHue ?? 0}
+                title={item.name}
+                size={48}
+                radius={24}
+                uri={item.artworkUri ?? item.tracks[0]?.artworkUri}
+              />
+              <View style={styles.rowText}>
+                <Text style={ui.rowTitle} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={ui.rowMeta}>{artistMeta(item)}</Text>
+              </View>
+            </Pressable>
+          )}
+        />
       )}
       <PlaylistCreateSheet
         visible={createOpen}
@@ -334,10 +340,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
   },
   artistRow: {
-    minHeight: 48,
+    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md - space.xs,
     paddingVertical: space.xs,
-    borderBottomWidth: 0,
-    marginHorizontal: -space.md,
     paddingHorizontal: space.md,
   },
   likedIcon: {

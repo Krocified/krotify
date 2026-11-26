@@ -3,7 +3,6 @@ import * as Application from 'expo-application';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appJson from '../../app.json';
 import { CreatedByKrocified } from '../components/CreatedByKrocified';
@@ -30,7 +30,11 @@ import { loadLinkServerConfig, saveLinkServerConfig } from '../imports/serverCon
 import { LINK_IMPORT_ENABLED, SPATIAL_AUDIO_ENABLED } from '../lib/features';
 import type { SleepPreset } from '../lib/sleepTimer';
 import { spatialNote } from '../lib/spatial';
-import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
+import {
+  usePlayerActions,
+  usePlayerSleep,
+  usePlayerStatus,
+} from '../player/PlayerProvider';
 import { colors, radius, space, type } from '../theme';
 import { SettingsRow, SettingsSection } from '../ui/Settings';
 import { ui } from '../ui/styles';
@@ -67,7 +71,8 @@ export function SettingsScreen({
   const insets = useSafeAreaInsets();
   const version = Application.nativeApplicationVersion ?? appJson.expo.version;
   const { scrollY, contentHeight, viewportHeight, scrollHandlers } = useScrollProgress();
-  const { sleep, spatial } = usePlayerStatus();
+  const { spatial } = usePlayerStatus();
+  const sleep = usePlayerSleep();
   const { setSleep, setSpatialMode } = usePlayerActions();
   const [linkUrl, setLinkUrl] = useState('');
   const [linkToken, setLinkToken] = useState('');
@@ -115,6 +120,8 @@ export function SettingsScreen({
     },
     [setSleep],
   );
+
+  if (!visible) return null;
 
   return (
     <View

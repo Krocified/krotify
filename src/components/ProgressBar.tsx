@@ -1,19 +1,24 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated from gestures and effects. */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
-  Animated,
-  Easing,
   PanResponder,
   StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { formatDuration } from '../lib/format';
+import { usePlayerProgress } from '../player/PlayerProvider';
 import { colors, space, type } from '../theme';
 
 type Props = {
-  positionMs: number;
-  durationMs: number;
   trackId: string;
   onSeek: (positionMs: number) => void;
   resetToken?: number;
@@ -24,7 +29,8 @@ const GLIDE_MS = 500;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToken = 0 }: Props) {
+export function ProgressBar({ trackId, onSeek, resetToken = 0 }: Props) {
+  const { positionMs, durationMs } = usePlayerProgress();
   const [width, setWidth] = useState(0);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; duration: number } | null>(null);
@@ -38,9 +44,7 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
   const durationRef = useRef(durationMs);
   const draggingRef = useRef(false);
   const onSeekRef = useRef(onSeek);
-  const [progress] = useState(() =>
-    new Animated.Value(durationMs > 0 ? clamp01(positionMs / durationMs) : 0),
-  );
+  const progress = useSharedValue(durationMs > 0 ? clamp01(positionMs / durationMs) : 0);
 
   useEffect(() => {
     durationRef.current = durationMs;
@@ -57,24 +61,24 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
   useEffect(() => {
     if (lastTrackRef.current === trackId) return;
     lastTrackRef.current = trackId;
-    progress.stopAnimation();
-    progress.setValue(0);
+    cancelAnimation(progress);
+    progress.value = 0;
     setDragMs(null);
     setPendingSeek(null);
-  }, [trackId, progress]);
+  }, [progress, trackId]);
 
   useEffect(() => {
     if (lastResetRef.current === resetToken) return;
     lastResetRef.current = resetToken;
-    progress.stopAnimation();
-    progress.setValue(0);
+    cancelAnimation(progress);
+    progress.value = 0;
     setDragMs(null);
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     setPendingSeek(null);
     setJustReset(true);
     const timer = setTimeout(() => setJustReset(false), 600);
     return () => clearTimeout(timer);
-  }, [resetToken, progress]);
+  }, [progress, resetToken]);
 
   const basePosition = justReset && positionMs > 1500 ? 0 : positionMs;
   const pendingVisible =
@@ -88,13 +92,23 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
   useEffect(() => {
     if (dragMs !== null) return;
     const target = durationMs > 0 ? clamp01(displayMs / durationMs) : 0;
-    Animated.timing(progress, {
-      toValue: target,
+    progress.value = withTiming(target, {
       duration: GLIDE_MS,
       easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-  }, [displayMs, durationMs, dragMs, progress]);
+    });
+  }, [displayMs, dragMs, durationMs, progress]);
+
+  const fillStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: -width * (1 - progress.value) }],
+    };
+  }, [width]);
+
+  const thumbStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: progress.value * width - thumbSize / 2 }],
+    };
+  }, [thumbSize, width]);
 
   const positionFromPageX = useCallback((pageX: number) => {
     const barWidth = widthRef.current;
@@ -113,8 +127,8 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
         onPanResponderGrant: (event) => {
           draggingRef.current = true;
           const ms = positionFromPageX(event.nativeEvent.pageX);
-          progress.stopAnimation();
-          progress.setValue(durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0);
+          cancelAnimation(progress);
+          progress.value = durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0;
           if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
           setPendingSeek(null);
           setDragMs(ms);
@@ -122,7 +136,7 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
         onPanResponderMove: (event) => {
           if (!draggingRef.current) return;
           const ms = positionFromPageX(event.nativeEvent.pageX);
-          progress.setValue(durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0);
+          progress.value = durationRef.current > 0 ? clamp01(ms / durationRef.current) : 0;
           setDragMs(ms);
         },
         onPanResponderRelease: (event) => {
@@ -187,24 +201,15 @@ export function ProgressBar({ positionMs, durationMs, trackId, onSeek, resetToke
         }}
       >
         <View style={[styles.track, dragging && styles.trackActive]} pointerEvents="none">
-          <Animated.View
-            style={[styles.fill, dragging && styles.fillActive, { transform: [{ scaleX: progress }] }]}
-          />
+          <View style={styles.fillClip}>
+            <Animated.View style={[styles.fill, dragging && styles.fillActive, fillStyle]} />
+          </View>
           {width > 0 ? (
             <Animated.View
               style={[
                 styles.thumb,
                 dragging && styles.thumbActive,
-                {
-                  transform: [
-                    {
-                      translateX: progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-thumbSize / 2, width - thumbSize / 2],
-                      }),
-                    },
-                  ],
-                },
+                thumbStyle,
               ]}
             />
           ) : null}
@@ -238,15 +243,22 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  fillClip: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+    borderRadius: 2,
+  },
   fill: {
     width: '100%',
-    height: 4,
+    height: '100%',
     borderRadius: 2,
     backgroundColor: colors.accentBright,
-    transformOrigin: 'left',
   },
   fillActive: {
-    height: 6,
     borderRadius: 3,
   },
   thumb: {

@@ -32,13 +32,15 @@ export function BlurPill({
   disabled = false,
   blurTarget,
   intensity = 40,
-  fillColor = 'rgba(22,22,29,0.10)',
+  fillColor,
   style,
   contentStyle,
   accessibilityRole,
   accessibilityLabel,
   accessibilityState,
 }: Props) {
+  const resolvedFill =
+    fillColor ?? (blurTarget ? 'rgba(22,22,29,0.10)' : 'rgba(22,22,29,0.42)');
   const body = (
     <>
       {blurTarget ? (
@@ -53,7 +55,7 @@ export function BlurPill({
       ) : null}
       <View
         pointerEvents="none"
-        style={[styles.fill, { backgroundColor: fillColor }]}
+        style={[styles.fill, { backgroundColor: resolvedFill }]}
       />
       <View style={[styles.content, contentStyle]}>{children}</View>
     </>

@@ -69,59 +69,61 @@ export function PlayerTopActions({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.row}>
-        <BlurPill
+      <BlurPill
+        blurTarget={blurTarget}
+        intensity={35}
+        style={styles.group}
+        contentStyle={styles.groupContent}
+      >
+        <Pressable
           onPress={onToggleLike}
+          accessibilityRole="button"
           accessibilityLabel={liked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}
           accessibilityState={{ selected: liked }}
-          blurTarget={blurTarget}
-          intensity={35}
-          style={styles.iconButton}
+          style={({ pressed }) => [styles.groupButton, pressed && styles.groupPressed]}
         >
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
             size={22}
             color={liked ? colors.accent : colors.textDim}
           />
-        </BlurPill>
+        </Pressable>
         {lyricsEnabled ? (
-          <BlurPill
+          <Pressable
             onPress={onToggleLyrics}
+            accessibilityRole="button"
             accessibilityLabel="Lyrics"
             accessibilityState={{ selected: lyricsMode }}
-            blurTarget={blurTarget}
-            intensity={35}
-            style={styles.iconButton}
+            style={({ pressed }) => [styles.groupButton, pressed && styles.groupPressed]}
           >
             <Ionicons
               name="document-text-outline"
               size={22}
               color={lyricsMode ? colors.accent : colors.textDim}
             />
-          </BlurPill>
+          </Pressable>
         ) : null}
-        <BlurPill
+        <Pressable
           onPress={() => onOpenChange(!open)}
+          accessibilityRole="button"
           accessibilityLabel={open ? 'Hide more actions' : 'More player actions'}
           accessibilityState={{ expanded: open }}
-          blurTarget={blurTarget}
-          intensity={35}
-          style={styles.iconButton}
+          style={({ pressed }) => [styles.groupButton, pressed && styles.groupPressed]}
         >
           <Ionicons
             name={open ? 'chevron-up' : 'ellipsis-vertical'}
             size={22}
             color={open ? colors.text : colors.textDim}
           />
-        </BlurPill>
-      </View>
+        </Pressable>
+      </BlurPill>
 
       {open ? (
         <View style={styles.popover}>
           <BlurPill
+            blurTarget={blurTarget}
             style={styles.menu}
             contentStyle={styles.menuContent}
-            blurTarget={blurTarget}
             intensity={40}
           >
             {secondary.map((action) => (
@@ -185,17 +187,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     zIndex: 2,
   },
-  row: {
+  group: {
+    height: 44,
+    borderRadius: 22,
+  },
+  groupContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.xs,
   },
-  iconButton: {
+  groupButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+  },
+  groupPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   popover: {
     position: 'absolute',

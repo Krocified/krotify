@@ -1,4 +1,12 @@
-import { Album, Asset, AssetField, MediaType, Query, requestPermissionsAsync } from 'expo-media-library';
+import {
+  Album,
+  Asset,
+  AssetField,
+  MediaType,
+  Query,
+  requestPermissionsAsync,
+  type AssetMetadata,
+} from 'expo-media-library';
 import { File } from 'expo-file-system';
 import type { ScanTrackInput } from '../tracks/types';
 import { isSystemAudioLabel, shouldIncludeAudio } from '../lib/scanFilter';
@@ -43,7 +51,24 @@ function sizeOf(uri: string): number | undefined {
   }
 }
 
-export async function scanLibrary(): Promise<{
+function candidateFrom(
+  meta: AssetMetadata,
+  location: string,
+  sizeBytes: number | undefined,
+): ScanTrackInput {
+  const candidate: ScanTrackInput = {
+    id: meta.id,
+    location,
+    fileName: meta.filename ?? '',
+    durationMs: Math.round(meta.duration ?? 0),
+  };
+  if (sizeBytes !== undefined) candidate.sizeBytes = sizeBytes;
+  return candidate;
+}
+
+export async function scanLibrary(
+  knownLocations?: ReadonlyMap<string, string>,
+): Promise<{
   candidates: ScanTrackInput[];
   assets: Map<string, Asset>;
 }> {
@@ -52,31 +77,32 @@ export async function scanLibrary(): Promise<{
   const systemIds = await systemAssetIds();
 
   for (let offset = 0; ; offset += PAGE) {
-    const [pageAssets, pageMetadata] = await Promise.all([
-      baseQuery().offset(offset).limit(PAGE).exe(),
-      baseQuery().offset(offset).limit(PAGE).exeForMetadata(),
-    ]);
-    if (pageAssets.length === 0) break;
-    const metaById = new Map(pageMetadata.map((meta) => [meta.id, meta]));
-    const uris = await Promise.all(pageAssets.map((asset) => asset.getUri().catch(() => '')));
-    pageAssets.forEach((asset, index) => {
-      const meta = metaById.get(asset.id);
-      const uri = uris[index] ?? '';
-      const durationMs = Math.round(meta?.duration ?? 0);
-      if (systemIds.has(asset.id)) return;
-      if (!shouldIncludeAudio({ durationMs, uri, filename: meta?.filename ?? undefined })) return;
-      assets.set(asset.id, asset);
-      const candidate: ScanTrackInput = {
-        id: asset.id,
-        location: uri,
-        fileName: meta?.filename ?? '',
-        durationMs,
-      };
-      const sizeBytes = sizeOf(uri);
-      if (sizeBytes !== undefined) candidate.sizeBytes = sizeBytes;
-      candidates.push(candidate);
-    });
-    if (pageAssets.length < PAGE) break;
+    const page = await baseQuery().offset(offset).limit(PAGE).exeForMetadata();
+    if (page.length === 0) break;
+
+    for (const meta of page) {
+      if (systemIds.has(meta.id)) continue;
+      const filename = meta.filename ?? undefined;
+      const durationMs = Math.round(meta.duration ?? 0);
+      if (!shouldIncludeAudio({ durationMs, filename })) continue;
+
+      const known = knownLocations?.get(meta.id);
+      let location = known ?? '';
+      let sizeBytes: number | undefined;
+      const asset = new Asset(meta.id);
+
+      if (!location) {
+        location = await asset.getUri().catch(() => '');
+        if (!location) continue;
+        sizeBytes = sizeOf(location);
+      }
+      if (!shouldIncludeAudio({ durationMs, uri: location, filename })) continue;
+
+      assets.set(meta.id, asset);
+      candidates.push(candidateFrom(meta, location, sizeBytes));
+    }
+
+    if (page.length < PAGE) break;
   }
 
   return { candidates, assets };

@@ -1,17 +1,26 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+} from 'react';
 import {
   Animated,
   Easing,
-  FlatList,
   Platform,
   StyleSheet,
   Text,
   TextInput,
   useWindowDimensions,
   View,
+  type FlatList,
   type TextStyle,
 } from 'react-native';
+import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollBar } from '../components/ScrollBar';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '../components/TabBar';
@@ -41,11 +50,12 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
   const { width } = useWindowDimensions();
   const [anim] = useState(() => new Animated.Value(0));
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const listRef = useRef<FlatList<Track>>(null);
   const results = useMemo(
-    () => (query.trim() ? searchTracks(tracks, query) : []),
-    [query, tracks],
+    () => (deferredQuery.trim() ? searchTracks(tracks, deferredQuery) : []),
+    [deferredQuery, tracks],
   );
 
   useEffect(() => {
@@ -82,6 +92,8 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
     ),
     [results, select],
   );
+
+  if (!visible) return null;
 
   return (
     <Animated.View
@@ -127,7 +139,7 @@ export function SearchScreen({ visible, tracks, onSelect, onBack }: Props) {
 
       {query.trim() ? (
         <View style={{ flex: 1 }}>
-          <FlatList
+          <Reanimated.FlatList
             ref={listRef}
             data={results}
             keyExtractor={(track) => track.id}

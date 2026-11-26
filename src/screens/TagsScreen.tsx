@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmSheet } from '../components/ConfirmSheet';
-import { MarqueeText } from '../components/MarqueeText';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
 import {
@@ -122,6 +121,8 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
   }
 
   const pendingCount = pendingDeleteIds?.length ?? 0;
+
+  if (!visible) return null;
 
   return (
     <View
@@ -250,7 +251,9 @@ export function TagsScreen({ visible, onBack, registerBackInterceptor }: Props) 
                   style={({ pressed }) => [ui.row, styles.rowBorder, pressed && ui.rowPressed]}
                 >
                   <View style={ui.rowText}>
-                    <MarqueeText text={tag.name} style={ui.rowTitle} />
+                    <Text style={ui.rowTitle} numberOfLines={1}>
+                      {tag.name}
+                    </Text>
                     <Text style={ui.rowMeta}>
                       {tag.count} {tag.count === 1 ? 'track' : 'tracks'}
                     </Text>

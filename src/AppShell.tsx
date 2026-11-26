@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { Asset } from 'expo-media-library';
+import { Asset } from 'expo-media-library';
 import { AppSplash } from './components/AppSplash';
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { MiniPlayer } from './components/MiniPlayer';
@@ -78,6 +78,7 @@ import { colors, radius, space, type } from './theme';
 import type { LibraryStatus, ScreenName, Track } from './types';
 
 const EXIT_WINDOW_MS = 2000;
+const SCAN_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
 const toStorageView = (
   info: Awaited<ReturnType<typeof storageInfo>>,
@@ -335,8 +336,10 @@ export function AppShell() {
       setStatusNote(null);
 
       let active: Track[] = [];
+      let activeRows: TrackRecord[] = [];
+      let hiddenRows: TrackRecord[] = [];
       try {
-        const [activeRows, hiddenRows] = await Promise.all([
+        [activeRows, hiddenRows] = await Promise.all([
           listActiveTracks(),
           listHiddenTracks(),
         ]);
@@ -374,16 +377,42 @@ export function AppShell() {
           }
           return;
         }
-        const result = await scanLibrary();
+
+        if (scanId === 0) {
+          const summary = await getScanSummary().catch(() => null);
+          if (cancelled) return;
+          if (summary !== null && Date.now() - summary.lastScanAt < SCAN_MIN_INTERVAL_MS) {
+            const knownAssets = new Map<string, Asset>();
+            for (const row of activeRows) {
+              if (row.source === 'scan') knownAssets.set(row.id, new Asset(row.id));
+            }
+            for (const row of hiddenRows) {
+              if (row.source === 'scan') knownAssets.set(row.id, new Asset(row.id));
+            }
+            assetsRef.current = knownAssets;
+            setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
+            setStatus(active.length > 0 ? 'ready' : 'empty');
+            void refreshTags();
+            return;
+          }
+        }
+
+        const knownLocations = new Map<string, string>();
+        for (const row of [...activeRows, ...hiddenRows]) {
+          knownLocations.set(row.id, row.location);
+        }
+        const result = await scanLibrary(knownLocations);
         if (cancelled) return;
         assetsRef.current = result.assets;
         const root = await getStorageRoot();
         await syncScanResults(result.candidates, { rootUri: root.uri });
-        const [activeRows, hiddenRows] = await Promise.all([
+        const [nextActiveRows, nextHiddenRows] = await Promise.all([
           listActiveTracks(),
           listHiddenTracks(),
         ]);
         if (cancelled) return;
+        activeRows = nextActiveRows;
+        hiddenRows = nextHiddenRows;
         active = activeRows.map(toUiTrack);
         setLibraryTracks(active.length > 0 ? active : DEMO_TRACKS);
         setExcluded(hiddenRows.map(toUiTrack));
@@ -807,6 +836,44 @@ export function AppShell() {
     if (Platform.OS === 'web') return;
     setImporting(true);
     setImportFailures([]);
+    const pending = new Map<string, Track>();
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    let progressTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingProgress: ImportProgress | null = null;
+
+    const flush = () => {
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      if (pending.size === 0) return;
+      const records = [...pending.values()];
+      pending.clear();
+      setLibraryTracks((prev) =>
+        mergeLibrary(
+          prev.filter((item) => item.source !== 'demo'),
+          records,
+          new Set(),
+        ),
+      );
+      setStatus('ready');
+    };
+
+    const queueRecord = (record: TrackRecord) => {
+      const uiTrack = toUiTrack(record);
+      pending.set(uiTrack.id, uiTrack);
+      if (!flushTimer) flushTimer = setTimeout(flush, 100);
+    };
+
+    const reportProgress = (progress: ImportProgress) => {
+      pendingProgress = progress;
+      if (progressTimer) return;
+      progressTimer = setTimeout(() => {
+        progressTimer = null;
+        if (pendingProgress) setImportProgress(pendingProgress);
+      }, 120);
+    };
+
     try {
       if (!(await storageRootIsWritable())) {
         showToast('Storage folder access was lost. Choose it again.');
@@ -820,23 +887,11 @@ export function AppShell() {
       importAbortRef.current = controller;
       const { added, skipped, failures } = await pickAndImportTracks({
         signal: controller.signal,
-        onProgress: setImportProgress,
-        onAdded: (record) => {
-          const uiTrack = toUiTrack(record);
-          setLibraryTracks((prev) =>
-            mergeLibrary(
-              prev.filter((item) => item.source !== 'demo'),
-              [uiTrack],
-              new Set(),
-            ),
-          );
-          setStatus('ready');
-        },
-        onUpdated: (record) => {
-          const uiTrack = toUiTrack(record);
-          setLibraryTracks((prev) => mergeLibrary(prev, [uiTrack], new Set()));
-        },
+        onProgress: reportProgress,
+        onAdded: queueRecord,
+        onUpdated: queueRecord,
       });
+      flush();
       setImportFailures(failures);
       const skippedNote =
         skipped.length > 0
@@ -860,6 +915,9 @@ export function AppShell() {
       selectTab('library');
       showToast(importResultMessage(added.length, failures.length));
     } finally {
+      if (flushTimer) clearTimeout(flushTimer);
+      if (progressTimer) clearTimeout(progressTimer);
+      flush();
       importAbortRef.current = null;
       setImportProgress(null);
       setImporting(false);

@@ -10,9 +10,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoverArt } from '../components/CoverArt';
-import { MarqueeText } from '../components/MarqueeText';
 import { BackPill } from '../components/ScreenHeader';
 import { SelectionBar } from '../components/SelectionBar';
 import {
@@ -104,6 +104,8 @@ export function HiddenTracksScreen({
     return () => registerBackInterceptor(null);
   }, [registerBackInterceptor, selecting]);
 
+  if (!visible) return null;
+
   return (
     <Animated.View
       style={[
@@ -190,136 +192,140 @@ export function HiddenTracksScreen({
       ) : null}
 
       <View style={{ flex: 1 }}>
-        <Animated.ScrollView
+        <Reanimated.FlatList
+          data={tracks}
+          keyExtractor={(track) => track.id}
+          extraData={selectedIds}
           showsVerticalScrollIndicator={false}
           {...scrollHandlers}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={9}
+          removeClippedSubviews
           contentContainerStyle={[
-            ui.content,
+            styles.listContent,
             {
               paddingBottom:
                 insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,
             },
           ]}
-        >
-          {tracks.length === 0 ? (
+          ListHeaderComponent={
+            tracks.length === 0 || selecting ? undefined : (
+              <View style={ui.card}>
+                <Pressable
+                  onPress={onRestoreAll}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore all hidden tracks"
+                  style={({ pressed }) => [ui.row, pressed && ui.rowPressed]}
+                >
+                  <View style={ui.rowText}>
+                    <Text style={ui.rowTitle}>Restore all</Text>
+                    <Text style={ui.rowMeta}>
+                      {tracks.length} hidden {tracks.length === 1 ? 'track' : 'tracks'}
+                    </Text>
+                  </View>
+                  <Ionicons name="refresh" size={22} color={colors.accent2} />
+                </Pressable>
+              </View>
+            )
+          }
+          ListEmptyComponent={
             <EmptyState
               icon="eye-off-outline"
               text="No hidden tracks. Tracks you hide from the library appear here."
             />
-          ) : (
-            <>
-              {selecting ? null : (
-                <View style={ui.card}>
-                  <Pressable
-                    onPress={onRestoreAll}
-                    accessibilityRole="button"
-                    accessibilityLabel="Restore all hidden tracks"
-                    style={({ pressed }) => [ui.row, pressed && ui.rowPressed]}
-                  >
-                    <View style={ui.rowText}>
-                      <Text style={ui.rowTitle}>Restore all</Text>
-                      <Text style={ui.rowMeta}>
-                        {tracks.length} hidden {tracks.length === 1 ? 'track' : 'tracks'}
-                      </Text>
-                    </View>
-                    <Ionicons name="refresh" size={22} color={colors.accent2} />
-                  </Pressable>
-                </View>
-              )}
-
-              <View style={ui.card}>
-                {tracks.map((track) => {
-                  const missing = isMissingTrack(track);
-                  return (
-                    <View key={track.id} style={styles.track}>
-                      <Pressable
-                        onPress={() => {
-                          if (selecting) toggleSelection(track);
-                        }}
-                        onLongPress={() => {
-                          if (selecting) toggleSelection(track);
-                          else startSelection(track);
-                        }}
-                        accessibilityRole={selecting ? 'checkbox' : undefined}
-                        accessibilityLabel={
-                          selecting
-                            ? `${track.title}${selectedIds.has(track.id) ? ', selected' : ''}`
-                            : undefined
-                        }
-                        accessibilityState={selecting ? { checked: selectedIds.has(track.id) } : undefined}
-                        style={styles.trackMain}
-                      >
-                        <CoverArt
-                          hue={track.artworkHue}
-                          title={track.title}
-                          size={56}
-                          radius={4}
-                          uri={track.artworkUri}
+          }
+          renderItem={({ item: track }) => {
+            const missing = isMissingTrack(track);
+            return (
+              <View style={styles.track}>
+                <Pressable
+                  onPress={() => {
+                    if (selecting) toggleSelection(track);
+                  }}
+                  onLongPress={() => {
+                    if (selecting) toggleSelection(track);
+                    else startSelection(track);
+                  }}
+                  accessibilityRole={selecting ? 'checkbox' : undefined}
+                  accessibilityLabel={
+                    selecting
+                      ? `${track.title}${selectedIds.has(track.id) ? ', selected' : ''}`
+                      : undefined
+                  }
+                  accessibilityState={selecting ? { checked: selectedIds.has(track.id) } : undefined}
+                  style={styles.trackMain}
+                >
+                  <CoverArt
+                    hue={track.artworkHue}
+                    title={track.title}
+                    size={56}
+                    radius={4}
+                    uri={track.artworkUri}
+                  />
+                  <View style={styles.trackText}>
+                    <Text style={ui.rowTitle} numberOfLines={1}>
+                      {track.title}
+                    </Text>
+                    {missing ? (
+                      <View style={styles.missing}>
+                        <Ionicons
+                          name="alert-circle-outline"
+                          size={14}
+                          color={colors.danger}
                         />
-                        <View style={styles.trackText}>
-                          <MarqueeText text={track.title} style={ui.rowTitle} />
-                          {missing ? (
-                            <View style={styles.missing}>
-                              <Ionicons
-                                name="alert-circle-outline"
-                                size={14}
-                                color={colors.danger}
-                              />
-                              <Text style={styles.missingText} numberOfLines={1}>
-                                File missing
-                              </Text>
-                            </View>
-                          ) : track.artist ? (
-                            <MarqueeText text={track.artist} style={ui.rowMeta} />
-                          ) : null}
-                        </View>
-                        {selecting ? (
-                          <Ionicons
-                            name={
-                              selectedIds.has(track.id) ? 'checkmark-circle' : 'ellipse-outline'
-                            }
-                            size={24}
-                            color={
-                              selectedIds.has(track.id) ? colors.accent : colors.textDim
-                            }
-                          />
-                        ) : null}
-                      </Pressable>
-                      {selecting ? null : (
-                        <View style={styles.actions}>
-                          <Pressable
-                            onPress={() => onRestore(track.id)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Restore ${track.title}`}
-                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
-                          >
-                            <Text style={styles.actionRestore}>Restore</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => onClear(track)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Clear ${track.title} from the library`}
-                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
-                          >
-                            <Text style={styles.actionText}>Clear</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => onDelete(track)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Delete ${track.title} and its file`}
-                            style={({ pressed }) => [styles.action, pressed && ui.pressed]}
-                          >
-                            <Text style={styles.actionDanger}>Delete</Text>
-                          </Pressable>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
+                        <Text style={styles.missingText} numberOfLines={1}>
+                          File missing
+                        </Text>
+                      </View>
+                    ) : track.artist ? (
+                      <Text style={ui.rowMeta} numberOfLines={1}>
+                        {track.artist}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {selecting ? (
+                    <Ionicons
+                      name={
+                        selectedIds.has(track.id) ? 'checkmark-circle' : 'ellipse-outline'
+                      }
+                      size={24}
+                      color={selectedIds.has(track.id) ? colors.accent : colors.textDim}
+                    />
+                  ) : null}
+                </Pressable>
+                {selecting ? null : (
+                  <View style={styles.actions}>
+                    <Pressable
+                      onPress={() => onRestore(track.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Restore ${track.title}`}
+                      style={({ pressed }) => [styles.action, pressed && ui.pressed]}
+                    >
+                      <Text style={styles.actionRestore}>Restore</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onClear(track)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Clear ${track.title} from the library`}
+                      style={({ pressed }) => [styles.action, pressed && ui.pressed]}
+                    >
+                      <Text style={styles.actionText}>Clear</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onDelete(track)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${track.title} and its file`}
+                      style={({ pressed }) => [styles.action, pressed && ui.pressed]}
+                    >
+                      <Text style={styles.actionDanger}>Delete</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
-            </>
-          )}
-        </Animated.ScrollView>
+            );
+          }}
+        />
         <ScrollBar
           scrollY={scrollY}
           contentHeight={contentHeight}
@@ -342,11 +348,15 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.textDim,
   },
+  listContent: {
+    paddingHorizontal: space.md,
+    gap: space.sm,
+  },
   track: {
     gap: space.sm,
     padding: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ffffff10',
+    borderRadius: radius.screen,
+    backgroundColor: colors.surface,
   },
   trackMain: {
     flexDirection: 'row',

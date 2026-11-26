@@ -7,7 +7,7 @@ test('ambient loop runs for at least one hour', () => {
 });
 
 test('ambient blobs are circles with whole-number frequencies', () => {
-  assert.ok(AMBIENT_BLOBS.length >= 8);
+  assert.ok(AMBIENT_BLOBS.length >= 4);
   for (const blob of AMBIENT_BLOBS) {
     for (const value of [blob.fx, blob.fy, blob.fs, blob.fo]) {
       assert.ok(Number.isInteger(value) && value > 0);

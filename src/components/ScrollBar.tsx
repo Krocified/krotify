@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   PanResponder,
   Pressable,
   StyleSheet,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { colors } from '../theme';
 
 type Props = {
-  scrollY: Animated.Value;
+  scrollY: SharedValue<number>;
   contentHeight: number;
   viewportHeight: number;
   bottomOffset: number;
@@ -18,6 +26,7 @@ type Props = {
 };
 
 const HIDE_MS = 700;
+const SHOW_THROTTLE_MS = 120;
 
 export function ScrollBar({
   scrollY,
@@ -31,24 +40,37 @@ export function ScrollBar({
   const [active, setActive] = useState(false);
   const [held, setHeld] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const offsetRef = useRef(0);
+  const dragStart = useRef(0);
+  const lastShowAt = useSharedValue(0);
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setVisible(false), HIDE_MS);
   }, []);
 
-  useEffect(() => {
-    const id = scrollY.addListener(({ value }) => {
-      offsetRef.current = value;
-      setVisible(true);
-      scheduleHide();
-    });
-    return () => {
-      scrollY.removeListener(id);
+  const show = useCallback(() => {
+    setVisible(true);
+    scheduleHide();
+  }, [scheduleHide]);
+
+  useAnimatedReaction(
+    () => scrollY.value,
+    (value, previous) => {
+      if (value === previous) return;
+      const now = performance.now();
+      if (now - lastShowAt.value < SHOW_THROTTLE_MS) return;
+      lastShowAt.value = now;
+      runOnJS(show)();
+    },
+    [show],
+  );
+
+  useEffect(
+    () => () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
-  }, [scrollY, scheduleHide]);
+    },
+    [],
+  );
 
   const maxScroll = Math.max(contentHeight - viewportHeight, 1);
   const thumbHeight =
@@ -61,6 +83,21 @@ export function ScrollBar({
   const maxTranslate = Math.max(trackHeight - thumbHeight, 0);
   const wide = active || held;
 
+  const thumbStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: interpolate(
+            scrollY.value,
+            [0, maxScroll],
+            [0, maxTranslate],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  }, [maxScroll, maxTranslate]);
+
   const panResponder = useMemo(
     () =>
       // eslint-disable-next-line react-hooks/refs
@@ -70,11 +107,12 @@ export function ScrollBar({
         onPanResponderGrant: () => {
           setActive(true);
           setVisible(true);
+          dragStart.current = scrollY.value;
           if (hideTimer.current) clearTimeout(hideTimer.current);
         },
         onPanResponderMove: (_, gesture) => {
           if (!onScrollTo || maxTranslate <= 0) return;
-          const next = offsetRef.current + (gesture.dy * maxScroll) / maxTranslate;
+          const next = dragStart.current + (gesture.dy * maxScroll) / maxTranslate;
           onScrollTo(Math.min(maxScroll, Math.max(0, next)));
         },
         onPanResponderRelease: () => {
@@ -87,7 +125,7 @@ export function ScrollBar({
         },
         onPanResponderTerminationRequest: () => false,
       }),
-    [maxScroll, maxTranslate, onScrollTo, scheduleHide],
+    [maxScroll, maxTranslate, onScrollTo, scheduleHide, scrollY],
   );
 
   if (!contentHeight || !viewportHeight || contentHeight <= viewportHeight || !visible) {
@@ -110,22 +148,7 @@ export function ScrollBar({
       {trackHeight > 0 ? (
         <Animated.View
           pointerEvents="none"
-          style={[
-            styles.thumb,
-            {
-              width: wide ? 6 : 3,
-              height: thumbHeight,
-              transform: [
-                {
-                  translateY: scrollY.interpolate({
-                    inputRange: [0, maxScroll],
-                    outputRange: [0, maxTranslate],
-                    extrapolate: 'clamp',
-                  }),
-                },
-              ],
-            },
-          ]}
+          style={[styles.thumb, { width: wide ? 6 : 3, height: thumbHeight }, thumbStyle]}
         />
       ) : null}
     </View>

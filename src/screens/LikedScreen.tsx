@@ -256,6 +256,11 @@ export function LikedScreen({
         }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews
         contentContainerStyle={{
           paddingBottom:
             insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + space.xl + 110,

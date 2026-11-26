@@ -7,13 +7,11 @@ import { colors, radius, space, type } from '../theme';
 import type { Track } from '../types';
 import { CoverArt } from './CoverArt';
 import { LyricsPanel } from './LyricsPanel';
-import { MarqueeText } from './MarqueeText';
 import { Sheet } from './Sheet';
 
 type Props = {
   track: Track;
   lyrics: { state: LyricsState; lines: LrcLine[]; plain?: string };
-  positionMs: number;
   onSeek: (positionMs: number) => void;
   onImport?: () => void;
   onPaste?: () => void;
@@ -26,7 +24,6 @@ type MenuAction = { key: string; label: string; onPress: () => void };
 export function LyricsStage({
   track,
   lyrics,
-  positionMs,
   onSeek,
   onImport,
   onPaste,
@@ -51,9 +48,13 @@ export function LyricsStage({
           uri={track.artworkUri}
         />
         <View style={styles.titles}>
-          <MarqueeText text={track.title} style={styles.title} />
+          <Text style={styles.title} numberOfLines={1}>
+            {track.title}
+          </Text>
           {track.artist ? (
-            <MarqueeText text={track.artist} style={styles.artist} />
+            <Text style={styles.artist} numberOfLines={1}>
+              {track.artist}
+            </Text>
           ) : null}
         </View>
         {importing ? <ActivityIndicator color={colors.accent} size="small" /> : null}
@@ -71,7 +72,6 @@ export function LyricsStage({
           state={lyrics.state}
           lines={lyrics.lines}
           plain={lyrics.plain}
-          positionMs={positionMs}
           onSeek={onSeek}
           onImport={onImport}
           importing={importing}

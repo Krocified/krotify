@@ -1,22 +1,26 @@
 import { useMemo, useState } from 'react';
-import { Animated, type LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
+import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 export function useScrollProgress() {
-  const [scrollY] = useState(() => new Animated.Value(0));
+  const scrollY = useSharedValue(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   const scrollHandlers = useMemo(
     () => ({
-      onScroll: Animated.event(
-        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-        { useNativeDriver: false },
-      ),
+      onScroll,
       onContentSizeChange: (_width: number, height: number) => setContentHeight(height),
       onLayout: (event: LayoutChangeEvent) => setViewportHeight(event.nativeEvent.layout.height),
       scrollEventThrottle: 16,
     }),
-    [scrollY],
+    [onScroll],
   );
 
   return { scrollY, contentHeight, viewportHeight, scrollHandlers };

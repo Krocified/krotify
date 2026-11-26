@@ -6,17 +6,13 @@ import {
   PanResponder,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { usePlayerActions, usePlayerStatus } from '../player/PlayerProvider';
-import { coverColors } from '../lib/cover';
-import { adjustColor } from '../lib/ambient';
-import { useCoverColor } from '../library/useCoverColor';
 import { colors, space, type } from '../theme';
 import { BlurPill } from './BlurPill';
 import { CoverArt } from './CoverArt';
-import { MarqueeText } from './MarqueeText';
-import { Visualizer } from './Visualizer';
 
 type Props = {
   onExpand: () => void;
@@ -121,10 +117,6 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
     [contentX, contentOpacity],
   );
 
-  const coverColor = useCoverColor(track?.artworkUri);
-  const visualizerColors: readonly [string, string] = coverColor
-    ? [adjustColor(coverColor, 0.38), adjustColor(coverColor, -0.12)]
-    : coverColors(track?.artworkHue ?? 0);
   if (!track) return null;
 
   return (
@@ -134,7 +126,6 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
       blurTarget={blurTarget}
       intensity={45}
     >
-      <Visualizer colors={visualizerColors} isPlaying={isPlaying} opacity={0.45} />
       <Pressable
         onPress={onExpand}
         accessibilityRole="button"
@@ -158,18 +149,12 @@ export function MiniPlayer({ onExpand, blurTarget }: Props) {
                 uri={track.artworkUri}
               />
               <View style={styles.texts}>
-                <MarqueeText
-                  text={track.title}
-                  style={styles.title}
-                  startPauseMs={1000}
-                  endPauseMs={1400}
-                />
-                <MarqueeText
-                  text={track.artist}
-                  style={styles.artist}
-                  startPauseMs={1000}
-                  endPauseMs={1400}
-                />
+                <Text style={styles.title} numberOfLines={1}>
+                  {track.title}
+                </Text>
+                <Text style={styles.artist} numberOfLines={1}>
+                  {track.artist}
+                </Text>
               </View>
             </View>
           </Animated.View>
