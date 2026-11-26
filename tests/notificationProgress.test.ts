@@ -20,6 +20,8 @@ test('notification progress patch adds a determinate bar and a ticker', () => {
   assert.match(patched, /builder\.setProgress\(1000/);
   assert.match(patched, /progressJob = scope\.launch/);
   assert.match(patched, /import kotlinx\.coroutines\.delay/);
+  assert.match(patched, /withContext\(Dispatchers\.Main\) \{ playable\.player\.isPlaying \}/);
+  assert.doesNotMatch(patched, /currentPlayable\?\.player\?\.isPlaying/);
 });
 
 test('notification progress patch is idempotent', () => {

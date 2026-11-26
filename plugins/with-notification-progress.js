@@ -32,7 +32,11 @@ const TICKER_BLOCK = `    // ${MARKER}: notification progress only changes while
     progressJob = scope.launch {
       while (isActive) {
         delay(1000L)
-        if (currentPlayable?.player?.isPlaying == true) {
+        val playable = currentPlayable ?: continue
+        // ExoPlayer state must be read on its application looper (main). This ticker runs on
+        // Dispatchers.IO, so reading isPlaying directly here crashes the process.
+        val isPlaying = withContext(Dispatchers.Main) { playable.player.isPlaying }
+        if (isPlaying) {
           postOrStartForegroundNotification(startInForeground = false)
         }
       }
@@ -56,7 +60,7 @@ function patchServiceSource(source) {
   let next = replaceOnce(
     source,
     'import kotlinx.coroutines.cancel\n',
-    'import kotlinx.coroutines.cancel\nimport kotlinx.coroutines.delay\n',
+    'import kotlinx.coroutines.cancel\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.withContext\n',
     'the coroutine imports',
   );
   next = replaceOnce(
